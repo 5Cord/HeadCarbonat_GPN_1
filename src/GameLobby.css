@@ -1,0 +1,650 @@
+
+.game-lobby {
+  min-height: 100vh;
+  min-width: 100vw;
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  display: flex;
+  flex-direction: column;
+  color: #333;
+}
+
+.lobby-header {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.lobby-header h1 {
+  margin: 0 0 0.5rem 0;
+  color: #1e3c72;
+  font-size: 2.5rem;
+}
+
+.lobby-header .subtitle {
+  margin: 0;
+  color: #444;
+  font-size: 1.2rem;
+  font-weight: 500;
+}
+
+.lobby-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 0;
+  overflow-y: auto;
+  width: 100%;
+}
+
+.setup-container {
+  background: white;
+  padding: 3rem 4rem;
+  width: 100%;
+  min-height: calc(100vh - 200px);
+  height: 100%;
+  overflow-y: auto;
+  margin: 0;
+}
+
+.setup-container h2 {
+  color: #1e3c72;
+  margin: 0 0 2.5rem 0;
+  text-align: center;
+  font-size: 2.2rem;
+}
+
+.experience-selector,
+.team-size-selector,
+.game-mode-selector,
+.team-name-input {
+  margin-bottom: 2.5rem;
+  width: 100%;
+}
+
+.experience-selector label,
+.team-size-selector label,
+.game-mode-selector label,
+.team-name-input label {
+  display: block;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.session-code-input {
+  margin-bottom: 2.5rem;
+  padding: 1.5rem;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 12px;
+  border: 2px solid rgba(102, 126, 234, 0.3);
+  width: 100%;
+}
+
+.session-code-input label {
+  display: block;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.session-code-row {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+}
+
+.session-input {
+  flex: 1;
+  padding: 1rem;
+  border: 3px solid #667eea;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 1.3rem;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  transition: all 0.3s;
+  color: #1e3c72;
+  background-color: white;
+  width: 100%;
+}
+
+.session-input:focus {
+  outline: none;
+  border-color: #764ba2;
+  box-shadow: 0 0 0 4px rgba(118, 75, 162, 0.15);
+}
+
+.generate-btn {
+  padding: 1rem 1.5rem;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+  min-width: 200px;
+}
+
+.generate-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.3);
+}
+
+.session-hint {
+  margin: 0.75rem 0 0 0;
+  color: #555;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.btn-group {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.btn-group button {
+  flex: 1;
+  min-width: 200px;
+  padding: 1.5rem;
+  border: 3px solid #bbb;
+  background: #f8f9fa;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  color: #333;
+}
+
+.btn-group button:hover {
+  border-color: #ff6b35;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.2);
+  background: #fff;
+}
+
+.btn-group button.active {
+  background: linear-gradient(135deg, #ff6b35, #ff8c42);
+  color: white;
+  border-color: #ff6b35;
+  box-shadow: 0 6px 16px rgba(255, 107, 53, 0.3);
+}
+
+.btn-icon {
+  font-size: 1.8rem;
+}
+
+.btn-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.btn-text strong {
+  font-size: 1.1rem;
+  color: inherit;
+}
+
+.btn-text small {
+  font-size: 0.9rem;
+  opacity: 0.9;
+  font-weight: 400;
+  color: inherit;
+}
+
+.btn-group button:not(.active) .btn-text strong {
+  color: #222;
+}
+
+.btn-group button:not(.active) .btn-text small {
+  color: #555;
+}
+
+.team-members {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 2rem;
+  margin-bottom: 2.5rem;
+  width: 100%;
+}
+
+.member-card {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 1.5rem;
+  border: 2px solid #ccc;
+  transition: all 0.3s;
+  width: 100%;
+}
+
+.member-card:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  background: #fff;
+}
+
+.member-card h4 {
+  color: #1e3c72;
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+}
+
+.name-input,
+.role-select {
+  width: 100%;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  border: 2px solid #bbb;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.3s;
+  background-color: white;
+  color: #333;
+  box-sizing: border-box;
+}
+
+.role-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231e3c72'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1.5rem;
+  padding-right: 2.5rem;
+  cursor: pointer;
+}
+
+.role-select option {
+  background-color: white;
+  color: #333;
+  padding: 10px;
+}
+
+.name-input:focus,
+.role-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.name-input::placeholder {
+  color: #777;
+}
+
+.budget-preview {
+  margin-bottom: 2.5rem;
+  width: 100%;
+}
+
+.budget-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 2.5rem;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.budget-icon {
+  font-size: 4rem;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+}
+
+.budget-info h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.3rem;
+  opacity: 0.95;
+}
+
+.budget-amount {
+  margin: 0 0 0.5rem 0;
+  font-size: 2.8rem;
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.budget-note {
+  margin: 0;
+  font-size: 1rem;
+  opacity: 0.9;
+}
+
+.btn-primary {
+  width: 100%;
+  max-width: 600px;
+  padding: 1.5rem 3rem;
+  background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1.3rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+  margin: 0 auto;
+  display: block;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(255, 107, 53, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-large {
+  font-size: 1.4rem;
+  padding: 1.5rem 2.5rem;
+}
+
+.error-message {
+  text-align: center;
+  color: #d32f2f;
+  font-weight: 600;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: rgba(255, 107, 107, 0.15);
+  border-radius: 8px;
+  border: 2px solid rgba(255, 107, 107, 0.4);
+  width: 100%;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.lobby-footer {
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+  padding: 1.5rem;
+  text-align: center;
+  color: white;
+  flex-shrink: 0;
+  margin-top: auto;
+  width: 100%;
+}
+
+.lobby-footer p {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.team-name-input input {
+  width: 100%;
+  padding: 1.25rem 1.5rem;
+  border: 3px solid #ddd;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #333;
+  background-color: #fff;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
+}
+
+.team-name-input input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15),
+    0 4px 12px rgba(102, 126, 234, 0.1);
+  transform: translateY(-1px);
+}
+
+.team-name-input input:hover:not(:focus) {
+  border-color: #a0aec0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.team-name-input input::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+  font-style: italic;
+}
+
+.team-name-input .hint {
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.team-name-input .hint-icon {
+  font-size: 1rem;
+  color: #667eea;
+}
+
+@media (max-width: 768px) {
+  .lobby-header {
+    padding: 1.5rem;
+  }
+
+  .lobby-header h1 {
+    font-size: 1.8rem;
+  }
+
+  .lobby-header .subtitle {
+    font-size: 1rem;
+  }
+
+  .setup-container {
+    padding: 2rem 1.5rem;
+  }
+
+  .setup-container h2 {
+    font-size: 1.8rem;
+    margin-bottom: 2rem;
+  }
+
+  .btn-group {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .btn-group button {
+    min-width: 100%;
+  }
+
+  .team-members {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .budget-card {
+    flex-direction: column;
+    text-align: center;
+    padding: 2rem;
+    gap: 1.5rem;
+  }
+
+  .budget-icon {
+    font-size: 3rem;
+  }
+
+  .budget-amount {
+    font-size: 2.2rem;
+  }
+
+  .btn-primary {
+    padding: 1.25rem 2rem;
+    font-size: 1.2rem;
+  }
+
+  .team-name-input input {
+    padding: 1rem 1.25rem;
+    font-size: 1rem;
+  }
+
+  .team-name-input label {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .lobby-header {
+    padding: 1.5rem 1rem;
+  }
+
+  .lobby-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .setup-container {
+    padding: 1.5rem 1rem;
+  }
+
+  .setup-container h2 {
+    font-size: 1.5rem;
+  }
+
+  .member-card {
+    padding: 1rem;
+  }
+
+  .budget-card {
+    padding: 1.5rem;
+  }
+
+  .btn-primary {
+    font-size: 1.1rem;
+    padding: 1rem 1.5rem;
+  }
+
+  .btn-group button {
+    padding: 1.25rem 1rem;
+  }
+
+  .session-code-row {
+    flex-direction: column;
+  }
+
+  .team-name-input input {
+    padding: 0.875rem 1rem;
+    border-width: 2px;
+  }
+
+  .generate-btn {
+    min-width: 100%;
+    padding: 1rem;
+  }
+}
+
+@media (min-width: 1400px) {
+  .setup-container {
+    padding: 4rem 6rem;
+  }
+
+  .team-members {
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  }
+
+  .btn-group button {
+    min-width: 250px;
+    padding: 1.75rem 2rem;
+  }
+
+  .budget-card {
+    max-width: 1000px;
+    padding: 3rem;
+  }
+
+  .lobby-header {
+    padding: 2.5rem;
+  }
+
+  .lobby-header h1 {
+    font-size: 3rem;
+  }
+
+  .team-name-input input {
+    padding: 1.5rem 2rem;
+    font-size: 1.2rem;
+    border-radius: 14px;
+  }
+
+  .team-name-input label {
+    font-size: 1.2rem;
+    margin-bottom: 1.25rem;
+  }
+}
+
+@media (min-width: 1920px) {
+  .setup-container {
+    padding: 4rem 8rem;
+  }
+
+  .team-members {
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 2.5rem;
+  }
+
+  .btn-group {
+    gap: 2rem;
+  }
+
+  .btn-group button {
+    min-width: 300px;
+    padding: 2rem 2.5rem;
+  }
+
+  .btn-icon {
+    font-size: 2rem;
+  }
+
+  .btn-text strong {
+    font-size: 1.2rem;
+  }
+
+  .budget-card {
+    max-width: 1200px;
+    padding: 3.5rem;
+  }
+
+  .budget-icon {
+    font-size: 5rem;
+  }
+
+  .budget-amount {
+    font-size: 3.5rem;
+  }
+}
+
+@media (min-width: 2560px) {
+  .setup-container {
+    max-width: 2000px;
+    margin: 0 auto;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
