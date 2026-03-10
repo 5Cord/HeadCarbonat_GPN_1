@@ -19,13 +19,25 @@ const GameBoard = () => {
     game,
     player,
     licenseUnits,
+    gridCells,
     purchaseLU,
     unpurchaseLU,
     getCurrentLU,
+    globalTimer,
   } = useGameStore();
 
   const currentLU = getCurrentLU();
   const set = useGameStore.setState;
+
+  // ЛУ = ячейки матрицы из gridCells.owned
+  const ownedGridCells = Object.values(gridCells.owned);
+  const ownedGridCellsCount = ownedGridCells.length;
+
+  // Карточки информации = licenseUnits.owned
+  const infoCards = licenseUnits.owned;
+
+  // Текущий год берём из globalTimer (он более актуальный) или game.currentYear
+  const currentYear = globalTimer?.currentYear ?? game.currentYear ?? 1;
 
   useEffect(() => {
     const handleResize = () => {
@@ -36,12 +48,12 @@ const GameBoard = () => {
   }, []);
 
   const getActiveField = () => {
-    if (licenseUnits.owned.length === 0) {
+    if (infoCards.length === 0 && ownedGridCellsCount === 0) {
       return 0;
     }
 
-    if (!currentLU && licenseUnits.owned.length > 0) {
-      const firstLU = licenseUnits.owned[0];
+    if (!currentLU && infoCards.length > 0) {
+      const firstLU = infoCards[0];
       set({
         licenseUnits: { ...licenseUnits, current: firstLU },
         game: { ...game, currentPhase: 'REGION_MAP' }
@@ -57,9 +69,9 @@ const GameBoard = () => {
       if (!luResearch.fieldWorkCompleted) return 3;
       if (!luResearch.resultsCompleted) return 4;
 
-      const currentIndex = licenseUnits.owned.findIndex(lu => lu.id === currentLU.id);
-      if (currentIndex < licenseUnits.owned.length - 1) {
-        const nextLU = licenseUnits.owned[currentIndex + 1];
+      const currentIndex = infoCards.findIndex(lu => lu.id === currentLU.id);
+      if (currentIndex < infoCards.length - 1) {
+        const nextLU = infoCards[currentIndex + 1];
         set({
           licenseUnits: { ...licenseUnits, current: nextLU },
           game: {
@@ -82,7 +94,7 @@ const GameBoard = () => {
 
   const isFieldAvailable = (fieldIndex) => {
     if (fieldIndex === 0) return true;
-    if (licenseUnits.owned.length === 0) return false;
+    if (infoCards.length === 0) return false;
     return fieldIndex <= activeField;
   };
 
@@ -119,9 +131,9 @@ const GameBoard = () => {
           break;
         case 4:
           newProgress.resultsCompleted = true;
-          const currentIndex = licenseUnits.owned.findIndex(lu => lu.id === currentLU.id);
-          if (currentIndex < licenseUnits.owned.length - 1) {
-            const nextLU = licenseUnits.owned[currentIndex + 1];
+          const currentIndex = infoCards.findIndex(lu => lu.id === currentLU.id);
+          if (currentIndex < infoCards.length - 1) {
+            const nextLU = infoCards[currentIndex + 1];
             set({
               licenseUnits: { ...licenseUnits, current: nextLU },
               game: {
@@ -157,7 +169,7 @@ const GameBoard = () => {
 
       if (nextField !== null) {
         setTimeout(() => {
-          if (nextField === 1 && licenseUnits.owned.length > 0) {
+          if (nextField === 1 && infoCards.length > 0) {
             setExpandedField(nextField);
           }
         }, 300);
@@ -166,12 +178,12 @@ const GameBoard = () => {
   };
 
   const handleStartGame = () => {
-    if (licenseUnits.owned.length === 0) {
+    if (infoCards.length === 0) {
       alert('Выберите хотя бы один лицензионный участок!');
       return;
     }
 
-    const firstLU = licenseUnits.owned[0];
+    const firstLU = infoCards[0];
     set({
       game: {
         ...game,
@@ -195,11 +207,11 @@ const GameBoard = () => {
   };
 
   const fields = [
-    { id: 0, title: 'Карта региона', icon: '🗺️', number: '0', component: RegionMap },
-    { id: 1, title: 'Научные исследования', icon: '🔬', number: '1', component: ResearchPanel },
-    { id: 2, title: 'Зона событий', icon: '🎲', number: '2', component: EventsZone },
-    { id: 3, title: 'Полевые работы', icon: '🛠️', number: '3', component: FieldWorkPanel },
-    { id: 4, title: 'Результаты работ', icon: '📊', number: '4', component: ResultsPanel }
+    { id: 0, title: 'Карта региона', icon: '', number: '0', component: RegionMap },
+    { id: 1, title: 'Научные исследования', icon: '', number: '1', component: ResearchPanel },
+    { id: 2, title: 'Зона событий', icon: '', number: '2', component: EventsZone },
+    { id: 3, title: 'Полевые работы', icon: '', number: '3', component: FieldWorkPanel },
+    { id: 4, title: 'Результаты работ', icon: '', number: '4', component: ResultsPanel }
   ];
 
   const getCurrentLUProgress = () => {
@@ -238,20 +250,21 @@ const GameBoard = () => {
       <div className={styles.gameBoardExpanded}>
         {isMapField ? (
           <RegionMap
-            selectedLU={licenseUnits.owned}
+            selectedLU={infoCards}
             onLUClick={(lu) => {
-              const isOwned = licenseUnits.owned.find(item => item.id === lu.id);
-              if (!isOwned && licenseUnits.owned.length < 5) {
+              const isOwned = infoCards.find(item => item.id === lu.id);
+              if (!isOwned && infoCards.length < 5) {
                 purchaseLU(lu);
               }
             }}
             budget={player.budget}
-            showResourceDensity={licenseUnits.owned.some(lu => lu.id === 'research')}
+            showResourceDensity={infoCards.some(lu => lu.id === 'research')}
             onComplete={handleCloseField}
             onNext={handleStartGame}
           />
         ) : (
           <FieldComponent
+            onBack={handleCloseField}
             onComplete={() => handleNextPhase(expandedField)}
             currentLU={currentLU}
             luProgress={progress}
@@ -279,12 +292,18 @@ const GameBoard = () => {
               <span className={styles.infoValue}>{player.name}</span>
             </div>
             <div className={`${styles.infoRow} ${styles.iconsOnly}`}>
-              <span className={styles.infoLabel}></span>
-              <span className={styles.infoValue}>{player.budget}₽</span>
-              <span className={styles.infoLabel}></span>
-              <span className={styles.infoValue}>{licenseUnits.owned.length}/5</span>
+              <span className={styles.infoLabel}>Год:</span>
+              <span className={styles.infoValue}>{currentYear}/10</span>
+              <span className={styles.infoLabel}>₽</span>
+              <span className={styles.infoValue}>{player.budget}млн</span>
             </div>
-            {licenseUnits.owned.length > 0 && (
+            <div className={`${styles.infoRow} ${styles.iconsOnly}`}>
+              <span className={styles.infoLabel}>ЛУ:</span>
+              <span className={styles.infoValue}>{ownedGridCellsCount}/5</span>
+              <span className={styles.infoLabel}>Карт.:</span>
+              <span className={styles.infoValue}>{infoCards.length}/5</span>
+            </div>
+            {infoCards.length > 0 && (
               <button
                 className={`${styles.infoCardsToggleBtn} ${styles.microBtn}`}
                 onClick={() => {
@@ -292,70 +311,61 @@ const GameBoard = () => {
                   setShowInfoCards(true);
                 }}
               >
-                {licenseUnits.owned.length}
+                {infoCards.length}
               </button>
             )}
           </>
         ) : (
           <>
+            {/* Команда */}
             <div className={styles.infoRow}>
               <span className={styles.infoLabel}>Команда:</span>
               <span className={styles.infoValue}>{player.name}</span>
             </div>
+
+            {/* Текущий год */}
+            <div className={styles.infoRow}>
+              <span className={styles.infoLabel}>Текущий год:</span>
+              <span className={styles.infoValue}>{currentYear} / 10</span>
+            </div>
+
+            {/* Бюджет */}
             <div className={styles.infoRow}>
               <span className={styles.infoLabel}>Бюджет:</span>
               <span className={styles.infoValue}>{player.budget.toLocaleString('ru-RU')} млн ₽</span>
             </div>
+
+            {/* ЛУ — ячейки матрицы из RegionMap */}
             <div className={styles.infoRow}>
               <span className={styles.infoLabel}>ЛУ куплено:</span>
-              <span className={styles.infoValue}>{licenseUnits.owned.length} / 5</span>
+              <span className={styles.infoValue}>{ownedGridCellsCount} / 5</span>
             </div>
-            {currentLU && (
-              <div className={`${styles.infoRow} ${styles.currentLu}`}>
-                <span className={styles.infoLabel}>Текущий ЛУ:</span>
-                <span className={styles.infoValue}>{currentLU.name}</span>
+
+            {/* Купленные ЛУ списком */}
+            {ownedGridCellsCount > 0 && (
+              <div className={styles.ownedCellsCompact}>
+                {ownedGridCells.map(cell => (
+                  <span key={cell.cellRef} className={styles.ownedCellBadge}>
+                    {cell.cellRef}
+                  </span>
+                ))}
               </div>
             )}
 
-            {licenseUnits.owned.length > 0 && (
-              <div className={styles.luSelectorCompact}>
-                <label>Работа с ЛУ:</label>
-                <select
-                  value={currentLU?.id || ''}
-                  onChange={(e) => {
-                    const lu = licenseUnits.owned.find(l => l.id === e.target.value);
-                    if (lu) {
-                      set({ licenseUnits: { ...licenseUnits, current: lu } });
-                    }
-                  }}
-                >
-                  {licenseUnits.owned.map(lu => {
-                    const progress = game.currentLUProgress?.[lu.id] || {};
-                    const completedStages = [
-                      progress.researchCompleted,
-                      progress.eventsCompleted,
-                      progress.fieldWorkCompleted,
-                      progress.resultsCompleted
-                    ].filter(Boolean).length;
-
-                    return (
-                      <option key={lu.id} value={lu.id}>
-                        {lu.name} {completedStages > 0 ? `(${completedStages}/4)` : ''}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-            )}
+            {/* Карточки информации */}
+            <div className={styles.infoRow}>
+              <span className={styles.infoLabel}>Карточки информации:</span>
+              <span className={styles.infoValue}>{infoCards.length} / 5</span>
+            </div>
           </>
         )}
       </div>
 
-      {licenseUnits.owned.length > 0 && isWideScreen && (
+      {infoCards.length > 0 && isWideScreen && (
         <div className={styles.infoCardsSidebar}>
-          <h3>Выбранные участки</h3>
+          <h3>Карточки информации</h3>
           <div className={styles.compactCardsList}>
-            {licenseUnits.owned.map((lu) => (
+            {infoCards.map((lu) => (
               <div
                 key={lu.id}
                 className={styles.compactInfoCard}
@@ -402,9 +412,9 @@ const GameBoard = () => {
         })}
       </div>
 
-      {licenseUnits.owned.length === 0 && (
+      {infoCards.length === 0 && ownedGridCellsCount === 0 && (
         <div className={styles.gameHintNew}>
-          💡 Нажмите на "Карта региона" для выбора лицензионных участков
+          💡 Нажмите на "Карта региона" для выбора лицензионных участков и карточек информации
         </div>
       )}
 
@@ -444,9 +454,9 @@ const GameBoard = () => {
               setSelectedInfoCard(null);
               setViewMode(null);
             }}>✕</button>
-            <h2>Информация о выбранных участках</h2>
+            <h2>Карточки информации</h2>
             <div className={styles.cardsGrid}>
-              {licenseUnits.owned.map((lu) => (
+              {infoCards.map((lu) => (
                 <div key={lu.id} className={styles.infoCard}>
                   <div className={styles.infoCardHeader}>
                     <div className={styles.infoCardIcon}>{lu.shortName}</div>

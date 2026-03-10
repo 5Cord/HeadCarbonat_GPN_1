@@ -365,7 +365,7 @@
 .infoCardsSidebar {
   position: fixed;
   left: 20px;
-  top: 65%;
+  top: 57%;
   transform: translateY(-50%);
   width: 300px;
   max-height: calc(100vh - 200px);
@@ -664,4 +664,58 @@
     left: 10px;
     min-width: 250px;
   }
+}
+/* === ДОБАВИТЬ В GameBoard.module.css === */
+
+/* Бейджи купленных ЛУ (ячеек матрицы) */
+.ownedCellsCompact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: -4px 0 8px 0;
+  padding: 6px 8px;
+  background: rgba(47, 163, 148, 0.08);
+  border-radius: 6px;
+}
+
+.ownedCellBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #2fa394;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+
+/* Карточки информации — компактный список в панели */
+.infoCardCompactItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 8px;
+  border-left: 3px solid #2fa394;
+  background: rgba(47, 163, 148, 0.05);
+  border-radius: 0 6px 6px 0;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.infoCardCompactName {
+  color: #333;
+  font-weight: 600;
+  flex: 1;
+}
+
+.infoCardCompactProgress {
+  color: #2fa394;
+  font-weight: 700;
+  font-size: 11px;
+  background: rgba(47, 163, 148, 0.15);
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-left: 6px;
 }

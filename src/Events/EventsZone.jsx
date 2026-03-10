@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { generateEventLine, CARD_TYPES } from './Eventsdata.js';
 import useGameStore from '../../store/gameStore';
-import styles from './EventsZone.module.css'; 
+import styles from './EventsZone.module.css';
+
+const formatTime = (totalSeconds) => {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+};
 
 const EventsZone = ({ onComplete }) => {
   const {
-    licenseUnits,
+    gridCells,
     research,
     events,
     saveEventLine,
@@ -13,41 +20,66 @@ const EventsZone = ({ onComplete }) => {
     updateEventLineScore,
     skipEventLine,
     completeEvents,
+    globalTimer,
+    tickGlobalTimer,
+    pauseGlobalTimer,
+    resumeGlobalTimer,
+    setGlobalPhase,
   } = useGameStore();
 
+  const globalYear = useGameStore((s) => s.game.currentYear);
   const [selectedCard, setSelectedCard] = useState(null);
+
+  const ownedLUs = Object.values(gridCells.owned).map(cell => ({
+    id: cell.cellRef,
+    cellRef: cell.cellRef,
+    name: cell.name || `Участок ${cell.cellRef}`,
+  }));
+
+  const [activeLUId, setActiveLUId] = useState(() => ownedLUs[0]?.cellRef || null);
+  const activeLU = ownedLUs.find(l => l.cellRef === activeLUId) || ownedLUs[0] || null;
+
+  useEffect(() => {
+    setGlobalPhase('EVENTS');
+    const interval = setInterval(() => tickGlobalTimer(), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (selectedCard) pauseGlobalTimer();
+    else resumeGlobalTimer();
+  }, [selectedCard]);
 
   const hasResearchForLU = (luId) => {
     const luResearch = research.progressByLU[luId];
-    return luResearch && luResearch.purchasedWorks && luResearch.purchasedWorks.length > 0;
+    const currentYearWorks = luResearch?.purchasedWorksByYear?.[globalYear] || [];
+    return currentYearWorks.length > 0;
   };
 
   useEffect(() => {
-    licenseUnits.owned.forEach((lu) => {
+    ownedLUs.forEach((lu) => {
       const hasResearch = hasResearchForLU(lu.id);
       const existingLine = events.linesByLU[lu.id];
+      if (existingLine && existingLine.year === globalYear) return;
 
-
-      if (hasResearch && (!existingLine || !existingLine.hasResearch)) {
+      if (hasResearch) {
         const luResearch = research.progressByLU[lu.id];
         let avgSuccess = 0;
-
-        if (luResearch && luResearch.successRates) {
-          const rates = Object.values(luResearch.successRates);
-          if (rates.length > 0) {
-            avgSuccess = rates.reduce((sum, rate) => sum + rate, 0) / rates.length;
-          }
+        const yearRates = luResearch?.successRatesByYear?.[globalYear] || luResearch?.successRates || {};
+        const rates = Object.values(yearRates);
+        if (rates.length > 0) {
+          avgSuccess = rates.reduce((sum, r) => sum + r, 0) / rates.length;
         }
 
         const lineData = {
           luId: lu.id,
           luName: lu.name,
+          year: globalYear,
           cards: generateEventLine(avgSuccess),
           successRate: Math.round(avgSuccess),
           generatedAt: Date.now(),
-          hasResearch: true
+          hasResearch: true,
         };
-
 
         const riskCards = lineData.cards.filter(c => c.type === CARD_TYPES.RISK);
         const totalRiskPoints = riskCards.reduce((sum, c) => sum + c.data.points, 0);
@@ -56,68 +88,94 @@ const EventsZone = ({ onComplete }) => {
           useGameStore.setState(state => ({
             events: {
               ...state.events,
-              lineScores: {
-                ...state.events.lineScores,
-                [lu.id]: totalRiskPoints
-              }
-            }
+              lineScores: { ...state.events.lineScores, [lu.id]: totalRiskPoints },
+            },
           }));
         }
 
         saveEventLine(lu.id, lineData);
-        console.log(`[EventsZone] Сгенерирована новая линия для ${lu.name} с успешностью ${avgSuccess}%`);
-      }
-
-      if (!hasResearch && !existingLine) {
+      } else {
         const lineData = {
-          luId: lu.id,
-          luName: lu.name,
-          cards: [],
-          successRate: 0,
-          generatedAt: Date.now(),
-          hasResearch: false
+          luId: lu.id, luName: lu.name, year: globalYear,
+          cards: [], successRate: 0, generatedAt: Date.now(), hasResearch: false,
         };
-
         saveEventLine(lu.id, lineData);
       }
     });
-  }, [licenseUnits.owned, research.progressByLU, events.linesByLU]);
+  }, [ownedLUs.length, research.progressByLU, events.linesByLU, globalYear]);
 
-  const eventLines = licenseUnits.owned.map(lu => {
+  const eventLines = ownedLUs.map(lu => {
     const lineData = events.linesByLU[lu.id] || {
-      luId: lu.id,
-      luName: lu.name,
-      cards: [],
-      successRate: 0,
-      hasResearch: hasResearchForLU(lu.id)
+      luId: lu.id, luName: lu.name, year: globalYear,
+      cards: [], successRate: 0, hasResearch: hasResearchForLU(lu.id),
     };
-
-    return {
-      ...lineData,
-      lineIndex: licenseUnits.owned.findIndex(l => l.id === lu.id)
-    };
+    return { ...lineData, lineIndex: ownedLUs.findIndex(l => l.id === lu.id) };
   });
 
   const playableLines = eventLines.filter(line => line.hasResearch);
   const nonResearchLines = eventLines.filter(line => !line.hasResearch);
 
+  const activeLine = activeLU
+    ? playableLines.find(l => l.luId === activeLU.cellRef) || null
+    : null;
+  const activeLineIndex = activeLine
+    ? playableLines.findIndex(l => l.luId === activeLine.luId)
+    : -1;
+
+  const isLineComplete = (lineIndex) => {
+    const line = playableLines[lineIndex];
+    if (!line) return true;
+    const luId = line.luId;
+    const skipped = events.skippedLines[luId] || [];
+    if (skipped.length > 0) return true;
+    const revealedCards = events.revealedCards[luId] || {};
+    return line.cards.every((card, cardIndex) => {
+      const cardKey = `${lineIndex}-${cardIndex}`;
+      if (card.type === CARD_TYPES.RISK) return true;
+      if (card.type === CARD_TYPES.RANDOM) return true;
+      return revealedCards[cardKey]?.revealed;
+    });
+  };
+
+  const isLineSkipped = (lineIndex) => {
+    const line = playableLines[lineIndex];
+    if (!line) return false;
+    return (events.skippedLines[line.luId] || []).length > 0;
+  };
+
+  const getLineScore = (lineIndex) => {
+    const line = playableLines[lineIndex];
+    if (!line) return 0;
+    return events.lineScores[line.luId] || 0;
+  };
+
+  const getLUStatus = (luId) => {
+    const line = eventLines.find(l => l.luId === luId);
+    if (!line?.hasResearch) return 'noResearch';
+    const lineIndex = playableLines.findIndex(l => l.luId === luId);
+    if (lineIndex === -1) return 'noResearch';
+    if (isLineSkipped(lineIndex)) return 'skipped';
+    if (isLineComplete(lineIndex)) return 'done';
+    return 'ready';
+  };
+
+  const canCompleteStage = () => {
+    if (playableLines.length > 0) return playableLines.every((_, i) => isLineComplete(i));
+    return nonResearchLines.length > 0 || eventLines.length === 0;
+  };
+
+  const totalScore = Object.values(events.lineScores || {}).reduce((sum, s) => sum + s, 0);
+
   const handleSkipLine = (lineIndex) => {
     const line = playableLines[lineIndex];
     if (!line) return;
-
     if (window.confirm(`Пропустить линию для ЛУ "${line.luName}"?`)) {
       skipEventLine(line.luId);
-
       line.cards.forEach((_, cardIndex) => {
         const cardKey = `${lineIndex}-${cardIndex}`;
         const currentRevealed = events.revealedCards[line.luId] || {};
-
         if (!currentRevealed[cardKey]) {
-          revealEventCard(line.luId, cardKey, {
-            revealed: true,
-            skipped: true,
-            points: 0
-          });
+          revealEventCard(line.luId, cardKey, { revealed: true, skipped: true, points: 0 });
         }
       });
     }
@@ -125,21 +183,14 @@ const EventsZone = ({ onComplete }) => {
 
   const handleSkipAllLines = () => {
     if (playableLines.length === 0) return;
-
     if (window.confirm('Пропустить все линии?')) {
       playableLines.forEach((line, lineIndex) => {
         skipEventLine(line.luId);
-
         line.cards.forEach((_, cardIndex) => {
           const cardKey = `${lineIndex}-${cardIndex}`;
           const currentRevealed = events.revealedCards[line.luId] || {};
-
           if (!currentRevealed[cardKey]) {
-            revealEventCard(line.luId, cardKey, {
-              revealed: true,
-              skipped: true,
-              points: 0
-            });
+            revealEventCard(line.luId, cardKey, { revealed: true, skipped: true, points: 0 });
           }
         });
       });
@@ -149,321 +200,258 @@ const EventsZone = ({ onComplete }) => {
   const handleCardClick = (lineIndex, cardIndex, card) => {
     const line = playableLines[lineIndex];
     if (!line) return;
-
-    if (card.type === CARD_TYPES.RISK) return; 
-
+    if (card.type === CARD_TYPES.RISK) return;
     const cardKey = `${lineIndex}-${cardIndex}`;
     const luId = line.luId;
     const currentRevealed = events.revealedCards[luId] || {};
-
     if (currentRevealed[cardKey]?.revealed) return;
-
     const skipped = events.skippedLines[luId] || [];
     if (skipped.length > 0) return;
-
     setSelectedCard({ lineIndex, cardIndex, card, cardKey, luId });
   };
 
   const handleAnswerQuestion = (answerIndex) => {
     if (!selectedCard || selectedCard.card.type !== CARD_TYPES.OPPORTUNITY) return;
-
     const { cardKey, card, luId } = selectedCard;
     const isCorrect = answerIndex === card.data.correctAnswer;
     const points = isCorrect ? card.data.points : 0;
-
-    revealEventCard(luId, cardKey, {
-      revealed: true,
-      correct: isCorrect,
-      points: points
-    });
-
+    revealEventCard(luId, cardKey, { revealed: true, correct: isCorrect, points });
     updateEventLineScore(luId, points);
     setSelectedCard(null);
   };
 
   const handlePlayRandom = (play) => {
     if (!selectedCard || selectedCard.card.type !== CARD_TYPES.RANDOM) return;
-
     const { cardKey, card, luId } = selectedCard;
     const points = play ? card.data.points : 0;
-
-    revealEventCard(luId, cardKey, {
-      revealed: true,
-      played: play,
-      points: points
-    });
-
-    if (play) {
-      updateEventLineScore(luId, points);
-    }
-
+    revealEventCard(luId, cardKey, { revealed: true, played: play, points });
+    if (play) updateEventLineScore(luId, points);
     setSelectedCard(null);
   };
-
-  const isLineComplete = (lineIndex) => {
-    const line = playableLines[lineIndex];
-    if (!line) return true;
-
-    const luId = line.luId;
-    const skipped = events.skippedLines[luId] || [];
-    if (skipped.length > 0) return true;
-
-    const revealedCards = events.revealedCards[luId] || {};
-
-    return line.cards.every((card, cardIndex) => {
-      const cardKey = `${lineIndex}-${cardIndex}`;
-
-      if (card.type === CARD_TYPES.RISK) return true;
-
-      return revealedCards[cardKey]?.revealed;
-    });
-  };
-
-  const isLineSkipped = (lineIndex) => {
-    const line = playableLines[lineIndex];
-    if (!line) return false;
-
-    const skipped = events.skippedLines[line.luId] || [];
-    return skipped.length > 0;
-  };
-
-  const getLineScore = (lineIndex) => {
-    const line = playableLines[lineIndex];
-    if (!line) return 0;
-
-    return events.lineScores[line.luId] || 0;
-  };
-
-  const canCompleteStage = () => {
-    if (playableLines.length > 0) {
-      return playableLines.every((_, i) => isLineComplete(i));
-    }
-    return nonResearchLines.length > 0 || eventLines.length === 0;
-  };
-
-  const totalScore = Object.values(events.lineScores || {}).reduce((sum, score) => sum + score, 0);
 
   const handleComplete = () => {
     completeEvents();
     onComplete();
   };
 
+  const renderCard = (card, cardIndex, lineIndex, line) => {
+    const luId = line.luId;
+    const cardKey = `${lineIndex}-${cardIndex}`;
+    const revealedCardsForLU = events.revealedCards[luId] || {};
+    const revealed = revealedCardsForLU[cardKey];
+    const lineSkipped = isLineSkipped(lineIndex);
+
+    if (card.type === CARD_TYPES.RISK) {
+      return (
+        <div key={cardIndex} className={`${styles.eventCard} ${styles.risk} ${styles.revealed}`}>
+          <div className={styles.cardFront}>
+            <div className={styles.riskResult}>
+              <span style={{ fontSize: '2rem' }}>⚠️</span>
+              <span className={styles.points} style={{ color: '#c62828', fontSize: '2rem' }}>{card.data.points}</span>
+              <span style={{ fontSize: '0.8rem', color: '#666' }}>Риск</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (card.type === CARD_TYPES.OPPORTUNITY) {
+      return (
+        <div key={cardIndex}
+          className={`${styles.eventCard} ${styles.opportunity} ${revealed?.revealed ? `${styles.revealed} ${styles.answered}` : ''}`}
+          onClick={() => !revealed?.revealed && !lineSkipped && handleCardClick(lineIndex, cardIndex, card)}
+          style={{ cursor: revealed?.revealed || lineSkipped ? 'default' : 'pointer' }}
+        >
+          <div className={styles.cardFront}>
+            {revealed?.revealed ? (
+              <div className={styles.opportunityResult}>
+                {revealed.correct ? '✅' : '❌'}
+                <span className={styles.points}>{revealed.points > 0 ? `+${revealed.points}` : '0'}</span>
+              </div>
+            ) : (
+              <div className={styles.opportunityPreview}>
+                <span style={{ fontSize: '2rem' }}>❓</span>
+                <span className={styles.points} style={{ color: '#2e7d32', fontSize: '1.5rem' }}>+{card.data.points}</span>
+                <span style={{ fontSize: '0.75rem', color: '#666', marginTop: '5px' }}>Нажмите</span>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div key={cardIndex}
+        className={`${styles.eventCard} ${styles.random} ${revealed?.revealed ? styles.revealed : ''} ${styles.optionalCard}`}
+        onClick={() => !revealed?.revealed && !lineSkipped && handleCardClick(lineIndex, cardIndex, card)}
+        style={{ cursor: revealed?.revealed || lineSkipped ? 'default' : 'pointer' }}
+      >
+        {!revealed?.revealed ? (
+          <div className={styles.cardBack}>
+            <span className={styles.cardTypeIcon}>🎲</span>
+            <span className={styles.cardPosition}>{cardIndex + 1}</span>
+            <span className={styles.optionalBadge}>необяз.</span>
+          </div>
+        ) : (
+          <div className={styles.cardFront}>
+            <div className={styles.randomResult}>
+              {revealed.played ? (
+                <>
+                  <span className={styles.playedBadge}>Сыграна</span>
+                  <span className={styles.points}>{card.data.points > 0 ? `+${card.data.points}` : card.data.points}</span>
+                </>
+              ) : (
+                <span className={styles.skippedBadge}>
+                  Пропущена<span className={styles.pointsSmall}>({card.data.points})</span>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className={styles.eventsZone}>
-      <div className={styles.mapControls}>
-        <button className={styles.controlBtn} onClick={onComplete}>← Назад</button>
+
+      <div className={styles.timer}>
+        <div className={styles.timerLabel}>Время на события</div>
+        <div className={styles.timerValue}>{formatTime(globalTimer.timeRemaining)}</div>
+        <div className={styles.timerSubtitle}>Год {globalTimer.currentYear}</div>
+      </div>
+
+      <div className={styles.researchMapControls}>
+        <button className={`${styles.researchControlBtn} ${styles.researchBackBtn}`} onClick={onComplete}>Назад</button>
         <button
-          className={styles.controlBtn}
+          className={`${styles.researchControlBtn} ${styles.researchNextBtn}`}
           onClick={handleComplete}
           disabled={!canCompleteStage()}
         >
-          Далее → К полевым работам
+          Далее — К полевым работам
         </button>
       </div>
 
-      <div className={styles.eventsHeader}>
-        <h2>Зона событий</h2>
-        <p className={styles.eventsSubtitle}>
-          Карточки рисков открыты сразу. Отвечайте на вопросы возможностей. Решайте — играть случайность или узнать результат!
-        </p>
-      </div>
+      <div className={styles.luSection}>
+        <h2 className={styles.panelTitle}>Зона событий</h2>
+        <div className={styles.luSectionLabel}>Выберите участок:</div>
 
-      <div className={styles.eventsControls}>
-
-        <div className={styles.globalControls}>
-          <button
-            className={styles.skipAllBtn}
-            onClick={handleSkipAllLines}
-            disabled={playableLines.length === 0 || playableLines.every((_, i) => isLineComplete(i))}
-          >
-            Пропустить все линии
-          </button>
-          <div className={styles.totalScore}>
-            Общий счет: <span className={`${styles.scoreValue} ${totalScore >= 0 ? styles.positive : styles.negative}`}>
-              {totalScore >= 0 ? '+' : ''}{totalScore}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className={styles.researchStatusSummary}>
-        <h4>Исследования по ЛУ:</h4>
-        {licenseUnits.owned.map(lu => {
-          const luResearch = research.progressByLU[lu.id];
-          const successRates = luResearch?.successRates || {};
-          const totalSuccess = Object.values(successRates).reduce((sum, rate) => sum + rate, 0);
-          const avgSuccess = Object.keys(successRates).length > 0 ? totalSuccess / Object.keys(successRates).length : 0;
-
-          return (
-            <div key={lu.id} className={styles.luResearchStatus}>
-              <span className={styles.luName}>{lu.name}:</span>
-              <span className={styles.luSuccess}>
-                {Object.keys(successRates).length > 0
-                  ? `Успешность: ${Math.round(avgSuccess)}%`
-                  : 'Исследования не проводились'}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
-      {nonResearchLines.length > 0 && (
-        <div className={styles.noResearchSection}>
-          <h3>ЛУ без НИР (недоступны для событий)</h3>
-          <div className={styles.noResearchList}>
-            {nonResearchLines.map(line => (
-              <div key={line.luId} className={styles.noResearchItem}>
-                <span className={styles.luName}>{line.luName}</span>
-                <span className={styles.message}>
-                  Для этого ЛУ не проводились НИР. Вернитесь к научным исследовательским работам!
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {playableLines.length > 0 && (
-        <div className={styles.eventLines}>
-          {playableLines.map((line, lineIndex) => {
-            const luId = line.luId;
-            const lineSkipped = isLineSkipped(lineIndex);
-            const lineComplete = isLineComplete(lineIndex);
-            const lineScore = getLineScore(lineIndex);
-            const revealedCardsForLU = events.revealedCards[luId] || {};
-
-            const isNewLine = line.generatedAt && (Date.now() - line.generatedAt < 5000);
+        <div className={styles.luCardsRow}>
+          {ownedLUs.map(lu => {
+            const status = getLUStatus(lu.cellRef);
+            const isActive = lu.cellRef === activeLUId;
+            const lineIdx = playableLines.findIndex(l => l.luId === lu.cellRef);
+            const score = events.lineScores?.[lu.cellRef] ?? 0;
+            const line = events.linesByLU[lu.cellRef];
+            const hasRes = hasResearchForLU(lu.cellRef);
 
             return (
-              <div key={line.luId} className={`${styles.eventLine} ${isNewLine ? styles.newLine : ''}`}>
-                <div className={styles.lineHeader}>
-                  <h3>{line.luName}</h3>
-                  <div className={styles.lineStats}>
-                    {isNewLine && <span className={styles.newLineBadge}>🆕 НОВАЯ ЛИНИЯ</span>}
-                    <span className={styles.successRate}>Успех: {line.successRate}%</span>
-                    <span className={`${styles.lineScore} ${lineScore >= 0 ? styles.positive : styles.negative}`}>
-                      Счет: {lineScore >= 0 ? '+' : ''}{lineScore}
+              <div
+                key={lu.cellRef}
+                onClick={() => setActiveLUId(lu.cellRef)}
+                className={[
+                  styles.luCard,
+                  isActive ? styles.luCardActive : '',
+                  styles['luSt_' + status],
+                ].join(' ')}
+              >
+                <div className={styles.luCardRef}>{lu.cellRef}</div>
+                <div className={styles.luCardName}>{lu.name}</div>
+                <div className={styles.luCardMeta}>
+                  {hasRes && line?.successRate != null && (
+                    <span className={styles.metaMob}>Успех {line.successRate}%</span>
+                  )}
+                  {score !== 0 && (
+                    <span className={[styles.metaScore, score >= 0 ? styles.metaPos : styles.metaNeg].join(' ')}>
+                      {score >= 0 ? '+' : ''}{score}
                     </span>
-                    {lineSkipped && <span className={`${styles.lineStatus} ${styles.skipped}`}>⏭️ Пропущено</span>}
-                    {lineComplete && !lineSkipped && (
-                      <span className={styles.lineStatus}>
-                        {lineScore > 0 ? '✅ Пройдено' : '❌ Провалено'}
-                      </span>
-                    )}
-                  </div>
-
-                  {!lineComplete && !lineSkipped && (
-                    <button className={styles.skipLineBtn} onClick={() => handleSkipLine(lineIndex)}>
-                      Пропустить
-                    </button>
                   )}
                 </div>
-
-                <div className={styles.cardsRow}>
-                  {line.cards.map((card, cardIndex) => {
-                    const cardKey = `${lineIndex}-${cardIndex}`;
-                    const revealed = revealedCardsForLU[cardKey];
-                    if (card.type === CARD_TYPES.RISK) {
-                      return (
-                        <div key={cardIndex} className={`${styles.eventCard} ${styles.risk} ${styles.revealed}`}>
-                          <div className={styles.cardFront}>
-                            <div className={styles.riskResult}>
-                              <span style={{ fontSize: '2rem' }}>⚠️</span>
-                              <span className={styles.points} style={{ color: '#c62828', fontSize: '2rem' }}>
-                                {card.data.points}
-                              </span>
-                              <span style={{ fontSize: '0.8rem', color: '#666' }}>Риск</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    if (card.type === CARD_TYPES.OPPORTUNITY) {
-                      return (
-                        <div
-                          key={cardIndex}
-                          className={`${styles.eventCard} ${styles.opportunity} ${revealed?.revealed ? `${styles.revealed} ${styles.answered}` : styles.revealed}`}
-                          onClick={() => !revealed?.revealed && !lineSkipped && handleCardClick(lineIndex, cardIndex, card)}
-                          style={{ cursor: revealed?.revealed || lineSkipped ? 'default' : 'pointer' }}
-                        >
-                          <div className={styles.cardFront}>
-                            {revealed?.revealed ? (
-                              <div className={styles.opportunityResult}>
-                                {revealed.correct ? '✅' : '❌'}
-                                <span className={styles.points}>{revealed.points > 0 ? `+${revealed.points}` : '0'}</span>
-                              </div>
-                            ) : (
-                              <div className={styles.opportunityPreview}>
-                                <span style={{ fontSize: '2rem' }}>❓</span>
-                                <span className={styles.points} style={{ color: '#2e7d32', fontSize: '1.5rem' }}>
-                                  +{card.data.points}
-                                </span>
-                                <span style={{ fontSize: '0.75rem', color: '#666', marginTop: '5px' }}>Нажмите</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div
-                        key={cardIndex}
-                        className={`${styles.eventCard} ${styles.random} ${revealed?.revealed ? styles.revealed : ''}`}
-                        onClick={() => !revealed?.revealed && !lineSkipped && handleCardClick(lineIndex, cardIndex, card)}
-                        style={{ cursor: revealed?.revealed || lineSkipped ? 'default' : 'pointer' }}
-                      >
-                        {!revealed?.revealed ? (
-                          <div className={styles.cardBack}>
-                            <span className={styles.cardTypeIcon}>🎲</span>
-                            <span className={styles.cardPosition}>{cardIndex + 1}</span>
-                          </div>
-                        ) : (
-                          <div className={styles.cardFront}>
-                            <div className={styles.randomResult}>
-                              {revealed.played ? (
-                                <>
-                                  <span className={styles.playedBadge}>Сыграна</span>
-                                  <span className={styles.points}>{card.data.points > 0 ? `+${card.data.points}` : card.data.points}</span>
-                                </>
-                              ) : (
-                                <span className={styles.skippedBadge}>Пропущена</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                <div className={styles.luCardStatus}>
+                  {status === 'done' ? 'Пройдено'
+                    : status === 'skipped' ? 'Пропущено'
+                    : status === 'noResearch' ? 'Нет НИР'
+                    : 'В процессе'}
                 </div>
               </div>
             );
           })}
         </div>
-      )}
+      </div>
 
-      {eventLines.length === 0 && (
-        <div className={styles.noLuMessage}>
-          <p>Нет выбранных ЛУ</p>
-        </div>
-      )}
+      <div className={styles.activeLineArea}>
+        {!activeLU ? (
+          <div className={styles.emptyMsg}>Нет купленных участков</div>
+        ) : !activeLine ? (
+          <div className={styles.emptyMsg}>
+            Для участка <strong>{activeLU.cellRef}</strong> не проводились НИРы в этом году.
+            Вернитесь в раздел «Научные исследования».
+          </div>
+        ) : (
+          <div className={`${styles.eventLine} ${activeLine.generatedAt && Date.now() - activeLine.generatedAt < 5000 ? styles.newLine : ''}`}>
 
-      {eventLines.length > 0 && playableLines.length === 0 && (
-        <div className={styles.noResearchMessage}>
-          <p>Все ЛУ без НИР</p>
-        </div>
-      )}
+            <div className={styles.lineHeader}>
+              <div className={styles.lineHeaderLeft}>
+                <h3>{activeLine.luName}</h3>
+                <span className={styles.successRate}>Успешность: {activeLine.successRate}%</span>
+              </div>
+              <div className={styles.lineStats}>
+                <span className={`${styles.lineScore} ${getLineScore(activeLineIndex) >= 0 ? styles.positive : styles.negative}`}>
+                  Счёт: {getLineScore(activeLineIndex) >= 0 ? '+' : ''}{getLineScore(activeLineIndex)}
+                </span>
+                {isLineSkipped(activeLineIndex) && (
+                  <span className={`${styles.lineStatus} ${styles.skipped}`}>⏭️ Пропущено</span>
+                )}
+                {isLineComplete(activeLineIndex) && !isLineSkipped(activeLineIndex) && (
+                  <span className={styles.lineStatus}>
+                    {getLineScore(activeLineIndex) >= 0 ? 'Пройдено ✅' : 'Провалено ❌'}
+                  </span>
+                )}
+                {!isLineComplete(activeLineIndex) && !isLineSkipped(activeLineIndex) && (
+                  <button className={styles.skipLineBtn} onClick={() => handleSkipLine(activeLineIndex)}>
+                    Пропустить
+                  </button>
+                )}
+              </div>
+            </div>
 
-      {/* Модальное окно */}
+            <div className={styles.cardsRow}>
+              {activeLine.cards.map((card, cardIndex) =>
+                renderCard(card, cardIndex, activeLineIndex, activeLine)
+              )}
+            </div>
+
+            {activeLine.cards.some(c => c.type === CARD_TYPES.RANDOM) && (
+              <div className={styles.randomHint}>
+                Крайняя правая карточка ("карточка случайности") необязательна 
+              </div>
+            )}
+          </div>
+        )}
+
+        {nonResearchLines.length > 0 && (
+          <div className={styles.noResearchSection}>
+            <p className={styles.noResearchLabel}>Участки без НИРов в этом году:</p>
+            <div className={styles.noResearchList}>
+              {nonResearchLines.map(line => (
+                <span key={line.luId} className={styles.noResearchItem}>{line.luName}</span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+
       {selectedCard && (
-        <div className={styles.cardModalOverlay} onClick={() => setSelectedCard(null)}>
-          <div className={styles.cardModal} onClick={(e) => e.stopPropagation()}>
-            <button className={styles.closeModalBtn} onClick={() => setSelectedCard(null)}>✕</button>
+        <div className={styles.cardModalOverlay}>
+          <div className={styles.cardModal} onClick={e => e.stopPropagation()}>
 
             {selectedCard.card.type === CARD_TYPES.OPPORTUNITY && (
               <div className={styles.opportunityModal}>
                 <h3>❓ Карточка возможности</h3>
+                <div className={styles.mustAnswerHint}>
+                  Необходимо выбрать ответ, чтобы продолжить
+                </div>
                 <div className={styles.cardContent}>
                   <p className={styles.question}>{selectedCard.card.data.question}</p>
                   <div className={styles.options}>
@@ -481,9 +469,12 @@ const EventsZone = ({ onComplete }) => {
             {selectedCard.card.type === CARD_TYPES.RANDOM && (
               <div className={styles.randomModal}>
                 <h3>🎲 Карточка случайности</h3>
+                <div className={styles.mustAnswerHint}>
+                  Выберите действие, чтобы продолжить
+                </div>
                 <div className={styles.cardContent}>
                   <p className={styles.description}>{selectedCard.card.data.description}</p>
-                  <p className={styles.points}>{selectedCard.card.data.points > 0 ? '+' : ''}{selectedCard.card.data.points} баллов</p>
+                  <p className={styles.hiddenPoints}>Инфа про +/- или отмену</p>
                   <div className={styles.randomActions}>
                     <button className={styles.playBtn} onClick={() => handlePlayRandom(true)}>
                       Сыграть карточку
@@ -498,14 +489,6 @@ const EventsZone = ({ onComplete }) => {
           </div>
         </div>
       )}
-
-      <div className={styles.eventsActions}>
-        <p className={styles.completionHint}>
-          {playableLines.length > 0 && canCompleteStage()
-            ? 'Все линии завершены!'
-            : `Линии: ${playableLines.filter((_, i) => isLineComplete(i)).length}/${playableLines.length}`}
-        </p>
-      </div>
     </div>
   );
 };

@@ -112,7 +112,6 @@ export const OPPORTUNITY_QUESTIONS = [
   }
 ];
 
-// Карточки риска
 export const RISK_CARDS = [
   { id: 'r1', points: -1, description: 'Неожиданная сложность в бурении' },
   { id: 'r2', points: -1, description: 'Задержка поставки оборудования' },
@@ -124,7 +123,6 @@ export const RISK_CARDS = [
   { id: 'r8', points: -1, description: 'Превышение бюджета на работы' }
 ];
 
-// Карточки случайности
 export const RANDOM_CARDS = [
   { id: 'rnd1', points: 2, description: 'Удачное бурение - досрочное завершение' },
   { id: 'rnd2', points: -1, description: 'Непредвиденные геологические условия' },

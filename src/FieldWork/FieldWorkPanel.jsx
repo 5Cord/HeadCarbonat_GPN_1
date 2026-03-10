@@ -1,324 +1,305 @@
-import React, { useState, useEffect } from 'react';
-import {
-  FIELD_WORK_BLOCKS,
-  calculateTotalCost,
-  calculateQualityScore,
-  prepareFieldWorkForAPI
-} from './fieldWorkData';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { FIELD_WORK_BLOCKS, calculateTotalCost, calculateQualityScore, prepareFieldWorkForAPI } from './fieldWorkData';
 import useGameStore from '../../store/gameStore';
-import './FieldWorkPanel.css';
+import styles from './FieldWorkPanel.module.css';
 
-/**
- * FieldWorkPanel — Полевые работы
- *
- * Связь назад  → ResearchPanel: берём мобилизованные столбцы + success > 0
- * Связь вперёд → ResultsPanel:  передаём selections + qualityScore + totalCost
- *
- * Каждый блок карточек — это группа работ одного типа.
- * Внутри блока несколько карточек, в каждой 2-3 варианта по рангам.
- * Команда выбирает ОДИН вариант в каждой карточке.
- */
-/**
- * FieldWorkPanel — Полевые работы
- *
- * Связь назад  → ResearchPanel: берём мобилизованные столбцы
- * Связь назад  → EventsZone:    блок выкладывается только если счёт по ЛУ >= 0
- * Связь вперёд → ResultsPanel:  передаём selections + qualityScore + totalCost
- *
- * Логика выкладки блока:
- *   1. Столбец (mobWorkId) должен быть мобилизован в ResearchPanel для этого ЛУ
- *   2. Счёт в EventsZone для этого ЛУ должен быть >= 0
- *   Если счёт < 0 — ничего не выкладывается вообще (команда «провалилась»)
- */
-const FieldWorkPanel = ({ onComplete, currentLU }) => {
-  const {
-    player,
-    licenseUnits,
-    research,
-    fieldWork,
-    events,
-  } = useGameStore();
+const YEAR_DURATIONS = { 1: 25, 2: 20, 3: 15, 4: 15, 5: 10, 6: 15, 7: 15, 8: 15, 9: 10, 10: 10 };
+const W5 = 5 * 60, W2 = 2 * 60, W30 = 30;
 
-  const luId = currentLU?.id;
+const fmtTime = (totalSeconds) => {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+};
+const yearLabel = (y) => {
+  if (y <= 4) return 'Геологоразведочные работы — год ' + y;
+  if (y === 5) return 'Разведочное бурение — год 5';
+  if (y <= 8) return 'Бурение скважин — год ' + y;
+  return 'Добыча — год ' + y;
+};
 
-  const researchProgress = luId ? (research.progressByLU[luId] || null) : null;
+const GRP_LBL = {
+  gray: 'СРР (сейсморазведочные работы)',
+  orange: 'ГРР (геологоразведочные работы)',
+  beige: 'Бурение',
+  blue: 'Добыча',
+};
+const ST_TXT = { ready: 'Готов', done: 'Выбрано', failed: 'Провал', noResearch: 'Нет НИР' };
 
-  const eventsScore = luId ? (events.lineScores[luId] || 0) : 0;
-  const eventsSkipped = luId ? ((events.skippedLines[luId] || []).length > 0) : false;
+const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack }) => {
+  const { player, gridCells, research, fieldWork, events } = useGameStore();
+  const globalYear = useGameStore((s) => s.game.currentYear);
 
-  const availableBlocks = (() => {
-    if (eventsScore < 0) return []; 
+  const ownedCells = Object.values(gridCells.owned).map(c => ({
+    id: c.cellRef, cellRef: c.cellRef,
+    name: c.name || ('Участок ' + c.cellRef),
+    auctionPrice: c.auctionPrice || 0,
+  }));
 
-    if (!researchProgress) return [];
-    const mobilized = researchProgress.mobilizedColumns || [];
+  const [activeLUId, setActiveLUId] = useState(
+    () => currentLUProp?.id || currentLUProp?.cellRef || ownedCells[0]?.cellRef || null
+  );
+  const activeLU = ownedCells.find(l => l.cellRef === activeLUId) || ownedCells[0] || null;
+  const luId = activeLU?.cellRef || null;
 
-    return FIELD_WORK_BLOCKS.filter(block => mobilized.includes(block.mobWorkId));
+  const researchProg = luId ? (research.progressByLU[luId] || null) : null;
+  const evScore = luId ? (events.lineScores?.[luId] ?? 0) : 0;
+
+  const avail = (() => {
+    if (evScore < 0 || !researchProg) return [];
+    const mob = researchProg.mobilizedColumns || [];
+    return FIELD_WORK_BLOCKS.filter(b => mob.includes(b.mobWorkId));
   })();
 
-  const savedSelections = luId ? (fieldWork.selectionsByLU[luId]?.selections || {}) : {};
-
-  const [selections, setSelections] = useState(savedSelections);
-
-  useEffect(() => {
-    setSelections(savedSelections);
-  }, [luId, savedSelections]);
-
+  const [selections, setSelections] = useState(
+    () => fieldWork.selectionsByLU[luId]?.selections || {}
+  );
+  useEffect(() => { setSelections(fieldWork.selectionsByLU[luId]?.selections || {}); }, [luId]);
   useEffect(() => {
     if (!luId) return;
-    const totalCost = calculateTotalCost(selections, availableBlocks);
-    const qualityScore = calculateQualityScore(selections, availableBlocks);
-
-    useGameStore.setState(state => ({
+    const tc = calculateTotalCost(selections, avail);
+    const qs = calculateQualityScore(selections, avail);
+    useGameStore.setState(st => ({
       fieldWork: {
-        ...state.fieldWork,
-        selectionsByLU: {
-          ...state.fieldWork.selectionsByLU,
-          [luId]: {
-            selections,
-            totalCost,
-            qualityScore,
-            availableBlocks: availableBlocks.map(b => b.blockId)
-          }
+        ...st.fieldWork, selectionsByLU: {
+          ...st.fieldWork.selectionsByLU,
+          [luId]: { selections, totalCost: tc, qualityScore: qs, availableBlocks: avail.map(b => b.blockId) },
         }
-      }
+      },
     }));
   }, [selections, luId]);
 
-  const handleSelectOption = (cardId, rank) => {
-    setSelections(prev => ({
-      ...prev,
-      [cardId]: rank
-    }));
+  const [timer, setTimer] = useState({ timeRemaining: YEAR_DURATIONS[globalYear] * 60, year: globalYear, isFinished: false });
+  const ivRef = useRef(null);
+  const startIv = useCallback(() => {
+    if (ivRef.current) { clearInterval(ivRef.current); ivRef.current = null; }
+    ivRef.current = setInterval(() => {
+      setTimer(prev => {
+        if (prev.isFinished) return prev;
+        const t = prev.timeRemaining - 1;
+        if (t <= 0) { clearInterval(ivRef.current); ivRef.current = null; return { ...prev, timeRemaining: 0, isFinished: true }; }
+        return { ...prev, timeRemaining: t };
+      });
+    }, 1000);
+  }, []);
+  useEffect(() => {
+    setTimer({ timeRemaining: YEAR_DURATIONS[globalYear] * 60, year: globalYear, isFinished: false });
+    startIv();
+    return () => { if (ivRef.current) clearInterval(ivRef.current); };
+  }, [globalYear]);
+
+  const timerCls = () => {
+    if (timer.isFinished) return styles.timer + ' ' + styles.timerFinished;
+    const t = timer.timeRemaining;
+    if (t <= W30) return styles.timer + ' ' + styles.timerCritical;
+    if (t <= W2) return styles.timer + ' ' + styles.timerWarning;
+    if (t <= W5) return styles.timer + ' ' + styles.timerAlert;
+    return styles.timer;
   };
 
-  const totalCost = calculateTotalCost(selections, availableBlocks);
-  const qualityScore = calculateQualityScore(selections, availableBlocks);
+  const tc = calculateTotalCost(selections, avail);
+  const totCards = avail.reduce((s, b) => s + b.cards.length, 0);
+  const selCards = Object.keys(selections).filter(k => avail.some(b => b.cards.some(c => c.cardId === k))).length;
+  const canAfford = player.budget >= tc;
 
-  const totalCards = availableBlocks.reduce((sum, b) => sum + b.cards.length, 0);
-  const selectedCards = Object.keys(selections).length;
-
-  const canAfford = player.budget >= totalCost;
-
-  const handleConfirm = () => {
-    if (!canAfford) {
-      alert('Недостаточно бюджета!');
-      return;
-    }
-
-    useGameStore.setState(state => ({
-      player: {
-        ...state.player,
-        budget: state.player.budget - totalCost
-      }
-    }));
-
-    // Данные для future backend
-    const apiPayload = prepareFieldWorkForAPI(
-      player.id,
-      luId,
-      selections,
-      availableBlocks
-    );
-    console.log('[FieldWork] payload для backend:', apiPayload);
-
+  const doSelect = (cardId, rank) => setSelections(prev => ({ ...prev, [cardId]: rank }));
+  const doConfirm = () => {
+    if (!canAfford || selCards === 0) return;
+    useGameStore.setState(st => ({ player: { ...st.player, budget: st.player.budget - tc } }));
+    console.log('[FieldWork API]', prepareFieldWorkForAPI(player.id, luId, selections, avail));
     onComplete();
   };
 
-  const groupColors = { gray: 'Сейсморазведка', orange: 'Поисково-разведочное бурение', beige: 'Специализированные работы', blue: 'Оптимизация и перевод' };
-
-  // ЛУ селектор
-  const handleLUChange = (e) => {
-    const lu = licenseUnits.owned.find(l => l.id === e.target.value);
-    if (lu) {
-      useGameStore.setState(state => ({
-        licenseUnits: { ...state.licenseUnits, current: lu }
-      }));
-    }
+  const getStatus = (cellRef) => {
+    const p = research.progressByLU[cellRef];
+    const sc = events.lineScores?.[cellRef] ?? 0;
+    const fw = fieldWork.selectionsByLU[cellRef];
+    if (sc < 0) return 'failed';
+    if (fw?.selections && Object.keys(fw.selections).length > 0) return 'done';
+    if (!p || !(p.mobilizedColumns?.length)) return 'noResearch';
+    return 'ready';
   };
 
-  if (availableBlocks.length === 0) {
-    const failedEvents = eventsScore < 0;
-    const noResearchAtAll = !researchProgress || (
-      (!researchProgress.purchasedWorks || researchProgress.purchasedWorks.length === 0) &&
-      (!researchProgress.mobilizedColumns || researchProgress.mobilizedColumns.length === 0)
-    );
-    const hasMobilization = researchProgress?.mobilizedColumns?.length > 0;
+  const handleBack = useCallback(() => {
+    if (onBack) {
+      onBack();
+    } else {
+      console.warn('onBack callback not provided');
+    }
+  }, [onBack, onComplete]);
 
-    return (
-      <div className="fieldwork-panel fieldwork-empty">
-        <div className="fieldwork-header">
-          <h2>🛠️ Полевые работы</h2>
-          {licenseUnits.owned.length > 1 && (
-            <div className="lu-selector">
-              <label>ЛУ:</label>
-              <select value={luId || ''} onChange={handleLUChange} className="lu-select">
-                {licenseUnits.owned.map(lu => (
-                  <option key={lu.id} value={lu.id}>{lu.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
-        <div className="empty-state">
-          {failedEvents ? (
-            <>
-              <div className="empty-icon">❌</div>
-              <h3>Провал на зоне событий</h3>
-              <p>
-                Счёт по событиям для «{currentLU?.name}» составил <strong className="score-negative">{eventsScore}</strong> (меньше 0).
-                Команда не смогла пройти этот участок — полевые работы не выкладываются.
-              </p>
-            </>
-          ) : noResearchAtAll ? (
-            <>
-              <div className="empty-icon">🔬</div>
-              <h3>НИР не проводились</h3>
-              <p>
-                Лицензионный участок «{currentLU?.name}» <strong>куплен</strong>, но на этапе «Научные исследования» для него не была куплена ни одна работа.
-              </p>
-              <p>
-                Чтобы карточки полевых работ выкладывались, нужно купить хотя бы одну НИР и мобилизовать соответствующий столбец.
-              </p>
-            </>
-          ) : (
-            <>
-              <div className="empty-icon">🛑</div>
-              <h3>Нет мобилизованных столбцов</h3>
-              <p>
-                Для «{currentLU?.name}» не был мобилизован ни один столбец мобилизации.
-                Полевые работы доступны только по видам, у которых столбец был мобилизован на этапе НИР.
-              </p>
-            </>
-          )}
-          <button className="next-btn" onClick={onComplete}>
-            Далее → К результатам
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const shuffleArray = (arr) => {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+
+  const [shuffledOptions, setShuffledOptions] = useState(() => {
+    const map = {};
+    FIELD_WORK_BLOCKS.forEach(block => {
+      block.cards.forEach(card => {
+        map[card.cardId] = shuffleArray(card.options);
+      });
+    });
+    return map;
+  });
+
 
   return (
-    <div className="fieldwork-panel">
-      <div className="fieldwork-header">
-        <h2>🛠️ Полевые работы</h2>
-        <div className="header-right">
-          {licenseUnits.owned.length > 1 && (
-            <div className="lu-selector">
-              <label>ЛУ:</label>
-              <select value={luId || ''} onChange={handleLUChange} className="lu-select">
-                {licenseUnits.owned.map(lu => (
-                  <option key={lu.id} value={lu.id}>{lu.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div className="budget-badge">
-            💰 {player.budget} млн ₽
-          </div>
+    <div className={styles.panel}>
+
+      <div className={styles.topbar}>
+        <div className={styles.topbarLeft}>
+          <button className={styles.navBtnBack} onClick={handleBack}>← Назад</button>
+          <span className={styles.topbarTitle}>Полевые работы</span>
+        </div>
+        <div className={styles.topbarRight}>
+          <span className={styles.budgetBadge}>Бюджет: {player.budget} млн руб.</span>
+          <button className={styles.navBtn} onClick={onComplete}>Далее</button>
         </div>
       </div>
 
-      <div className="fieldwork-info-banner">
-        <p>📋 Для <strong>{currentLU?.name}</strong> доступно <strong>{availableBlocks.length}</strong> блоков работ ({totalCards} карточек).</p>
-        <p>🎯 В каждой карточке выберите один вариант. Ранг 1 = лучшее качество, выше стоимость.</p>
-        <p>📊 Выбрано: <strong>{selectedCards}</strong> / {totalCards} карточек</p>
-        <p className={`events-score-line ${eventsScore >= 0 ? 'ok' : 'fail'}`}>
-          🎲 Счёт событий для этого ЛУ: <strong>{eventsScore >= 0 ? '+' : ''}{eventsScore}</strong>
-          {eventsSkipped && ' (пропущено)'}
-        </p>
-      </div>
-
-      <div className="fieldwork-blocks">
-        {availableBlocks.map(block => (
-          <div key={block.blockId} className={`fieldwork-block group-${block.groupColor}`}>
-            <div className="block-header">
-              <div className="block-title-row">
-                <span className={`block-color-badge ${block.groupColor}`}></span>
-                <h3>{block.title}</h3>
-                <span className="block-group-label">{groupColors[block.groupColor]}</span>
-              </div>
-              <div className="block-research-link">
-                <span className="link-icon">🔗</span>
-                <span>Успешность НИР: <strong>{(researchProgress?.successRates?.[block.mobWorkId] || 0)}%</strong></span>
-              </div>
-            </div>
-
-            <div className="block-cards">
-              {block.cards.map(card => {
-                const chosenRank = selections[card.cardId];
-
-                return (
-                  <div key={card.cardId} className={`fieldwork-card ${chosenRank ? 'has-selection' : 'no-selection'}`}>
-                    <div className="card-title">{card.cardTitle}</div>
-                    <div className="card-options">
-                      {card.options.map(option => (
-                        <button
-                          key={option.rank}
-                          className={`option-btn rank-${option.rank} ${chosenRank === option.rank ? 'selected' : ''}`}
-                          onClick={() => handleSelectOption(card.cardId, option.rank)}
-                        >
-                          <div className="option-rank">Ранг {option.rank}</div>
-                          <div className="option-param">{option.param}</div>
-                          <div className="option-cost">
-                            {option.cost > 0 ? `${option.cost} млн ₽` : 'Бесплатно'}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="fieldwork-summary">
-        <div className="summary-stats">
-          <div className="summary-item">
-            <span className="summary-label">Выбрано карточек</span>
-            <span className="summary-value ok">
-              {selectedCards} / {totalCards}
-            </span>
-          </div>
-          <div className="summary-item">
-            <span className="summary-label">Стоимость</span>
-            <span className={`summary-value ${canAfford ? 'ok' : 'danger'}`}>
-              {totalCost} млн ₽
-            </span>
-          </div>
-          <div className="summary-item">
-            <span className="summary-label">Бюджет после оплаты</span>
-            <span className={`summary-value ${player.budget - totalCost >= 0 ? 'ok' : 'danger'}`}>
-              {player.budget - totalCost} млн ₽
-            </span>
-          </div>
-          <div className="summary-item">
-            <span className="summary-label">Качество работ</span>
-            <span className={`summary-value quality ${qualityScore >= 70 ? 'high' : qualityScore >= 40 ? 'medium' : 'low'}`}>
-              {qualityScore}%
-            </span>
-          </div>
-        </div>
-
-        <div className="summary-actions">
-          <button
-            className="confirm-btn"
-            onClick={handleConfirm}
-            disabled={!canAfford}
-          >
-            ✅ Подтвердить выбор ({totalCost} млн ₽)
-          </button>
-          <button className="next-btn" onClick={onComplete}>
-            Далее → К результатам
-          </button>
-        </div>
-
-        {!canAfford && (
-          <p className="summary-warning">⚠️ Недостаточно бюджета</p>
+      <div className={timerCls()}>
+        {timer.isFinished ? (
+          <>
+            <div className={styles.timerLabel}>Время истекло</div>
+            <div className={styles.timerSub}>Полевые работы</div>
+          </>
+        ) : (
+          <>
+            <div className={styles.timerLabel}>Глобальный таймер</div>
+            <div className={styles.timerValue}>{fmtTime(timer.timeRemaining)}</div>
+            <div className={styles.timerSub}>{yearLabel(timer.year)}</div>
+          </>
         )}
       </div>
+
+      <div className={styles.luSection}>
+        <div className={styles.luSectionLabel}>Шаг 1. Выберите участок:</div>
+
+        <div className={styles.luCardsRow}>
+          {ownedCells.map(lu => {
+            const status = getStatus(lu.cellRef);
+            const isActive = lu.cellRef === activeLUId;
+            const fw = fieldWork.selectionsByLU[lu.cellRef];
+            const score = events.lineScores?.[lu.cellRef] ?? 0;
+            const mob = (research.progressByLU[lu.cellRef]?.mobilizedColumns || []).length;
+            return (
+              <div
+                key={lu.cellRef}
+                onClick={() => setActiveLUId(lu.cellRef)}
+                className={[styles.luCard, isActive ? styles.luCardActive : '', styles['luSt_' + status]].join(' ')}
+              >
+                <div className={styles.luCardRef}>{lu.cellRef}</div>
+                <div className={styles.luCardName}>{lu.name}</div>
+                <div className={styles.luCardMeta}>
+                  {mob > 0 && <span className={styles.metaMob}>{mob} НИР</span>}
+                  {score !== 0 && (
+                    <span className={[styles.metaScore, score >= 0 ? styles.metaPos : styles.metaNeg].join(' ')}>
+                      {score >= 0 ? '+' : ''}{score}
+                    </span>
+                  )}
+                  {fw?.totalCost > 0 && <span className={styles.metaCost}>{fw.totalCost} млн</span>}
+                </div>
+                <div className={styles.luCardStatus}>{ST_TXT[status]}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {activeLU && (
+          <div className={styles.statsRow}>
+            <div className={styles.stat}>
+              <span className={styles.statLbl}>Карточки</span>
+              <span className={styles.statVal}>{selCards} из {totCards}</span>
+            </div>
+            <div className={styles.stat}>
+              <span className={styles.statLbl}>Стоимость</span>
+              <span className={[styles.statVal, canAfford ? styles.ok : styles.fail].join(' ')}>{tc} млн руб.</span>
+            </div>
+            <div className={styles.statActions}>
+              <button className={styles.confirmBtn} onClick={doConfirm} disabled={!canAfford || selCards === 0}>
+                Подтвердить — {tc} млн руб.
+              </button>
+              <button className={styles.skipBtn} onClick={onComplete}>Далее</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className={styles.fieldArea}>
+        {!activeLU ? (
+          <div className={styles.emptyMsg}>Выберите участок выше</div>
+        ) : avail.length === 0 ? (
+          <div className={styles.emptyMsg}>
+            {evScore < 0
+              ? 'Провал в зоне событий (счёт ' + evScore + ') — полевые работы недоступны для участка ' + activeLU.cellRef
+              : !researchProg || !(researchProg.mobilizedColumns?.length)
+                ? 'Для участка ' + activeLU.cellRef + ' не проводились научные исследования. Вернитесь в раздел «Научные исследования».'
+                : 'Нет доступных блоков работ'}
+          </div>
+        ) : (
+          avail.map(block => (
+            <div key={block.blockId} className={[styles.blockCol, styles['grp_' + block.groupColor]].join(' ')}>
+
+              <div className={styles.blockHead}>
+                <div className={[styles.blockDot, styles['dotClr_' + block.groupColor]].join(' ')} />
+                <div className={styles.blockHeadText}>
+                  <span className={styles.blockName}>{block.title}</span>
+                  <span className={styles.blockGrpLbl}>{GRP_LBL[block.groupColor]}</span>
+                </div>
+              </div>
+
+              <div className={styles.blockCards}>
+                {block.cards.map(card => {
+                  const chosen = selections[card.cardId];
+                  return (
+                    <div key={card.cardId} className={[styles.card, styles['cardGrp_' + block.groupColor], chosen ? styles.cardHasSel : styles.cardNoSel].join(' ')}>
+                      <div className={styles.cardTitle}>{card.cardTitle}</div>
+                      <div className={styles.cardOpts}>
+                        {(shuffledOptions[card.cardId] || card.options).map(opt => (
+                          <button
+                            key={opt.rank}
+                            className={[styles.optBtn, chosen === opt.rank ? styles.optSel : ''].join(' ')}
+                            onClick={() => doSelect(card.cardId, opt.rank)}
+                          >
+                            <div className={styles.optDescBlock}>
+                              <div className={styles.optDesc}>{opt.param}</div>
+                            </div>
+                            <div className={styles.optCostBadge}>{opt.cost > 0 ? opt.cost + ' млн' : 'Бесплатно'}</div>
+                            <div className={[styles.optRankBadge, styles['rnkBadge' + opt.rank]].join(' ')}>{opt.rank}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {activeLU && avail.length > 0 && (
+        <div className={styles.bottomBar}>
+          <div className={styles.bottomInfo}>
+            {!canAfford && <span className={styles.warnRed}>Недостаточно бюджета — </span>}
+            {selCards === 0 && canAfford && <span className={styles.warnOrange}>Выберите варианты — </span>}
+            Выбрано {selCards} из {totCards} карточек
+          </div>
+          <button
+            className={styles.confirmBtnBottom}
+            onClick={doConfirm}
+            disabled={!canAfford || selCards === 0}
+          >
+            Подтвердить выбор — {tc} млн руб.
+          </button>
+        </div>
+      )}
     </div>
   );
 };

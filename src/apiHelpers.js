@@ -8,17 +8,17 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5173
  */
 const apiFetch = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
-  
+
   const defaultHeaders = {
     'Content-Type': 'application/json',
   };
-  
+
   // Добавляем токен если есть
   const token = localStorage.getItem('auth_token');
   if (token) {
     defaultHeaders['Authorization'] = `Bearer ${token}`;
   }
-  
+
   const config = {
     ...options,
     headers: {
@@ -26,15 +26,15 @@ const apiFetch = async (endpoint, options = {}) => {
       ...options.headers,
     },
   };
-  
+
   try {
     const response = await fetch(url, config);
-    
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: response.statusText }));
       throw new Error(error.message || `HTTP ${response.status}`);
     }
-    
+
     return await response.json();
   } catch (error) {
     console.error(`[API Error] ${endpoint}:`, error);
@@ -51,22 +51,12 @@ const apiFetch = async (endpoint, options = {}) => {
  * @returns {Promise<{sessionId, sessionCode, status, teams}>}
  */
 export const createSession = async (sessionCode, teamData) => {
-  // TODO: Заменить на реальный API call
-  console.log('[API Mock] createSession:', { sessionCode, teamData });
-  
+  console.log('[API] createSession:', { sessionCode, teamData });
+
   return apiFetch('/sessions/create', {
     method: 'POST',
     body: JSON.stringify({ sessionCode, teamData }),
   });
-  
-  // Mock response
-  // return {
-  //   sessionId: 'sess_' + Math.random().toString(36).substring(7),
-  //   sessionCode,
-  //   status: 'waiting',
-  //   teams: [teamData],
-  //   createdAt: new Date().toISOString(),
-  // };
 };
 
 /**
@@ -76,8 +66,8 @@ export const createSession = async (sessionCode, teamData) => {
  * @returns {Promise<{sessionId, teams, gameState}>}
  */
 export const joinSession = async (sessionCode, teamData) => {
-  console.log('[API Mock] joinSession:', { sessionCode, teamData });
-  
+  console.log('[API] joinSession:', { sessionCode, teamData });
+
   return apiFetch('/sessions/join', {
     method: 'POST',
     body: JSON.stringify({ sessionCode, teamData }),
@@ -108,14 +98,30 @@ export const leaveSession = async (sessionId, teamId) => {
 // ========== ИГРОВЫЕ ДАННЫЕ ==========
 
 /**
+ * Завершить выбор участков на региональной карте
+ * @param {string} sessionId - ID сессии
+ * @param {string} teamId - ID команды
+ * @param {object} selectionData - { selectedCells, budget, timestamp }
+ * @returns {Promise<{success, timestamp}>}
+ */
+export const finalizeTeamSelection = async (sessionId, teamId, selectionData) => {
+  console.log('[API] finalizeTeamSelection:', { sessionId, teamId, selectionData });
+
+  return apiFetch(`/sessions/${sessionId}/teams/${teamId}/finalize`, {
+    method: 'POST',
+    body: JSON.stringify(selectionData),
+  });
+};
+
+/**
  * Сохранить прогресс команды (НИР)
  * @param {string} teamId
  * @param {string} luId
  * @param {object} researchData - { purchasedWorks, mobilizedColumns, successRates, totalSpent }
  */
 export const saveResearchProgress = async (teamId, luId, researchData) => {
-  console.log('[API Mock] saveResearchProgress:', { teamId, luId, researchData });
-  
+  console.log('[API] saveResearchProgress:', { teamId, luId, researchData });
+
   return apiFetch('/game/research', {
     method: 'POST',
     body: JSON.stringify({ teamId, luId, ...researchData }),
@@ -129,8 +135,8 @@ export const saveResearchProgress = async (teamId, luId, researchData) => {
  * @param {object} eventsData - { lineScores, revealedCards, skippedLines }
  */
 export const saveEventsResults = async (teamId, luId, eventsData) => {
-  console.log('[API Mock] saveEventsResults:', { teamId, luId, eventsData });
-  
+  console.log('[API] saveEventsResults:', { teamId, luId, eventsData });
+
   return apiFetch('/game/events', {
     method: 'POST',
     body: JSON.stringify({ teamId, luId, ...eventsData }),
@@ -144,8 +150,8 @@ export const saveEventsResults = async (teamId, luId, eventsData) => {
  * @param {object} fieldWorkData - { selections, totalCost, qualityScore }
  */
 export const saveFieldWorkSelection = async (teamId, luId, fieldWorkData) => {
-  console.log('[API Mock] saveFieldWorkSelection:', { teamId, luId, fieldWorkData });
-  
+  console.log('[API] saveFieldWorkSelection:', { teamId, luId, fieldWorkData });
+
   return apiFetch('/game/fieldwork', {
     method: 'POST',
     body: JSON.stringify({ teamId, luId, ...fieldWorkData }),
@@ -159,8 +165,8 @@ export const saveFieldWorkSelection = async (teamId, luId, fieldWorkData) => {
  * @param {object} resultsData - { roi, geologicalParams, revealedFields }
  */
 export const saveResults = async (teamId, luId, resultsData) => {
-  console.log('[API Mock] saveResults:', { teamId, luId, resultsData });
-  
+  console.log('[API] saveResults:', { teamId, luId, resultsData });
+
   return apiFetch('/game/results', {
     method: 'POST',
     body: JSON.stringify({ teamId, luId, ...resultsData }),
@@ -176,6 +182,38 @@ export const getTeamProgress = async (teamId) => {
   return apiFetch(`/game/team/${teamId}/progress`);
 };
 
+/**
+ * Разместить ставку на аукционе
+ * @param {string} sessionId
+ * @param {string} cellRef
+ * @param {object} bidData - { teamId, amount, timestamp }
+ * @returns {Promise<{success, currentBid, currentBidTeamId}>}
+ */
+export const placeBidOnAuction = async (sessionId, cellRef, bidData) => {
+  console.log('[API] placeBidOnAuction:', { sessionId, cellRef, bidData });
+
+  return apiFetch(`/sessions/${sessionId}/auction/${cellRef}/bid`, {
+    method: 'POST',
+    body: JSON.stringify(bidData),
+  });
+};
+
+/**
+ * Сохранить прогресс команды на региональной карте
+ * @param {string} sessionId
+ * @param {string} teamId
+ * @param {object} progressData - { selectedLU, ownedCells, budget, timestamp }
+ * @returns {Promise<{success}>}
+ */
+export const saveTeamProgress = async (sessionId, teamId, progressData) => {
+  console.log('[API] saveTeamProgress:', { sessionId, teamId, progressData });
+
+  return apiFetch(`/sessions/${sessionId}/teams/${teamId}/progress`, {
+    method: 'POST',
+    body: JSON.stringify(progressData),
+  });
+};
+
 // ========== АДМИН-ПАНЕЛЬ ==========
 
 /**
@@ -185,18 +223,12 @@ export const getTeamProgress = async (teamId) => {
  * @returns {Promise<{token, admin}>}
  */
 export const adminLogin = async (username, password) => {
-  console.log('[API Mock] adminLogin:', { username });
-  
+  console.log('[API] adminLogin:', { username });
+
   return apiFetch('/admin/login', {
     method: 'POST',
     body: JSON.stringify({ username, password }),
   });
-  
-  // Mock response
-  // return {
-  //   token: 'admin_token_' + Math.random().toString(36).substring(7),
-  //   admin: { id: 'admin1', username, role: 'superadmin' },
-  // };
 };
 
 /**
@@ -251,8 +283,8 @@ export const getAdminStats = async () => {
  * @returns {Promise<{success, config}>}
  */
 export const updateGameConfig = async (config) => {
-  console.log('[API Mock] updateGameConfig:', config);
-  
+  console.log('[API] updateGameConfig:', config);
+
   return apiFetch('/admin/config', {
     method: 'PUT',
     body: JSON.stringify(config),
@@ -299,9 +331,9 @@ export const exportData = async (type, format = 'csv') => {
       'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
     },
   });
-  
+
   if (!response.ok) throw new Error('Export failed');
-  
+
   return response.blob();
 };
 
@@ -315,21 +347,26 @@ export const healthCheck = async () => {
   return apiFetch('/health');
 };
 
+// ========== DEFAULT EXPORT ==========
+
 export default {
-  // Sessions
+  // Сессии
   createSession,
   joinSession,
   getSessionStatus,
   leaveSession,
-  
-  // Game Data
+
+  // Игровые данные
+  finalizeTeamSelection,
   saveResearchProgress,
   saveEventsResults,
   saveFieldWorkSelection,
   saveResults,
   getTeamProgress,
-  
-  // Admin
+  placeBidOnAuction,
+  saveTeamProgress,
+
+  // Админка
   adminLogin,
   getAdminSessions,
   getAdminSessionDetails,
@@ -341,7 +378,7 @@ export default {
   deleteSession,
   resetTeam,
   exportData,
-  
-  // Utils
+
+  // Утилиты
   healthCheck,
 };
