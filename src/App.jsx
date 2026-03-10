@@ -1,28 +1,41 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import GameLobby from './GameLobby';
 import GameBoard from './GameBoard';
+import AdminPanel from './AdminPanel';
 import useGameStore from '../store/gameStore';
 import './App.css';
-import AdminPanel from './Adminpanel';
 
 /**
- * Главный компонент приложения
- * 
  * Навигация:
- * 1. Команда не создана → GameLobby (настройка команды)
- * 2. Команда создана → GameBoard (доска с 5 полями)
- *    - Поле [0] Карта региона = выбор ЛУ
- *    - После выбора ЛУ → круги по полям 1-2-3-4
+ *  /admin или ?admin  → AdminPanel
+ *  player не создан   → GameLobby
+ *  player создан      → GameBoard
+ *
+ * DEV: Ctrl+Shift+A toggles admin panel
  */
 function App() {
   const { player } = useGameStore();
-  
-  // Если команда не создана - показываем лобби
-  if (!player.name || player.teamMembers.length === 0) {
-    return <GameLobby />;
-    // return <AdminPanel />;
-  }
-  
+
+  const isAdmin = () =>
+    window.location.pathname === '/admin' ||
+    new URLSearchParams(window.location.search).has('admin');
+
+  const [showAdmin, setShowAdmin] = useState(isAdmin);
+
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+        setShowAdmin(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
+
+  if (showAdmin) return <AdminPanel />;
+
+  if (!player.name) return <GameLobby />;
+
   return <GameBoard />;
 }
 

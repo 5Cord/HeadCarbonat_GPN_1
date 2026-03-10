@@ -29,9 +29,9 @@ const BLOCKED_CELLS = {
   company: ['B5', 'C5', 'B6', 'C6'],
 };
 
-const SELECTION_DURATION = 0.3 * 60;
-const AUCTION_DURATION = 1 * 60;
-const POST_AUCTION_TIME = 0.3 * 60;
+const SELECTION_DURATION = 0.5 * 60;
+const AUCTION_DURATION = 0.5 * 60;
+const POST_AUCTION_TIME = 0.5 * 60;
 
 const RM_WARNING_5MIN = 0.3 * 60;
 const RM_WARNING_2MIN = 0.3 * 60;

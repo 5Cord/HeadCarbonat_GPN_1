@@ -10,6 +10,20 @@ const formatTime = (totalSeconds) => {
   return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 };
 
+// ─── Картинка карточки с fallback ───────────────────────────────────────────
+const CardImage = ({ src, alt = '', className = '' }) => {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) return null;
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={`${styles.cardImage} ${className}`}
+      onError={() => setFailed(true)}
+    />
+  );
+};
+
 const EventsZone = ({ onComplete }) => {
   const {
     gridCells,
@@ -241,23 +255,28 @@ const EventsZone = ({ onComplete }) => {
     const revealed = revealedCardsForLU[cardKey];
     const lineSkipped = isLineSkipped(lineIndex);
 
+    // ── РИСК: картинка-фон, очки поверх в круге, название + описание внизу ──
     if (card.type === CARD_TYPES.RISK) {
+      const parts = card.data.description.split(':');
+      const title = parts[0].trim();
+      const desc  = parts.slice(1).join(':').trim();
       return (
-        <div key={cardIndex} className={`${styles.eventCard} ${styles.risk} ${styles.revealed}`}>
-          <div className={styles.cardFront}>
-            <div className={styles.riskResult}>
-              <span style={{ fontSize: '2rem' }}>⚠️</span>
-              <span className={styles.points} style={{ color: '#c62828', fontSize: '2rem' }}>{card.data.points}</span>
-              <span style={{ fontSize: '0.8rem', color: '#666' }}>Риск</span>
-            </div>
+        <div key={cardIndex} className={styles.riskCard}>
+          <CardImage src={card.data.image} alt="Риск" className={styles.riskBgImage} />
+          <div className={styles.riskBadge}>{card.data.points}</div>
+          <div className={styles.riskFooter}>
+            <div className={styles.riskTitle}>{title}</div>
+            {desc && <div className={styles.riskDesc}>{desc}</div>}
           </div>
         </div>
       );
     }
 
+    // ── ВОЗМОЖНОСТЬ: превью без картинки, картинка только в модале ────────────
     if (card.type === CARD_TYPES.OPPORTUNITY) {
       return (
-        <div key={cardIndex}
+        <div
+          key={cardIndex}
           className={`${styles.eventCard} ${styles.opportunity} ${revealed?.revealed ? `${styles.revealed} ${styles.answered}` : ''}`}
           onClick={() => !revealed?.revealed && !lineSkipped && handleCardClick(lineIndex, cardIndex, card)}
           style={{ cursor: revealed?.revealed || lineSkipped ? 'default' : 'pointer' }}
@@ -265,13 +284,15 @@ const EventsZone = ({ onComplete }) => {
           <div className={styles.cardFront}>
             {revealed?.revealed ? (
               <div className={styles.opportunityResult}>
-                {revealed.correct ? '✅' : '❌'}
+                <span>{revealed.correct ? '✅' : '❌'}</span>
                 <span className={styles.points}>{revealed.points > 0 ? `+${revealed.points}` : '0'}</span>
               </div>
             ) : (
               <div className={styles.opportunityPreview}>
                 <span style={{ fontSize: '2rem' }}>❓</span>
-                <span className={styles.points} style={{ color: '#2e7d32', fontSize: '1.5rem' }}>+{card.data.points}</span>
+                <span className={styles.points} style={{ color: '#2e7d32', fontSize: '1.5rem' }}>
+                  +{card.data.points}
+                </span>
                 <span style={{ fontSize: '0.75rem', color: '#666', marginTop: '5px' }}>Нажмите</span>
               </div>
             )}
@@ -280,8 +301,10 @@ const EventsZone = ({ onComplete }) => {
       );
     }
 
+    // ── СЛУЧАЙНОСТЬ: картинка на карточке после раскрытия + в модале ──────────
     return (
-      <div key={cardIndex}
+      <div
+        key={cardIndex}
         className={`${styles.eventCard} ${styles.random} ${revealed?.revealed ? styles.revealed : ''} ${styles.optionalCard}`}
         onClick={() => !revealed?.revealed && !lineSkipped && handleCardClick(lineIndex, cardIndex, card)}
         style={{ cursor: revealed?.revealed || lineSkipped ? 'default' : 'pointer' }}
@@ -294,15 +317,20 @@ const EventsZone = ({ onComplete }) => {
           </div>
         ) : (
           <div className={styles.cardFront}>
+            {/* картинка на самой карточке после раскрытия */}
+            <CardImage src={card.data.image} alt="Случайность" className={styles.randomCardImage} />
             <div className={styles.randomResult}>
               {revealed.played ? (
                 <>
                   <span className={styles.playedBadge}>Сыграна</span>
-                  <span className={styles.points}>{card.data.points > 0 ? `+${card.data.points}` : card.data.points}</span>
+                  <span className={styles.points}>
+                    {card.data.points > 0 ? `+${card.data.points}` : card.data.points}
+                  </span>
                 </>
               ) : (
                 <span className={styles.skippedBadge}>
-                  Пропущена<span className={styles.pointsSmall}>({card.data.points})</span>
+                  Пропущена
+                  <span className={styles.pointsSmall}> ({card.data.points})</span>
                 </span>
               )}
             </div>
@@ -322,7 +350,9 @@ const EventsZone = ({ onComplete }) => {
       </div>
 
       <div className={styles.researchMapControls}>
-        <button className={`${styles.researchControlBtn} ${styles.researchBackBtn}`} onClick={onComplete}>Назад</button>
+        <button className={`${styles.researchControlBtn} ${styles.researchBackBtn}`} onClick={onComplete}>
+          Назад
+        </button>
         <button
           className={`${styles.researchControlBtn} ${styles.researchNextBtn}`}
           onClick={handleComplete}
@@ -340,7 +370,6 @@ const EventsZone = ({ onComplete }) => {
           {ownedLUs.map(lu => {
             const status = getLUStatus(lu.cellRef);
             const isActive = lu.cellRef === activeLUId;
-            const lineIdx = playableLines.findIndex(l => l.luId === lu.cellRef);
             const score = events.lineScores?.[lu.cellRef] ?? 0;
             const line = events.linesByLU[lu.cellRef];
             const hasRes = hasResearchForLU(lu.cellRef);
@@ -368,7 +397,7 @@ const EventsZone = ({ onComplete }) => {
                   )}
                 </div>
                 <div className={styles.luCardStatus}>
-                  {status === 'done' ? 'Пройдено'
+                  {status === 'done'       ? 'Пройдено'
                     : status === 'skipped' ? 'Пропущено'
                     : status === 'noResearch' ? 'Нет НИР'
                     : 'В процессе'}
@@ -423,7 +452,7 @@ const EventsZone = ({ onComplete }) => {
 
             {activeLine.cards.some(c => c.type === CARD_TYPES.RANDOM) && (
               <div className={styles.randomHint}>
-                Крайняя правая карточка ("карточка случайности") необязательна 
+                Крайняя правая карточка («карточка случайности») необязательна
               </div>
             )}
           </div>
@@ -441,11 +470,14 @@ const EventsZone = ({ onComplete }) => {
         )}
       </div>
 
-
+      {/* ═══════════════════════════════════════════════════════
+          МОДАЛЫ
+      ═══════════════════════════════════════════════════════ */}
       {selectedCard && (
         <div className={styles.cardModalOverlay}>
           <div className={styles.cardModal} onClick={e => e.stopPropagation()}>
 
+            {/* ── ВОЗМОЖНОСТЬ ───────────────────────────────── */}
             {selectedCard.card.type === CARD_TYPES.OPPORTUNITY && (
               <div className={styles.opportunityModal}>
                 <h3>❓ Карточка возможности</h3>
@@ -453,10 +485,24 @@ const EventsZone = ({ onComplete }) => {
                   Необходимо выбрать ответ, чтобы продолжить
                 </div>
                 <div className={styles.cardContent}>
+                  {/* картинка в модале (для карточек с иллюстрацией) */}
+                  {selectedCard.card.data.image && (
+                    <div className={styles.modalImageWrap}>
+                      <CardImage
+                        src={selectedCard.card.data.image}
+                        alt="Иллюстрация к вопросу"
+                        className={styles.modalImage}
+                      />
+                    </div>
+                  )}
                   <p className={styles.question}>{selectedCard.card.data.question}</p>
                   <div className={styles.options}>
                     {selectedCard.card.data.options.map((option, index) => (
-                      <button key={index} className={styles.optionBtn} onClick={() => handleAnswerQuestion(index)}>
+                      <button
+                        key={index}
+                        className={styles.optionBtn}
+                        onClick={() => handleAnswerQuestion(index)}
+                      >
                         {option}
                       </button>
                     ))}
@@ -466,6 +512,7 @@ const EventsZone = ({ onComplete }) => {
               </div>
             )}
 
+            {/* ── СЛУЧАЙНОСТЬ ───────────────────────────────── */}
             {selectedCard.card.type === CARD_TYPES.RANDOM && (
               <div className={styles.randomModal}>
                 <h3>🎲 Карточка случайности</h3>
@@ -473,6 +520,16 @@ const EventsZone = ({ onComplete }) => {
                   Выберите действие, чтобы продолжить
                 </div>
                 <div className={styles.cardContent}>
+                  {/* картинка в модале */}
+                  {selectedCard.card.data.image && (
+                    <div className={styles.modalImageWrap}>
+                      <CardImage
+                        src={selectedCard.card.data.image}
+                        alt="Карточка случайности"
+                        className={styles.modalImage}
+                      />
+                    </div>
+                  )}
                   <p className={styles.description}>{selectedCard.card.data.description}</p>
                   <p className={styles.hiddenPoints}>Инфа про +/- или отмену</p>
                   <div className={styles.randomActions}>
@@ -486,6 +543,7 @@ const EventsZone = ({ onComplete }) => {
                 </div>
               </div>
             )}
+
           </div>
         </div>
       )}
