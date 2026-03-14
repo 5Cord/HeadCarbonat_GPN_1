@@ -29,45 +29,35 @@ const GameBoard = () => {
   const currentLU = getCurrentLU();
   const set = useGameStore.setState;
 
-  // ЛУ = ячейки матрицы из gridCells.owned
   const ownedGridCells = Object.values(gridCells.owned);
   const ownedGridCellsCount = ownedGridCells.length;
-
-  // Карточки информации = licenseUnits.owned
   const infoCards = licenseUnits.owned;
-
-  // Текущий год берём из globalTimer (он более актуальный) или game.currentYear
   const currentYear = globalTimer?.currentYear ?? game.currentYear ?? 1;
 
   useEffect(() => {
-    const handleResize = () => {
-      setIsWideScreen(window.innerWidth > 1580);
-    };
+    const handleResize = () => setIsWideScreen(window.innerWidth > 1580);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const getActiveField = () => {
-    if (infoCards.length === 0 && ownedGridCellsCount === 0) {
-      return 0;
-    }
+    if (infoCards.length === 0 && ownedGridCellsCount === 0) return 0;
 
     if (!currentLU && infoCards.length > 0) {
       const firstLU = infoCards[0];
       set({
         licenseUnits: { ...licenseUnits, current: firstLU },
-        game: { ...game, currentPhase: 'REGION_MAP' }
+        game: { ...game, currentPhase: 'REGION_MAP' },
       });
       return 0;
     }
 
     if (currentLU) {
       const luResearch = game.currentLUProgress?.[currentLU.id] || {};
-
       if (!luResearch.researchCompleted) return 1;
-      if (!luResearch.eventsCompleted) return 2;
+      if (!luResearch.eventsCompleted)   return 2;
       if (!luResearch.fieldWorkCompleted) return 3;
-      if (!luResearch.resultsCompleted) return 4;
+      if (!luResearch.resultsCompleted)  return 4;
 
       const currentIndex = infoCards.findIndex(lu => lu.id === currentLU.id);
       if (currentIndex < infoCards.length - 1) {
@@ -79,9 +69,9 @@ const GameBoard = () => {
             currentPhase: 'REGION_MAP',
             currentLUProgress: {
               ...game.currentLUProgress,
-              [nextLU.id]: {}
-            }
-          }
+              [nextLU.id]: {},
+            },
+          },
         });
         return 1;
       }
@@ -106,9 +96,7 @@ const GameBoard = () => {
     setExpandedField(fieldIndex);
   };
 
-  const handleCloseField = () => {
-    setExpandedField(null);
-  };
+  const handleCloseField = () => setExpandedField(null);
 
   const handleNextPhase = (currentField) => {
     if (currentLU) {
@@ -141,15 +129,17 @@ const GameBoard = () => {
                 currentLUProgress: {
                   ...game.currentLUProgress,
                   [currentLU.id]: newProgress,
-                  [nextLU.id]: {}
-                }
-              }
+                  [nextLU.id]: {},
+                },
+              },
             });
             nextField = 1;
           } else {
             alert('🎉 Поздравляем! Вы завершили работу со всеми лицензионными участками!');
             nextField = 0;
           }
+          break;
+        default:
           break;
       }
 
@@ -159,9 +149,9 @@ const GameBoard = () => {
             ...game,
             currentLUProgress: {
               ...game.currentLUProgress,
-              [currentLU.id]: newProgress
-            }
-          }
+              [currentLU.id]: newProgress,
+            },
+          },
         });
       }
 
@@ -182,7 +172,6 @@ const GameBoard = () => {
       alert('Выберите хотя бы один лицензионный участок!');
       return;
     }
-
     const firstLU = infoCards[0];
     set({
       game: {
@@ -193,25 +182,21 @@ const GameBoard = () => {
             researchCompleted: false,
             eventsCompleted: false,
             fieldWorkCompleted: false,
-            resultsCompleted: false
-          }
-        }
+            resultsCompleted: false,
+          },
+        },
       },
-      licenseUnits: {
-        ...licenseUnits,
-        current: firstLU
-      }
+      licenseUnits: { ...licenseUnits, current: firstLU },
     });
-
     setExpandedField(1);
   };
 
   const fields = [
-    { id: 0, title: 'Карта региона', icon: '', number: '0', component: RegionMap },
-    { id: 1, title: 'Научные исследования', icon: '', number: '1', component: ResearchPanel },
-    { id: 2, title: 'Зона событий', icon: '', number: '2', component: EventsZone },
-    { id: 3, title: 'Полевые работы', icon: '', number: '3', component: FieldWorkPanel },
-    { id: 4, title: 'Результаты работ', icon: '', number: '4', component: ResultsPanel }
+    { id: 0, title: 'Карта региона',        icon: '', number: '0', component: RegionMap      },
+    { id: 1, title: 'Научные исследования', icon: '', number: '1', component: ResearchPanel  },
+    { id: 2, title: 'Зона событий',         icon: '', number: '2', component: EventsZone     },
+    { id: 3, title: 'Полевые работы',       icon: '', number: '3', component: FieldWorkPanel },
+    { id: 4, title: 'Результаты работ',     icon: '', number: '4', component: ResultsPanel   },
   ];
 
   const getCurrentLUProgress = () => {
@@ -222,12 +207,11 @@ const GameBoard = () => {
   const isStageCompleted = (fieldIndex) => {
     if (!currentLU) return false;
     const progress = getCurrentLUProgress();
-
     switch (fieldIndex) {
-      case 1: return progress.researchCompleted || false;
-      case 2: return progress.eventsCompleted || false;
+      case 1: return progress.researchCompleted  || false;
+      case 2: return progress.eventsCompleted    || false;
       case 3: return progress.fieldWorkCompleted || false;
-      case 4: return progress.resultsCompleted || false;
+      case 4: return progress.resultsCompleted   || false;
       default: return false;
     }
   };
@@ -240,11 +224,51 @@ const GameBoard = () => {
     return 'available';
   };
 
+  // ── Навигация внутри expanded-режима ────────────────────────────────────────
+  const goToField = (nextFieldIndex) => setExpandedField(nextFieldIndex);
+  const goToMenu  = () => setExpandedField(null);
+
+  // ── ResultsPanel: завершение года и возврат в ResearchPanel ─────────────────
+  const handleResultsComplete = () => {
+    // К этому моменту ResultsPanel уже вызвал:
+    //   resetEventCardsForNewYear(nextYear)
+    //   advanceToNextYear()
+    // Читаем уже обновлённый год
+    const newYear = useGameStore.getState().globalTimer.currentYear;
+    const isGameOver = newYear > 10;
+
+    if (isGameOver) {
+      goToMenu();
+      return;
+    }
+
+    // Сбрасываем флаги фаз для текущего ЛУ — чтобы ResearchPanel
+    // нового года снова был разблокирован
+    if (currentLU) {
+      set({
+        game: {
+          ...game,
+          currentLUProgress: {
+            ...game.currentLUProgress,
+            [currentLU.id]: {
+              researchCompleted:  false,
+              eventsCompleted:    false,
+              fieldWorkCompleted: false,
+              resultsCompleted:   false,
+            },
+          },
+        },
+      });
+    }
+
+    // Открываем ResearchPanel
+    goToField(1);
+  };
+
+  // ── Expanded-режим ───────────────────────────────────────────────────────────
   if (expandedField !== null) {
-    const field = fields[expandedField];
-    const FieldComponent = field.component;
     const isMapField = expandedField === 0;
-    const progress = getCurrentLUProgress();
+    const progress   = getCurrentLUProgress();
 
     return (
       <div className={styles.gameBoardExpanded}>
@@ -253,27 +277,86 @@ const GameBoard = () => {
             selectedLU={infoCards}
             onLUClick={(lu) => {
               const isOwned = infoCards.find(item => item.id === lu.id);
-              if (!isOwned && infoCards.length < 5) {
-                purchaseLU(lu);
-              }
+              if (!isOwned && infoCards.length < 5) purchaseLU(lu);
             }}
             budget={player.budget}
             showResourceDensity={infoCards.some(lu => lu.id === 'research')}
-            onComplete={handleCloseField}
-            onNext={handleStartGame}
+            onComplete={goToMenu}
+            onBack={goToMenu}
+            onMenu={goToMenu}
+            onNext={() => goToField(1)}
           />
-        ) : (
-          <FieldComponent
-            onBack={handleCloseField}
-            onComplete={() => handleNextPhase(expandedField)}
+        ) : expandedField === 1 ? (
+          <ResearchPanel
+            onBack={() => goToField(0)}
+            onMenu={goToMenu}
+            onComplete={() => {
+              set({
+                game: {
+                  ...game,
+                  currentLUProgress: {
+                    ...game.currentLUProgress,
+                    [currentLU?.id]: { ...progress, researchCompleted: true },
+                  },
+                },
+              });
+              goToField(2);
+            }}
             currentLU={currentLU}
             luProgress={progress}
           />
-        )}
+        ) : expandedField === 2 ? (
+          <EventsZone
+            onBack={() => goToField(1)}
+            onMenu={goToMenu}
+            onComplete={() => {
+              set({
+                game: {
+                  ...game,
+                  currentLUProgress: {
+                    ...game.currentLUProgress,
+                    [currentLU?.id]: { ...progress, researchCompleted: true, eventsCompleted: true },
+                  },
+                },
+              });
+              goToField(3);
+            }}
+            currentLU={currentLU}
+            luProgress={progress}
+          />
+        ) : expandedField === 3 ? (
+          <FieldWorkPanel
+            onBack={() => goToField(2)}
+            onMenu={goToMenu}
+            onComplete={() => {
+              set({
+                game: {
+                  ...game,
+                  currentLUProgress: {
+                    ...game.currentLUProgress,
+                    [currentLU?.id]: { ...progress, researchCompleted: true, eventsCompleted: true, fieldWorkCompleted: true },
+                  },
+                },
+              });
+              goToField(4);
+            }}
+            currentLU={currentLU}
+            luProgress={progress}
+          />
+        ) : expandedField === 4 ? (
+          <ResultsPanel
+            onBack={() => goToField(3)}
+            onMenu={goToMenu}
+            onComplete={handleResultsComplete}   // ← заменено
+            currentLU={currentLU}
+            luProgress={progress}
+          />
+        ) : null}
       </div>
     );
   }
 
+  // ── Главный экран (плитки) ───────────────────────────────────────────────────
   return (
     <div className={styles.gameBoardFullscreen}>
       <div className={styles.gameLogo}>
@@ -306,10 +389,7 @@ const GameBoard = () => {
             {infoCards.length > 0 && (
               <button
                 className={`${styles.infoCardsToggleBtn} ${styles.microBtn}`}
-                onClick={() => {
-                  setViewMode('button');
-                  setShowInfoCards(true);
-                }}
+                onClick={() => { setViewMode('button'); setShowInfoCards(true); }}
               >
                 {infoCards.length}
               </button>
@@ -317,31 +397,22 @@ const GameBoard = () => {
           </>
         ) : (
           <>
-            {/* Команда */}
             <div className={styles.infoRow}>
               <span className={styles.infoLabel}>Команда:</span>
               <span className={styles.infoValue}>{player.name}</span>
             </div>
-
-            {/* Текущий год */}
             <div className={styles.infoRow}>
               <span className={styles.infoLabel}>Текущий год:</span>
               <span className={styles.infoValue}>{currentYear} / 10</span>
             </div>
-
-            {/* Бюджет */}
             <div className={styles.infoRow}>
               <span className={styles.infoLabel}>Бюджет:</span>
               <span className={styles.infoValue}>{player.budget.toLocaleString('ru-RU')} млн ₽</span>
             </div>
-
-            {/* ЛУ — ячейки матрицы из RegionMap */}
             <div className={styles.infoRow}>
               <span className={styles.infoLabel}>ЛУ куплено:</span>
               <span className={styles.infoValue}>{ownedGridCellsCount} / 5</span>
             </div>
-
-            {/* Купленные ЛУ списком */}
             {ownedGridCellsCount > 0 && (
               <div className={styles.ownedCellsCompact}>
                 {ownedGridCells.map(cell => (
@@ -351,8 +422,6 @@ const GameBoard = () => {
                 ))}
               </div>
             )}
-
-            {/* Карточки информации */}
             <div className={styles.infoRow}>
               <span className={styles.infoLabel}>Карточки информации:</span>
               <span className={styles.infoValue}>{infoCards.length} / 5</span>
@@ -369,10 +438,7 @@ const GameBoard = () => {
               <div
                 key={lu.id}
                 className={styles.compactInfoCard}
-                onClick={() => {
-                  setViewMode('sidebar');
-                  setSelectedInfoCard(lu);
-                }}
+                onClick={() => { setViewMode('sidebar'); setSelectedInfoCard(lu); }}
               >
                 <div className={styles.compactCardHeader}>
                   <span className={styles.compactCardTitle}>{lu.name}</span>
@@ -388,25 +454,18 @@ const GameBoard = () => {
       <div className={styles.gameBoardGridNew}>
         {fields.map((field) => {
           const status = getFieldStatus(field.id);
-
           return (
             <div
               key={field.id}
               className={`${styles.gameFieldNew} ${styles[`field${field.id}`]} ${styles[status]}`}
               onClick={() => handleFieldClick(field.id)}
             >
-              <div className={styles.fieldOverlay}></div>
+              <div className={styles.fieldOverlay} />
               <div className={styles.fieldContentNew}>
                 <div className={styles.fieldTitleNew}>{field.title}</div>
               </div>
-
-              {status === 'completed' && (
-                <div className={styles.fieldCompletedBadge}>✓</div>
-              )}
-
-              {status === 'locked' && (
-                <div className={styles.fieldLockedBadge}>🔒</div>
-              )}
+              {status === 'completed' && <div className={styles.fieldCompletedBadge}>✓</div>}
+              {status === 'locked'    && <div className={styles.fieldLockedBadge}>🔒</div>}
             </div>
           );
         })}
@@ -419,15 +478,12 @@ const GameBoard = () => {
       )}
 
       {selectedInfoCard && viewMode === 'sidebar' && (
-        <div className={styles.infoModalOverlay} onClick={() => {
-          setSelectedInfoCard(null);
-          setViewMode(null);
-        }}>
-          <div className={styles.infoModalContent} onClick={(e) => e.stopPropagation()}>
-            <button className={styles.closeModal} onClick={() => {
-              setSelectedInfoCard(null);
-              setViewMode(null);
-            }}>✕</button>
+        <div
+          className={styles.infoModalOverlay}
+          onClick={() => { setSelectedInfoCard(null); setViewMode(null); }}
+        >
+          <div className={styles.infoModalContent} onClick={e => e.stopPropagation()}>
+            <button className={styles.closeModal} onClick={() => { setSelectedInfoCard(null); setViewMode(null); }}>✕</button>
             <h2>{selectedInfoCard.name}</h2>
             {selectedInfoCard.hasImage && (
               <div className={styles.cardImageWrap}>
@@ -443,17 +499,15 @@ const GameBoard = () => {
       )}
 
       {showInfoCards && viewMode === 'button' && (
-        <div className={styles.infoModalOverlay} onClick={() => {
-          setShowInfoCards(false);
-          setSelectedInfoCard(null);
-          setViewMode(null);
-        }}>
-          <div className={`${styles.infoModalContent} ${styles.modalList}`} onClick={(e) => e.stopPropagation()}>
-            <button className={styles.closeModal} onClick={() => {
-              setShowInfoCards(false);
-              setSelectedInfoCard(null);
-              setViewMode(null);
-            }}>✕</button>
+        <div
+          className={styles.infoModalOverlay}
+          onClick={() => { setShowInfoCards(false); setSelectedInfoCard(null); setViewMode(null); }}
+        >
+          <div
+            className={`${styles.infoModalContent} ${styles.modalList}`}
+            onClick={e => e.stopPropagation()}
+          >
+            <button className={styles.closeModal} onClick={() => { setShowInfoCards(false); setSelectedInfoCard(null); setViewMode(null); }}>✕</button>
             <h2>Карточки информации</h2>
             <div className={styles.cardsGrid}>
               {infoCards.map((lu) => (

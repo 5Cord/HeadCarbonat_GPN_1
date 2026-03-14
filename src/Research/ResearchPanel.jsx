@@ -4,38 +4,31 @@ import { RESEARCH_WORKS, MOBILIZATION_WORKS } from './researchData';
 import useGameStore from '../../store/gameStore';
 import styles from './ResearchPanel.module.css';
 import ResultsOverlay from './ResultsOverlay';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// КОНСТАНТЫ
-// ─────────────────────────────────────────────────────────────────────────────
+import RefusalMap from './RefusalMap';
+import ResearchPanelTour, { RefusalTour } from './ResearchPanelTour';
+import BudgetBar from '../BudgetBar.jsx';
 
 const YEAR_DURATIONS_SEC = {
   1: 25 * 60, 2: 20 * 60, 3: 15 * 60, 4: 15 * 60, 5: 10 * 60,
   6: 15 * 60, 7: 15 * 60, 8: 15 * 60, 9: 10 * 60, 10: 10 * 60,
 };
 
-const REFUSAL_YEARS     = [3, 5];
-const REFUSAL_DURATION  = 10 * 60; // секунд
+const REFUSAL_YEARS = [3, 5];
+const REFUSAL_DURATION = 10 * 60;
+const MAX_REFUSAL_COUNT = 2;
 
-// Какие столбцы активны в каком диапазоне лет
-// Каждый столбец доступен СТРОГО в перечисленные годы — не раньше, не позже.
 const COLS_BY_YEAR = {
-  1:  ['srr_2d', 'srr_3d', '1pr'],
-  2:  ['srr_2d', 'srr_3d', '1pr'],
-  3:  ['srr_2d', 'srr_3d', '1pr'],
-  4:  ['srr_2d', 'srr_3d', '1pr', '3r'],   // 3r — только год 4
-  5:  ['3r', '4r'],                                // 4r — только год 5
-  6:  ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'],
-  7:  ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'],
-  8:  ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'],
-  9:  ['depression', 'bsko', 'ppd', '3bs'],
+  1: ['srr_2d', 'srr_3d', '1pr'],
+  2: ['srr_2d', 'srr_3d', '1pr'],
+  3: ['srr_2d', 'srr_3d', '1pr'],
+  4: ['srr_2d', 'srr_3d', '1pr', '3r'],
+  5: ['4r'],
+  6: ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'],
+  7: ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'],
+  8: ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'],
+  9: ['depression', 'bsko', 'ppd', '3bs'],
   10: ['depression', 'bsko', 'ppd', '3bs'],
 };
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// УТИЛИТЫ
-// ─────────────────────────────────────────────────────────────────────────────
 
 const fmt = (s) => {
   const t = Math.max(0, Math.floor(s));
@@ -59,72 +52,50 @@ const timerYearLabel = (year) => {
   return `Добыча — год ${year}`;
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ПРОГРЕСС ЛУ — дефолтная структура
-// ─────────────────────────────────────────────────────────────────────────────
-
 const defaultProgress = () => ({
-  // ── Персистентные (не сбрасываются) ──
-  blockedColumns:       [],  // colId[] — навсегда заблокированы (eventsScore >= 0)
-  mobilizedColumns:     [],  // colId[] — мобилизации куплены хотя бы раз
-  columnsByYear:        {},  // { year: colId }
-  skippedYears:         [],  // year[]
-  purchasedWorks:       [],  // все НИРы за всю игру
-  purchasedWorksByYear: {},  // { year: work[] }
-  purchasedCellsByYear: {},  // { year: { cellKey: work } }
-  successRatesByYear:   {},  // { year: { colId: % } }
-  totalSpent:           0,
-
-  // ── Сбрасываются каждый год ──
-  purchasedCells: {},  // { cellKey: work } — только текущий год
-  successRates:   {},  // { colId: % }    — только текущий год
+  blockedColumns: [],
+  mobilizedColumns: [],
+  columnsByYear: {},
+  skippedYears: [],
+  purchasedWorks: [],
+  purchasedWorksByYear: {},
+  purchasedCellsByYear: {},
+  successRatesByYear: {},
+  totalSpent: 0,
+  // ФИХ: эти два поля — «текущий год», сбрасываются при переходе
+  purchasedCells: {},
+  successRates: {},
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ЛОГИКА ПЕРЕХОДА ГОДА
-// Вызывается один раз при смене года.
-// eventsScore — баллы событий за prevYear для данного ЛУ.
-// ─────────────────────────────────────────────────────────────────────────────
-
 function applyYearTransition(prog, prevYear, eventsScore) {
-  const prevCol  = prog.columnsByYear?.[prevYear];
-  const skipped  = (prog.skippedYears || []).includes(prevYear);
-  let blocked    = [...(prog.blockedColumns || [])];
+  const prevCol = prog.columnsByYear?.[prevYear];
+  const skipped = (prog.skippedYears || []).includes(prevYear);
+  let blocked = [...(prog.blockedColumns || [])];
 
-  // Блокируем столбец только если: был выбран + не пропущен год + события >= 0
   if (prevCol && !skipped && eventsScore >= 0) {
     if (!blocked.includes(prevCol)) blocked.push(prevCol);
   }
-  // eventsScore < 0 → столбец НЕ блокируем (↺ доступен повторно)
-  // skipped → вообще ничего не блокируем
 
   return {
     ...prog,
     blockedColumns: blocked,
-    purchasedCells: {},  // сброс ячеек нового года
-    successRates:   {},  // сброс процентов нового года
+    // ФИХ: явно сбрасываем ОБА поля «текущего года» в пустые объекты
+    purchasedCells: {},
+    successRates: {},
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ЦВЕТОВЫЕ ГРУППЫ СТОЛБЦОВ
-// ─────────────────────────────────────────────────────────────────────────────
-
 const MOB_GROUPS = [
-  { ids: ['srr_2d', 'srr_3d'],                                           label: 'СРР',     cls: 'colGroupGray'   },
-  { ids: ['1pr', '3r', '4r'],                                            label: 'ГРР',     cls: 'colGroupOrange' },
-  { ids: ['drilling_5gs','drilling_6gs','drilling_7mzs','testing','mun'],label: 'Бурение', cls: 'colGroupBeige'  },
-  { ids: ['depression','bsko','ppd','3bs'],                              label: 'Добыча',  cls: 'colGroupBlue'   },
+  { ids: ['srr_2d', 'srr_3d'], label: 'СРР', cls: 'colGroupGray' },
+  { ids: ['1pr', '3r', '4r'], label: 'ГРР', cls: 'colGroupOrange' },
+  { ids: ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'], label: 'Бурение', cls: 'colGroupBeige' },
+  { ids: ['depression', 'bsko', 'ppd', '3bs'], label: 'Добыча', cls: 'colGroupBlue' },
 ];
 
 const getColGroup = (colId) =>
   MOB_GROUPS.find(g => g.ids.includes(colId)) || MOB_GROUPS[0];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// КОМПОНЕНТ
-// ─────────────────────────────────────────────────────────────────────────────
-
-export default function ResearchPanel({ onComplete }) {
+export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   const {
     player, gridCells, research, events,
     fieldWork, markYearSkippedForLU,
@@ -133,50 +104,40 @@ export default function ResearchPanel({ onComplete }) {
 
   const globalYear = useGameStore(s => s.game.currentYear);
 
-  // ── Локальный UI-стейт ────────────────────────────────────────────────────
-  const [showResults,      setShowResults]      = useState(false);
-  const [showFinalModal,   setShowFinalModal]    = useState(false);
-  const [showRefusalModal, setShowRefusalModal]  = useState(false);
-  const [showYearConfirm,  setShowYearConfirm]   = useState(false);
-  const [refusalLU,        setRefusalLU]         = useState(null);
-  const [purchaseModal,    setPurchaseModal]      = useState(null); // данные для модалки покупки
+  const [showResults, setShowResults] = useState(false);
+  const [showFinalModal, setShowFinalModal] = useState(false);
+  const [showRefusalModal, setShowRefusalModal] = useState(false);
+  const [showYearConfirm, setShowYearConfirm] = useState(false);
+  const [refusalRefs, setRefusalRefs] = useState([]);
+  const [purchaseModal, setPurchaseModal] = useState(null);
 
-  // ── Выбор участников и столбца ────────────────────────────────────────────
-  // selectedLUs: string[] — cellRef выбранных участков
-  // selectedCol: string|null — выбранный colId
   const [selectedLUs, setSelectedLUs] = useState([]);
   const [selectedCol, setSelectedCol] = useState(null);
-  const [activeLU,    setActiveLU]    = useState(null); // последний кликнутый (для одиночного режима)
-  const [sessionCount, setSessionCount] = useState(0);  // куплено в текущей сессии
+  const [activeLU, setActiveLU] = useState(null);
+  const [sessionCount, setSessionCount] = useState(0);
 
-  // ── Таймер ────────────────────────────────────────────────────────────────
   const [timer, setTimer] = useState({
-    remaining:     YEAR_DURATIONS_SEC[globalYear],
-    year:          globalYear,
-    done:          false,
-    refusal:       false,
-    refusalYear:   null,
-    refusalLeft:   0,
+    remaining: YEAR_DURATIONS_SEC[globalYear],
+    year: globalYear,
+    done: false,
+    refusal: false,
+    refusalYear: null,
+    refusalLeft: 0,
   });
   const intervalRef = useRef(null);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ВСПОМОГАТЕЛЬНЫЕ ДАННЫЕ
-  // ─────────────────────────────────────────────────────────────────────────
-
   const ownedLUs = useMemo(() =>
     Object.values(gridCells.owned).map(c => ({
-      id:   c.cellRef, cellRef: c.cellRef,
+      id: c.cellRef, cellRef: c.cellRef,
       name: c.name || `Участок ${c.cellRef}`,
       auctionPrice: c.auctionPrice || 0,
     })),
-  [gridCells.owned]);
+    [gridCells.owned]);
 
   const getProgress = useCallback((luId) =>
     research.progressByLU[luId] || defaultProgress(),
-  [research.progressByLU]);
+    [research.progressByLU]);
 
-  // Все купленные мобилизации по всем ЛУ (для проверки зависимостей)
   const allMobilized = useMemo(() => {
     const s = new Set();
     Object.values(research.progressByLU).forEach(p =>
@@ -184,26 +145,17 @@ export default function ResearchPanel({ onComplete }) {
     return s;
   }, [research.progressByLU]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ПРАВИЛА ДОСТУПНОСТИ СТОЛБЦА ДЛЯ ЛУ
-  // ─────────────────────────────────────────────────────────────────────────
-
-  /**
-   * Возвращает { ok, reason, repeatable }
-   * ok         — можно выбрать
-   * repeatable — столбец ↺ (события < 0 в прошлом году, не заблокирован)
-   */
   const colStatus = useCallback((colId, luId) => {
-    const mob  = MOBILIZATION_WORKS.find(w => w.id === colId);
+    const mob = MOBILIZATION_WORKS.find(w => w.id === colId);
     if (!mob) return { ok: false, reason: 'Не найден' };
 
-    // 1. Активен в текущем году?
     if (!isColActiveThisYear(colId, globalYear))
-      return { ok: false, reason: mob.years?.length
-        ? `Доступен в годы: ${mob.years.join(', ')}`
-        : 'Не в этом году' };
+      return {
+        ok: false, reason: mob.years?.length
+          ? `Доступен в годы: ${mob.years.join(', ')}`
+          : 'Не в этом году'
+      };
 
-    // 2. Зависимость выполнена?
     if (mob.dependency && !allMobilized.has(mob.dependency)) {
       const dep = MOBILIZATION_WORKS.find(w => w.id === mob.dependency);
       return { ok: false, reason: `Требует: ${dep?.name || mob.dependency}` };
@@ -211,22 +163,15 @@ export default function ResearchPanel({ onComplete }) {
 
     const prog = getProgress(luId);
 
-    // 3. Заблокирован навсегда?
     if ((prog.blockedColumns || []).includes(colId))
       return { ok: false, reason: 'Заблокирован (события ≥ 0 в прошлом)' };
 
-    // 4. Ограничение: в текущем году для ЭТОГО ЛУ уже выбран другой столбец?
-    //    Смотрим ТОЛЬКО columnsByYear[globalYear] — выбор текущего года.
-    //    История прошлых лет (в т.ч. при eventsScore < 0) не ограничивает.
     const chosenThisYear = prog.columnsByYear?.[globalYear];
     if (chosenThisYear && chosenThisYear !== colId) {
       const lw = MOBILIZATION_WORKS.find(w => w.id === chosenThisYear);
       return { ok: false, reason: `В году ${globalYear} уже выбран: ${lw?.name || chosenThisYear}` };
     }
 
-    // 5. Столбец уже занят ДРУГИМ ЛУ в этом году?
-    //    Исключаем ЛУ из текущей мульти-сессии — они могут использовать один столбец совместно.
-    //    selectedLUs захватывается из замыкания.
     const usedByOther = Object.entries(research.progressByLU).some(
       ([id, p]) =>
         id !== luId &&
@@ -237,23 +182,17 @@ export default function ResearchPanel({ onComplete }) {
       return { ok: false, reason: `Столбец уже используется другим участком в ${globalYear} году` };
     }
 
-    // ↺ Столбец использовался в прошлом и не заблокирован → повтор доступен
     const usedBefore = Object.values(prog.columnsByYear || {}).includes(colId);
     const repeatable = usedBefore;
 
     return { ok: true, reason: '', repeatable };
   }, [globalYear, allMobilized, getProgress, research.progressByLU, selectedLUs]);
 
-  // ЛУ уже «использован» в этом году (выбрал столбец или отказался)
   const isLUDone = useCallback((luId) => {
     const prog = getProgress(luId);
     return (prog.skippedYears || []).includes(globalYear)
       || !!prog.columnsByYear?.[globalYear];
   }, [getProgress, globalYear]);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // ТАЙМЕР
-  // ─────────────────────────────────────────────────────────────────────────
 
   const stopTimer = useCallback(() => {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
@@ -299,20 +238,17 @@ export default function ResearchPanel({ onComplete }) {
     }, 1000);
   }, [stopTimer, handleYearEnd]);
 
-  // Старт при монтировании
   useEffect(() => {
     startTimer();
     return stopTimer;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Реакция на смену года (из store)
   useEffect(() => {
     if (timer.year === globalYear) return;
 
-    // Применяем переход для всех ЛУ
     const prevYear = globalYear - 1;
-    const updProg  = { ...research.progressByLU };
+    const updProg = { ...research.progressByLU };
     Object.keys(updProg).forEach(luId => {
       const score =
         events?.historyByYear?.[prevYear]?.lineScores?.[luId]
@@ -322,22 +258,22 @@ export default function ResearchPanel({ onComplete }) {
     });
     useGameStore.setState({ research: { ...research, progressByLU: updProg } });
 
+    // ФИХ: сбрасываем весь UI-стейт выбора + activeLU при смене года
+    // чтобы activeProg гарантированно пересчитался из нового store
     resetSelection();
+    setActiveLU(null);  // ← явный сброс activeLU
+
     setTimer({
-      remaining:   YEAR_DURATIONS_SEC[globalYear],
-      year:        globalYear,
-      done:        false,
-      refusal:     false,
+      remaining: YEAR_DURATIONS_SEC[globalYear],
+      year: globalYear,
+      done: false,
+      refusal: false,
       refusalYear: null,
       refusalLeft: 0,
     });
     startTimer();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [globalYear]);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // ВЫБОР УЧАСТНИКОВ И СТОЛБЦА
-  // ─────────────────────────────────────────────────────────────────────────
 
   const resetSelection = () => {
     setSelectedLUs([]);
@@ -349,12 +285,10 @@ export default function ResearchPanel({ onComplete }) {
   const toggleLU = (lu) => {
     const already = selectedLUs.includes(lu.cellRef);
 
-    // Нельзя добавить новый ЛУ после выбора столбца
     if (!already && selectedCol) {
       alert('После выбора столбца нельзя добавлять участки. Сначала подтвердите или сбросьте.');
       return;
     }
-    // Нельзя выбрать ЛУ, который уже завершил год
     if (!already && isLUDone(lu.cellRef)) return;
 
     setActiveLU(lu);
@@ -369,14 +303,13 @@ export default function ResearchPanel({ onComplete }) {
     });
   };
 
-  // Клик по заголовку столбца
   const handleColClick = (mob) => {
     if (selectedLUs.length === 0) {
       alert('Сначала выберите хотя бы один участок!');
       return;
     }
 
-    const valid   = [];
+    const valid = [];
     const invalid = [];
 
     selectedLUs.forEach(luId => {
@@ -402,16 +335,10 @@ export default function ResearchPanel({ onComplete }) {
     setSelectedCol(prev => prev === mob.id ? null : mob.id);
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ПОКУПКА ЯЧЕЙКИ
-  // ─────────────────────────────────────────────────────────────────────────
-
-  // Открыть модалку покупки
   const openPurchaseModal = (work, mob) => {
-    // Мульти-режим
     if (selectedLUs.length > 0 && selectedCol === mob.id) {
       const cellKey = `${work.id}-${mob.id}`;
-      const toBuy   = selectedLUs.filter(luId => {
+      const toBuy = selectedLUs.filter(luId => {
         const s = colStatus(mob.id, luId);
         return s.ok && !getProgress(luId).purchasedCells?.[cellKey];
       });
@@ -431,15 +358,14 @@ export default function ResearchPanel({ onComplete }) {
       return;
     }
 
-    // Одиночный режим
     if (!activeLU) { alert('Выберите участок!'); return; }
-    const luId   = activeLU.cellRef;
-    const s      = colStatus(mob.id, luId);
+    const luId = activeLU.cellRef;
+    const s = colStatus(mob.id, luId);
     if (!s.ok) { alert(s.reason); return; }
 
-    const cellKey  = `${work.id}-${mob.id}`;
-    const prog     = getProgress(luId);
-    if (prog.purchasedCells?.[cellKey]) return; // уже куплено
+    const cellKey = `${work.id}-${mob.id}`;
+    const prog = getProgress(luId);
+    if (prog.purchasedCells?.[cellKey]) return;
 
     const needsMob = !(prog.mobilizedColumns || []).includes(mob.id);
     setPurchaseModal({
@@ -451,7 +377,6 @@ export default function ResearchPanel({ onComplete }) {
     });
   };
 
-  // Подтвердить покупку
   const confirmPurchase = () => {
     if (!purchaseModal) return;
     const { work, mob, cellKey, multi } = purchaseModal;
@@ -465,16 +390,15 @@ export default function ResearchPanel({ onComplete }) {
 
       const updProg = { ...research.progressByLU };
       breakdown.forEach(({ luId, needsMob, cost }) => {
-        const p       = updProg[luId] || defaultProgress();
-        const rate    = work.successRates[mob.id] || 0;
+        const p = updProg[luId] || defaultProgress();
+        const rate = work.successRates[mob.id] || 0;
         const newRate = Math.min((p.successRates?.[mob.id] || 0) + rate, 95);
-        const rw      = makeResearchWork(work, mob, cellKey, cost, needsMob, rate);
-
+        const rw = makeResearchWork(work, mob, cellKey, cost, needsMob, rate);
         updProg[luId] = mergePurchase(p, luId, mob, cellKey, rw, newRate, needsMob);
       });
 
       useGameStore.setState(st => ({
-        player:   { ...st.player, budget: st.player.budget - total },
+        player: { ...st.player, budget: st.player.budget - total },
         research: { ...st.research, progressByLU: updProg },
       }));
       setSessionCount(c => c + breakdown.length);
@@ -482,27 +406,24 @@ export default function ResearchPanel({ onComplete }) {
       return;
     }
 
-    // Одиночный — делаем ВСЁ в одном setState, без вызова purchaseResearch из стора
-    // (он дублирует списание бюджета и перезатирает progressByLU старым снапшотом)
     const { luId, needsMob, total } = purchaseModal;
     if (player.budget < total) { alert('Недостаточно средств!'); return; }
 
-    const p       = getProgress(luId);
-    const rate    = work.successRates[mob.id] || 0;
+    const p = getProgress(luId);
+    const rate = work.successRates[mob.id] || 0;
     const newRate = Math.min((p.successRates?.[mob.id] || 0) + rate, 95);
-    const rw      = makeResearchWork(work, mob, cellKey, total, needsMob, rate);
+    const rw = makeResearchWork(work, mob, cellKey, total, needsMob, rate);
     const updProg = { ...useGameStore.getState().research.progressByLU };
     updProg[luId] = mergePurchase(p, luId, mob, cellKey, rw, newRate, needsMob);
 
     useGameStore.setState(st => ({
-      player:   { ...st.player, budget: st.player.budget - total },
+      player: { ...st.player, budget: st.player.budget - total },
       research: { ...st.research, progressByLU: updProg },
     }));
     setSessionCount(c => c + 1);
     setPurchaseModal(null);
   };
 
-  // Зафиксировать выбранный столбец для всех ЛУ (кнопка «Подтвердить»)
   const confirmSession = () => {
     if (!selectedCol || selectedLUs.length === 0) { resetSelection(); return; }
     const updProg = { ...research.progressByLU };
@@ -517,7 +438,6 @@ export default function ResearchPanel({ onComplete }) {
     resetSelection();
   };
 
-  // Отказ от исследований
   const skipResearch = () => {
     if (selectedLUs.length === 0) return;
     const names = selectedLUs.map(id => ownedLUs.find(l => l.cellRef === id)?.name || id).join(', ');
@@ -526,23 +446,19 @@ export default function ResearchPanel({ onComplete }) {
     resetSelection();
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ИММУТАБЕЛЬНЫЕ ХЕЛПЕРЫ
-  // ─────────────────────────────────────────────────────────────────────────
-
   const makeResearchWork = (work, mob, cellKey, cost, needsMob, rate) => ({
-    id:               cellKey,
-    name:             `${work.name} | ${mob.name}`,
-    baseCost:         cost,
-    successRates:     { [mob.id]: rate },
-    workType:         work.id,
+    id: cellKey,
+    name: `${work.name} | ${mob.name}`,
+    baseCost: cost,
+    successRates: { [mob.id]: rate },
+    workType: work.id,
     mobilizationType: mob.id,
     metadata: {
       cellKey,
-      workCost:        work.cost,
+      workCost: work.cost,
       mobilizationCost: needsMob ? mob.cost : 0,
-      successRate:     rate,
-      year:            globalYear,
+      successRate: rate,
+      year: globalYear,
     },
   });
 
@@ -562,7 +478,9 @@ export default function ResearchPanel({ onComplete }) {
       purchasedCells: { ...(prog.purchasedCells || {}), [cellKey]: { ...rw, successRate: rw.metadata.successRate } },
       purchasedCellsByYear: appendToYearMap(prog.purchasedCellsByYear, year, cellKey, { ...rw, successRate: rw.metadata.successRate }),
       successRates: { ...(prog.successRates || {}), [mob.id]: newRate },
-      successRatesByYear: appendRateToYear(prog.successRatesByYear, prog.successRates, year, mob.id, newRate),
+      // ФИХ: при записи в successRatesByYear НЕ тянем cur (старый год) —
+      // только уже купленное в этом году + новая ставка
+      successRatesByYear: appendRateToYear(prog.successRatesByYear, prog.successRatesByYear?.[year], year, mob.id, newRate),
       totalSpent: (prog.totalSpent || 0) + rw.baseCost,
     };
   };
@@ -575,14 +493,15 @@ export default function ResearchPanel({ onComplete }) {
     const o = obj || {};
     return { ...o, [year]: { ...(o[year] || {}), [key]: val } };
   };
-  const appendRateToYear = (byYear, cur, year, colId, rate) => {
+  // ФИХ: теперь принимает curYearRates (только записи текущего года), а не все successRates
+  const appendRateToYear = (byYear, curYearRates, year, colId, rate) => {
     const o = byYear || {};
-    return { ...o, [year]: { ...(cur || {}), ...(o[year] || {}), [colId]: rate } };
+    return { ...o, [year]: { ...(curYearRates || {}), [colId]: rate } };
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // УПРАВЛЕНИЕ ГОДОМ
-  // ─────────────────────────────────────────────────────────────────────────
+  const stopTimerLocal = useCallback(() => {
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+  }, []);
 
   const doFinishYear = () => {
     stopTimer();
@@ -605,28 +524,30 @@ export default function ResearchPanel({ onComplete }) {
   const goToNextYear = useCallback((skipRefusal = false) => {
     stopTimer();
     setShowRefusalModal(false);
-    setRefusalLU(null);
+    setRefusalRefs([]);
     const next = globalYear + 1;
     resetEventCardsForNewYear?.(next);
     setYear(next);
-    // timer обновится через useEffect [globalYear]
   }, [globalYear, stopTimer, setYear, resetEventCardsForNewYear]);
 
-  const handleRefusalAccept = (luIdToRemove) => {
+  const handleRefusalAccept = (refsToRemove = []) => {
     stopTimer();
-    if (luIdToRemove) {
-      const st      = useGameStore.getState();
+    if (refsToRemove.length > 0) {
+      const st = useGameStore.getState();
       const newOwned = { ...st.gridCells.owned };
-      const newAll   = { ...st.gridCells.allTeams };
-      delete newOwned[luIdToRemove];
-      delete newAll[luIdToRemove];
+      const newAll = { ...st.gridCells.allTeams };
+      refsToRemove.forEach(ref => {
+        delete newOwned[ref];
+        delete newAll[ref];
+      });
       useGameStore.setState({
-        gridCells:    { owned: newOwned, allTeams: newAll },
+        gridCells: { owned: newOwned, allTeams: newAll },
         licenseUnits: { ...st.licenseUnits, current: Object.values(newOwned)[0] || null },
       });
-      if (activeLU?.cellRef === luIdToRemove) setActiveLU(null);
-      setSelectedLUs(p => p.filter(id => id !== luIdToRemove));
+      if (refsToRemove.includes(activeLU?.cellRef)) setActiveLU(null);
+      setSelectedLUs(p => p.filter(id => !refsToRemove.includes(id)));
     }
+    setRefusalRefs([]);
     goToNextYear();
   };
 
@@ -637,28 +558,24 @@ export default function ResearchPanel({ onComplete }) {
     startTimer();
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ОТОБРАЖЕНИЕ ТАЙМЕРА
-  // ─────────────────────────────────────────────────────────────────────────
+  const totalSpent = Object.values(research.progressByLU)
+    .reduce((s, p) => s + (p.totalSpent || 0), 0);
 
   const timerCls = () => {
-    if (timer.done)          return `${styles.timer} ${styles.timerFinished}`;
-    if (timer.refusal)       return `${styles.timer} ${styles.timerWarning}`;
+    if (timer.done) return `${styles.timer} ${styles.timerFinished}`;
+    if (timer.refusal) return `${styles.timer} ${styles.timerWarning}`;
     const t = timer.remaining;
-    if (t <= 30)             return `${styles.timer} ${styles.timerCritical}`;
-    if (t <= 120)            return `${styles.timer} ${styles.timerWarning}`;
-    if (t <= 300)            return `${styles.timer} ${styles.timerAlert}`;
+    if (t <= 30) return `${styles.timer} ${styles.timerCritical}`;
+    if (t <= 120) return `${styles.timer} ${styles.timerWarning}`;
+    if (t <= 300) return `${styles.timer} ${styles.timerAlert}`;
     return styles.timer;
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ДАННЫЕ ДЛЯ ТАБЛИЦЫ
-  // ─────────────────────────────────────────────────────────────────────────
-
-  // purchasedCells активного ЛУ в текущем году
+  // ФИХ: activeProg берётся НАПРЯМУЮ из store через getProgress,
+  // который зависит от research.progressByLU — React пересчитает его
+  // сразу после setState в useEffect [globalYear]
   const activeProg = activeLU ? getProgress(activeLU.cellRef) : null;
 
-  // Суммарная успешность активного ЛУ по конкретному столбцу (текущий год)
   const colRateActive = (colId) => {
     if (!activeProg) return 0;
     let sum = 0;
@@ -678,10 +595,6 @@ export default function ResearchPanel({ onComplete }) {
 
   const multiMode = selectedLUs.length > 0;
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // РЕНДЕР
-  // ─────────────────────────────────────────────────────────────────────────
-
   if (showResults) {
     return (
       <ResultsOverlay
@@ -696,7 +609,6 @@ export default function ResearchPanel({ onComplete }) {
   return (
     <div className={styles.researchPanel}>
 
-      {/* ── ТАЙМЕР ─────────────────────────────────────────────────────── */}
       <div className={timerCls()}>
         {timer.done ? (
           <>
@@ -718,13 +630,18 @@ export default function ResearchPanel({ onComplete }) {
         )}
       </div>
 
-      {/* ── НАВИГАЦИЯ ──────────────────────────────────────────────────── */}
       <div className={styles.researchMapControls}>
-        <button className={`${styles.researchControlBtn} ${styles.researchBackBtn}`} onClick={onComplete}>Назад</button>
-        <button className={`${styles.researchControlBtn} ${styles.researchNextBtn}`} onClick={onComplete}>Далее — К зоне событий</button>
+        <button className={`${styles.researchControlBtn} ${styles.researchBackBtn}`} onClick={onBack}>
+          ← Назад
+        </button>
+        <button className={`${styles.researchControlBtn} ${styles.researchBackBtn}`} onClick={onMenu}>
+          В меню
+        </button>
+        <button className={`${styles.researchControlBtn} ${styles.researchNextBtn}`} onClick={onComplete}>
+          Далее — К зоне событий
+        </button>
       </div>
 
-      {/* ── ПАНЕЛЬ УЧАСТКОВ ────────────────────────────────────────────── */}
       <div className={styles.researchHeader}>
         <h2>Научные исследования</h2>
 
@@ -734,7 +651,6 @@ export default function ResearchPanel({ onComplete }) {
           </div>
         ) : (
           <div style={{ width: '100%' }}>
-            {/* Шаг 1: карточки участков */}
             <div style={{ marginBottom: '0.5rem', fontWeight: 700, color: '#333' }}>
               Шаг 1. Выберите участки:
               <span style={{ marginLeft: 8, fontWeight: 400, color: '#888', fontSize: '0.85rem' }}>
@@ -746,16 +662,16 @@ export default function ResearchPanel({ onComplete }) {
 
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
               {ownedLUs.map(lu => {
-                const prog       = getProgress(lu.cellRef);
-                const inGroup    = selectedLUs.includes(lu.cellRef);
-                const done       = isLUDone(lu.cellRef) && !inGroup;
-                const skipped    = (prog.skippedYears || []).includes(globalYear);
-                const blocked    = prog.blockedColumns || [];
-                const nirCount   = (prog.purchasedWorksByYear?.[globalYear] || []).length;
-                const prevYear   = globalYear - 1;
-                const evScore    = events?.historyByYear?.[prevYear]?.lineScores?.[lu.cellRef]
+                const prog = getProgress(lu.cellRef);
+                const inGroup = selectedLUs.includes(lu.cellRef);
+                const done = isLUDone(lu.cellRef) && !inGroup;
+                const skipped = (prog.skippedYears || []).includes(globalYear);
+                const blocked = prog.blockedColumns || [];
+                const nirCount = (prog.purchasedWorksByYear?.[globalYear] || []).length;
+                const prevYear = globalYear - 1;
+                const evScore = events?.historyByYear?.[prevYear]?.lineScores?.[lu.cellRef]
                   ?? events?.lineScores?.[lu.cellRef] ?? null;
-                const prevColId  = prevYear > 0 ? prog.columnsByYear?.[prevYear] : null;
+                const prevColId = prevYear > 0 ? prog.columnsByYear?.[prevYear] : null;
                 const prevColName = prevColId
                   ? MOBILIZATION_WORKS.find(w => w.id === prevColId)?.name : null;
 
@@ -783,10 +699,12 @@ export default function ResearchPanel({ onComplete }) {
                       </div>
                     )}
                     {prevColName && evScore !== null && prevYear > 0 && (
-                      <div style={{ fontSize: '0.75rem', fontWeight: 700,
+                      <div style={{
+                        fontSize: '0.75rem', fontWeight: 700,
                         color: evScore >= 0
                           ? (inGroup ? 'rgba(255,255,255,.85)' : '#2e7d32')
-                          : (inGroup ? 'rgba(255,220,200,1)' : '#c62828') }}>
+                          : (inGroup ? 'rgba(255,220,200,1)' : '#c62828')
+                      }}>
                         {evScore >= 0 ? `+${evScore}` : evScore} по «{prevColName}»{evScore < 0 ? ' ↺' : ''}
                       </div>
                     )}
@@ -805,7 +723,6 @@ export default function ResearchPanel({ onComplete }) {
               })}
             </div>
 
-            {/* Панель статуса мульти-режима */}
             {multiMode && (
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 8, alignItems: 'center' }}>
                 <div style={{ padding: '7px 14px', background: '#e8f5e9', border: '2px solid #4caf50', borderRadius: 8, fontSize: '0.9rem' }}>
@@ -829,7 +746,6 @@ export default function ResearchPanel({ onComplete }) {
               </div>
             )}
 
-            {/* Подсказки */}
             {!multiMode && !activeLU && (
               <div style={{ padding: '6px 12px', background: '#f3f8ff', borderRadius: 7, border: '1px solid #b3d0f5', color: '#1565c0', fontSize: '0.85rem' }}>
                 Выберите один или несколько участков выше, чтобы начать
@@ -847,19 +763,13 @@ export default function ResearchPanel({ onComplete }) {
             )}
           </div>
         )}
-
-        <div className={styles.budgetInfo}>
-          <p className={styles.budgetDisplay}>Бюджет: {player.budget} млн руб.</p>
-          <p className={styles.successDisplay}>
-            Успешность: <span className={styles.successValue}>{totalRateActive()}%</span>
-          </p>
-        </div>
+        <br />
+        <BudgetBar budget={player.budget} spent={totalSpent} theme="light" />
       </div>
 
-      {/* ── DEV-переключатель ──────────────────────────────────────────── */}
-      {/* {import.meta.env.DEV && (
+      {import.meta.env.DEV && (
         <div style={{ background: '#fff3e0', padding: '8px 12px', borderRadius: 8, marginBottom: 12, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-          {[1,2,3,4,5,6,7,8,9,10].map(y => (
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(y => (
             <button key={y}
               onClick={() => {
                 stopTimer();
@@ -882,14 +792,13 @@ export default function ResearchPanel({ onComplete }) {
             Сброс
           </button>
         </div>
-      )} */}
+      )}
 
-      {/* ── ГОД + КНОПКА ЗАВЕРШИТЬ ─────────────────────────────────────── */}
       <div className={styles.roundIndicator}>
         <div className={styles.yearInfo}>
           <span className={styles.yearLabel}>Год:</span>
           <span className={styles.yearValue}>{globalYear}</span>
-          {/* <span style={{ color: '#fff', fontSize: '0.85rem', marginLeft: 8, opacity: .85 }}>{iterLabel(globalYear)}</span> */}
+          <span style={{ color: '#fff', fontSize: '0.85rem', marginLeft: 8, opacity: .85 }}>{iterLabel(globalYear)}</span>
         </div>
         <button
           onClick={() => setShowYearConfirm(true)}
@@ -900,7 +809,6 @@ export default function ResearchPanel({ onComplete }) {
         </button>
       </div>
 
-      {/* ── ЛЕГЕНДА ────────────────────────────────────────────────────── */}
       <div className={styles.groupLegend}>
         {MOB_GROUPS.map(g => (
           <div key={g.cls} className={styles.legendItem}>
@@ -910,9 +818,6 @@ export default function ResearchPanel({ onComplete }) {
         ))}
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════ */}
-      {/*  ТАБЛИЦА НИР                                                       */}
-      {/* ══════════════════════════════════════════════════════════════════ */}
       <div className={styles.researchTableContainer}>
         <div className={styles.researchTableScroll}>
           <table className={`${styles.researchTable} ${styles.battleship}`}>
@@ -923,12 +828,11 @@ export default function ResearchPanel({ onComplete }) {
 
                 {MOBILIZATION_WORKS.map((mob) => {
                   const { cls, label, ids } = getColGroup(mob.id);
-                  const isFirstInGroup      = ids[0] === mob.id;
-                  const active              = isColActiveThisYear(mob.id, globalYear);
-                  const isSelected          = multiMode && selectedCol === mob.id;
-                  const hasDep              = mob.dependency && !allMobilized.has(mob.dependency);
+                  const isFirstInGroup = ids[0] === mob.id;
+                  const active = isColActiveThisYear(mob.id, globalYear);
+                  const isSelected = multiMode && selectedCol === mob.id;
+                  const hasDep = mob.dependency && !allMobilized.has(mob.dependency);
 
-                  // Для активного одиночного ЛУ
                   const blockedForActive = activeLU && !multiMode
                     ? (getProgress(activeLU.cellRef).blockedColumns || []).includes(mob.id)
                     : false;
@@ -936,13 +840,11 @@ export default function ResearchPanel({ onComplete }) {
                     ? Object.values(getProgress(activeLU.cellRef).columnsByYear || {}).includes(mob.id)
                     : false;
 
-                  // Для мульти: сколько ЛУ заблокировано
                   const blockedCount = multiMode
                     ? selectedLUs.filter(id => (getProgress(id).blockedColumns || []).includes(mob.id)).length
                     : 0;
                   const allBlocked = multiMode && selectedLUs.length > 0 && blockedCount === selectedLUs.length;
 
-                  // Занят ли столбец другим ЛУ в текущем году?
                   const takenByOther = active && Object.entries(research.progressByLU).some(
                     ([id, p]) => !selectedLUs.includes(id) && p.columnsByYear?.[globalYear] === mob.id
                   );
@@ -950,30 +852,30 @@ export default function ResearchPanel({ onComplete }) {
                   const clickable = multiMode && active && !allBlocked && !hasDep && !takenByOther;
 
                   let hClass = `${styles[cls] || ''}`;
-                  if      (isSelected)                        hClass += ` ${styles.mobilized}`;
-                  else if (takenByOther)                      hClass += ` ${styles.locked}`;
-                  else if (blockedForActive && !multiMode)    hClass += ` ${styles.locked}`;
-                  else if (active && !allBlocked)             hClass += ` ${styles.available}`;
-                  else                                        hClass += ` ${styles.locked}`;
+                  if (isSelected) hClass += ` ${styles.mobilized}`;
+                  else if (takenByOther) hClass += ` ${styles.locked}`;
+                  else if (blockedForActive && !multiMode) hClass += ` ${styles.locked}`;
+                  else if (active && !allBlocked) hClass += ` ${styles.available}`;
+                  else hClass += ` ${styles.locked}`;
 
                   return (
                     <th key={mob.id}
                       className={`${styles.colMob} ${hClass}`}
                       onClick={() => clickable && handleColClick(mob)}
                       style={{
-                        cursor:        clickable ? 'pointer' : 'default',
-                        outline:       isSelected ? '3px solid #ff9800' : 'none',
+                        cursor: clickable ? 'pointer' : 'default',
+                        outline: isSelected ? '3px solid #ff9800' : 'none',
                         outlineOffset: '-3px',
-                        opacity:       (allBlocked || takenByOther || (blockedForActive && !multiMode)) ? 0.4 : 1,
+                        opacity: (allBlocked || takenByOther || (blockedForActive && !multiMode)) ? 0.4 : 1,
                       }}
                       title={
-                        isSelected          ? 'Выбран — повторный клик снимает' :
-                        hasDep              ? `Требует: ${MOBILIZATION_WORKS.find(w => w.id === mob.dependency)?.name}` :
-                        takenByOther        ? `Занят другим участком в ${globalYear} году` :
-                        blockedForActive    ? 'Заблокирован (события ≥ 0)' :
-                        repeatableForActive ? '↺ Доступен повторно (события < 0)' :
-                        !active             ? 'Не в этом году' :
-                        clickable           ? 'Нажмите для выбора' : ''
+                        isSelected ? 'Выбран — повторный клик снимает' :
+                          hasDep ? `Требует: ${MOBILIZATION_WORKS.find(w => w.id === mob.dependency)?.name}` :
+                            takenByOther ? `Занят другим участком в ${globalYear} году` :
+                              blockedForActive ? 'Заблокирован (события ≥ 0)' :
+                                repeatableForActive ? '↺ Доступен повторно (события < 0)' :
+                                  !active ? 'Не в этом году' :
+                                    clickable ? 'Нажмите для выбора' : ''
                       }
                     >
                       {isFirstInGroup && <div className={styles.groupHeader}>{label}</div>}
@@ -982,13 +884,13 @@ export default function ResearchPanel({ onComplete }) {
                         <span className={styles.mobName}>{mob.name}</span>
                         <span className={styles.mobCost}>{mob.cost} млн</span>
                         <span className={styles.mobYears}>{mob.years?.join(', ') ? `Годы: ${mob.years.join(', ')}` : ''}</span>
-                        {!active               && <span className={styles.mobLocked}>Не в этом году</span>}
-                        {hasDep                && <span className={styles.mobLocked}>Требует зависимость</span>}
-                        {takenByOther          && <span className={styles.mobLocked} style={{ color: '#ef9a9a' }}>Занят в {globalYear}г</span>}
+                        {!active && <span className={styles.mobLocked}>Не в этом году</span>}
+                        {hasDep && <span className={styles.mobLocked}>Требует зависимость</span>}
+                        {takenByOther && <span className={styles.mobLocked} style={{ color: '#ef9a9a' }}>Занят в {globalYear}г</span>}
                         {blockedForActive && !multiMode && <span className={styles.mobLocked} style={{ color: '#bdbdbd' }}>Заблокирован</span>}
                         {repeatableForActive && !multiMode && <span className={styles.mobLocked} style={{ color: '#ff9800' }}>↺ Повтор</span>}
                         {multiMode && blockedCount > 0 && !allBlocked && <span className={styles.mobLocked} style={{ color: '#ffccbc' }}>{blockedCount} заблок.</span>}
-                        {allBlocked            && <span className={styles.mobLocked} style={{ color: '#bdbdbd' }}>Все заблок.</span>}
+                        {allBlocked && <span className={styles.mobLocked} style={{ color: '#bdbdbd' }}>Все заблок.</span>}
                       </div>
                     </th>
                   );
@@ -1003,60 +905,58 @@ export default function ResearchPanel({ onComplete }) {
                   <td className={styles.workCost}>{work.cost} млн</td>
 
                   {MOBILIZATION_WORKS.map((mob) => {
-                    const { cls }    = getColGroup(mob.id);
-                    const cellKey    = `${work.id}-${mob.id}`;
-                    const active     = isColActiveThisYear(mob.id, globalYear);
-                    const isSelCol   = multiMode && selectedCol === mob.id;
-                    const rate       = work.successRates[mob.id] || 0;
+                    const { cls } = getColGroup(mob.id);
+                    const cellKey = `${work.id}-${mob.id}`;
+                    const active = isColActiveThisYear(mob.id, globalYear);
+                    const isSelCol = multiMode && selectedCol === mob.id;
+                    const rate = work.successRates[mob.id] || 0;
 
-                    // Куплено активным ЛУ в текущем году?
+                    // ФИХ: boughtByMe смотрит в purchasedCells (текущий год),
+                    // который сброшен в {} при переходе — в новом году всегда false
                     const boughtByMe = !!(activeProg?.purchasedCells?.[cellKey]);
 
-                    // Заблокирован / повторен для активного ЛУ
-                    const blockedMe  = activeLU && !multiMode && !boughtByMe
+                    const blockedMe = activeLU && !multiMode && !boughtByMe
                       ? (getProgress(activeLU.cellRef).blockedColumns || []).includes(mob.id)
                       : false;
-                    const repeatMe   = activeLU && !multiMode && !blockedMe && !boughtByMe
+                    const repeatMe = activeLU && !multiMode && !blockedMe && !boughtByMe
                       ? Object.values(getProgress(activeLU.cellRef).columnsByYear || {}).includes(mob.id)
                       : false;
 
-                    // В мульти: все доступные ЛУ уже купили эту ячейку
                     const validLUsForSel = isSelCol
                       ? selectedLUs.filter(id => colStatus(mob.id, id).ok)
                       : [];
                     const allBought = isSelCol && validLUsForSel.length > 0
                       && validLUsForSel.every(id => !!getProgress(id).purchasedCells?.[cellKey]);
 
-                    const canClickMulti  = isSelCol && active && validLUsForSel.length > 0 && !allBought;
+                    const canClickMulti = isSelCol && active && validLUsForSel.length > 0 && !allBought;
                     const canClickSingle = !multiMode && activeLU && !boughtByMe && active && !blockedMe
                       && colStatus(mob.id, activeLU.cellRef).ok;
                     const clickable = canClickMulti || canClickSingle;
 
-                    // CSS класс ячейки
                     let cCls = `${styles.cell} ${styles[cls] || ''}`;
-                    if      (boughtByMe)  cCls += ` ${styles.purchased}`;
-                    else if (blockedMe)   cCls += ` ${styles.pastPurchased}`;
-                    else if (repeatMe)    cCls += ` ${styles.repeatable}`;
-                    else if (!active)     cCls += ` ${styles.unavailable}`;
-                    else if (clickable)   cCls += ` ${styles.available}`;
-                    else                  cCls += ` ${styles.unavailable}`;
+                    if (boughtByMe) cCls += ` ${styles.purchased}`;
+                    else if (blockedMe) cCls += ` ${styles.pastPurchased}`;
+                    else if (repeatMe) cCls += ` ${styles.repeatable}`;
+                    else if (!active) cCls += ` ${styles.unavailable}`;
+                    else if (clickable) cCls += ` ${styles.available}`;
+                    else cCls += ` ${styles.unavailable}`;
 
                     return (
                       <td key={mob.id} className={cCls}
                         onClick={() => clickable && openPurchaseModal(work, mob)}
                         style={{
-                          cursor:        clickable ? 'pointer' : 'not-allowed',
-                          outline:       isSelCol ? '2px solid rgba(255,152,0,.4)' : 'none',
+                          cursor: clickable ? 'pointer' : 'not-allowed',
+                          outline: isSelCol ? '2px solid rgba(255,152,0,.4)' : 'none',
                           outlineOffset: '-2px',
-                          opacity:       blockedMe ? 0.4 : 1,
+                          opacity: blockedMe ? 0.4 : 1,
                         }}
                         title={
-                          boughtByMe  ? `Куплено: +${rate}%` :
-                          blockedMe   ? 'Заблокирован' :
-                          repeatMe    ? '↺ Доступен повторно' :
-                          !active     ? 'Не в этом году' :
-                          canClickMulti ? `Купить для ${validLUsForSel.length} уч.` :
-                          canClickSingle ? 'Нажмите для покупки' : 'Недоступно'
+                          boughtByMe ? `Куплено: +${rate}%` :
+                            blockedMe ? 'Заблокирован' :
+                              repeatMe ? '↺ Доступен повторно' :
+                                !active ? 'Не в этом году' :
+                                  canClickMulti ? `Купить для ${validLUsForSel.length} уч.` :
+                                    canClickSingle ? 'Нажмите для покупки' : 'Недоступно'
                         }
                       >
                         {boughtByMe ? (
@@ -1090,22 +990,22 @@ export default function ResearchPanel({ onComplete }) {
                 </tr>
               ))}
 
-              {/* Итоговая строка */}
               <tr className={styles.totalsRow}>
                 <td colSpan="2" className={styles.totalsLabel}><strong>Итоговая успешность:</strong></td>
                 {MOBILIZATION_WORKS.map((mob) => {
-                  const { cls }   = getColGroup(mob.id);
-                  const succ      = colRateActive(mob.id);
-                  const bought    = Object.keys(activeProg?.purchasedCells || {}).some(k => k.endsWith(`-${mob.id}`));
-                  const blocked   = activeLU && (getProgress(activeLU.cellRef).blockedColumns || []).includes(mob.id);
-                  const repeat    = activeLU && !blocked && Object.values(getProgress(activeLU.cellRef).columnsByYear || {}).includes(mob.id);
+                  const { cls } = getColGroup(mob.id);
+                  const succ = colRateActive(mob.id);
+                  // ФИХ: bought тоже смотрит в purchasedCells (сброшен в новом году)
+                  const bought = Object.keys(activeProg?.purchasedCells || {}).some(k => k.endsWith(`-${mob.id}`));
+                  const blocked = activeLU && (getProgress(activeLU.cellRef).blockedColumns || []).includes(mob.id);
+                  const repeat = activeLU && !blocked && Object.values(getProgress(activeLU.cellRef).columnsByYear || {}).includes(mob.id);
                   return (
                     <td key={mob.id} className={`${styles.totalsCell} ${styles[cls] || ''}`}>
                       {bought
                         ? <span className={`${styles.totalSuccess} ${succ >= 70 ? styles.high : succ >= 40 ? styles.medium : styles.low}`}>{succ}%</span>
                         : blocked ? <span style={{ color: '#bdbdbd', fontSize: '0.9rem' }}>✕</span>
-                        : repeat  ? <span style={{ color: '#ff9800', fontSize: '0.9rem' }}>↺</span>
-                        :           <span className={styles.lockedTotal}>?</span>
+                          : repeat ? <span style={{ color: '#ff9800', fontSize: '0.9rem' }}>↺</span>
+                            : <span className={styles.lockedTotal}>?</span>
                       }
                     </td>
                   );
@@ -1116,11 +1016,8 @@ export default function ResearchPanel({ onComplete }) {
         </div>
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════ */}
-      {/*  МОДАЛЬНЫЕ ОКНА                                                    */}
-      {/* ══════════════════════════════════════════════════════════════════ */}
+      {/* МОДАЛЬНЫЕ ОКНА */}
 
-      {/* Подтверждение завершения года */}
       {showYearConfirm && (
         <div className={styles.cellModalOverlay} onClick={() => setShowYearConfirm(false)}>
           <div className={styles.cellModal} onClick={e => e.stopPropagation()}>
@@ -1143,143 +1040,166 @@ export default function ResearchPanel({ onComplete }) {
         </div>
       )}
 
-      {/* Модалка покупки */}
       {purchaseModal && (
         <div className={styles.cellModalOverlay} onClick={() => setPurchaseModal(null)}>
-          <div className={styles.cellModal} onClick={e => e.stopPropagation()}>
+          <div className={styles.cellModal} onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
             <button className={styles.closeModal} onClick={() => setPurchaseModal(null)}>✕</button>
-            <h3>
+
+            <p style={{ margin: '0 0 2px', fontSize: '0.75rem', color: '#999', fontWeight: 400 }}>
               {purchaseModal.multi
-                ? `Покупка НИР для ${purchaseModal.toBuy.length} участков`
-                : `Покупка НИР — ${ownedLUs.find(l => l.cellRef === purchaseModal.luId)?.name || purchaseModal.luId}`}
-            </h3>
-            <div className={styles.modalInfo}>
-              <div className={styles.infoRow}>
-                <span className={styles.label}>НИР:</span>
-                <span className={styles.value}>{purchaseModal.work.name}</span>
-              </div>
-              <div className={styles.infoRow}>
-                <span className={styles.label}>Столбец:</span>
-                <span className={styles.value}>{purchaseModal.mob.name}</span>
-              </div>
+                ? `${purchaseModal.toBuy.length} участка · ${purchaseModal.toBuy.map(id => ownedLUs.find(l => l.cellRef === id)?.name || id).join(', ')}`
+                : ownedLUs.find(l => l.cellRef === purchaseModal.luId)?.name || purchaseModal.luId}
+            </p>
+            <p style={{ margin: '0 0 1.25rem', fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.4, paddingRight: '2rem', color: '#333' }}>
+              {purchaseModal.work.name}
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: '1rem' }}>
 
               {purchaseModal.multi ? (
-                <>
-                  {purchaseModal.breakdown.map(({ luId, needsMob, cost }) => {
-                    const luName = ownedLUs.find(l => l.cellRef === luId)?.name || luId;
-                    return (
-                      <div key={luId} className={styles.infoRow}>
-                        <span className={styles.label}>{luName}:</span>
-                        <span className={styles.value}>
-                          {purchaseModal.work.cost} млн
-                          {needsMob
-                            ? ` + моб. ${purchaseModal.mob.cost} млн`
-                            : ' (мобилизация оплачена ✓)'}
-                          {' = '}<strong>{cost} млн</strong>
-                        </span>
-                      </div>
-                    );
-                  })}
-                  <div className={`${styles.infoRow} ${styles.total}`}>
-                    <span className={styles.label}>ИТОГО:</span>
-                    <span className={styles.value}>{purchaseModal.total} млн руб.</span>
+                purchaseModal.breakdown.some(b => b.needsMob) && (
+                  <div style={{ background: '#f8f9fa', borderRadius: 8, padding: '10px 14px' }}>
+                    <div style={{ fontSize: '0.7rem', color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6, fontWeight: 600 }}>
+                      Мобилизация
+                    </div>
+                    {purchaseModal.breakdown.map(({ luId, needsMob }) => {
+                      const luName = ownedLUs.find(l => l.cellRef === luId)?.name || luId;
+                      return needsMob ? (
+                        <div key={luId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', padding: '2px 0' }}>
+                          <span style={{ color: '#555' }}>{luName}</span>
+                          <span style={{ color: '#333', fontWeight: 600 }}>{purchaseModal.mob.cost} млн</span>
+                        </div>
+                      ) : (
+                        <div key={luId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', padding: '2px 0' }}>
+                          <span style={{ color: '#aaa' }}>{luName}</span>
+                          <span style={{ color: '#aaa', fontSize: '0.8rem' }}>оплачена ✓</span>
+                        </div>
+                      );
+                    })}
                   </div>
-                </>
+                )
               ) : (
-                <>
-                  {purchaseModal.needsMob ? (
-                    <div className={`${styles.infoRow} ${styles.highlight}`}>
-                      <span className={styles.label}>+ Мобилизация:</span>
-                      <span className={styles.value}>{purchaseModal.mob.cost} млн (первый раз)</span>
-                    </div>
-                  ) : (
-                    <div className={styles.infoRow}>
-                      <span className={styles.label}>Мобилизация:</span>
-                      <span className={styles.value} style={{ color: '#2e7d32' }}>уже оплачена ✓</span>
-                    </div>
-                  )}
-                  <div className={`${styles.infoRow} ${styles.total}`}>
-                    <span className={styles.label}>ИТОГО:</span>
-                    <span className={styles.value}>{purchaseModal.total} млн руб.</span>
+                <div style={{ background: '#f8f9fa', borderRadius: 8, padding: '10px 14px' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6, fontWeight: 600 }}>
+                    Мобилизация
                   </div>
-                </>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
+                    <span style={{ color: '#555' }}>{purchaseModal.mob.name}</span>
+                    {purchaseModal.needsMob
+                      ? <span style={{ color: '#333', fontWeight: 600 }}>{purchaseModal.mob.cost} млн</span>
+                      : <span style={{ color: '#aaa', fontSize: '0.8rem' }}>оплачена ✓</span>
+                    }
+                  </div>
+                </div>
               )}
 
-              <div className={`${styles.infoRow} ${styles.mystery}`}>
-                <span className={styles.value}>(% успешности откроется после покупки)</span>
+              <div style={{ background: '#f8f9fa', borderRadius: 8, padding: '10px 14px' }}>
+                <div style={{ fontSize: '0.7rem', color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6, fontWeight: 600 }}>
+                  НИР
+                </div>
+                {purchaseModal.multi ? (
+                  purchaseModal.breakdown.map(({ luId }) => {
+                    const luName = ownedLUs.find(l => l.cellRef === luId)?.name || luId;
+                    return (
+                      <div key={luId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', padding: '2px 0' }}>
+                        <span style={{ color: '#555' }}>{luName}</span>
+                        <span style={{ color: '#333', fontWeight: 600 }}>{purchaseModal.work.cost} млн</span>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
+                    <span style={{ color: '#555' }}>{purchaseModal.work.name}</span>
+                    <span style={{ color: '#333', fontWeight: 600 }}>{purchaseModal.work.cost} млн</span>
+                  </div>
+                )}
               </div>
+
             </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#e8f5e9', borderRadius: 8, padding: '10px 14px', marginBottom: '1.25rem' }}>
+              <span style={{ fontWeight: 600, color: '#2e7d32', fontSize: '0.9rem' }}>Итого</span>
+              <span style={{ fontWeight: 700, fontSize: '1.1rem', color: '#2e7d32' }}>{purchaseModal.total} млн руб.</span>
+            </div>
+
             <div className={styles.modalActions}>
               <button
                 className={styles.purchaseModalBtn}
                 onClick={confirmPurchase}
-                disabled={player.budget < purchaseModal.total}>
-                {purchaseModal.multi
-                  ? `Купить для всех (${purchaseModal.total} млн)`
-                  : `Купить (${purchaseModal.total} млн)`}
+                disabled={player.budget < purchaseModal.total}
+              >
+                Купить
               </button>
-              <button className={styles.cancelModalBtn} onClick={() => setPurchaseModal(null)}>Отмена</button>
+              <button className={styles.cancelModalBtn} onClick={() => setPurchaseModal(null)}>
+                Отмена
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Отказ от участков (годы 3 и 5) */}
       {showRefusalModal && (
         <div className={styles.cellModalOverlay}>
-          <div className={styles.cellModal} onClick={e => e.stopPropagation()}>
-            <h3 style={{ textAlign: 'center', color: '#e65100' }}>Возможность отказа от участка</h3>
+          <div
+            className={styles.cellModal}
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: 700, width: '95%' }}
+          >
+            <h3 style={{ textAlign: 'center', color: '#e65100' }}>
+              Возможность отказа от участка
+            </h3>
+
             <div className={styles.modalInfo}>
-              <p style={{ textAlign: 'center', lineHeight: 1.5 }}>
-                {timer.refusalYear === 3
-                  ? 'После 3 года можно отказаться от одного участка.'
-                  : 'После 5 года можно отказаться от участков.'}
-              </p>
-              <div style={{ textAlign: 'center', padding: '6px 14px', background: '#fff3e0', borderRadius: 8, border: '2px solid #ff9800', margin: '8px 0' }}>
+              <div style={{ textAlign: 'center', padding: '6px 14px', background: '#fff3e0', borderRadius: 8, border: '2px solid #ff9800', margin: '0 0 8px 0' }}>
                 <span style={{ fontWeight: 700, fontSize: '1.1rem', color: '#e65100' }}>
                   Время: {fmt(timer.refusalLeft)}
                 </span>
               </div>
-              {ownedLUs.length > 0 && (
-                <div>
-                  <p style={{ fontWeight: 700, textAlign: 'center', marginBottom: 6 }}>Выберите участок для отказа:</p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {ownedLUs.map(lu => (
-                      <div key={lu.id}
-                        onClick={() => setRefusalLU(lu.id === refusalLU ? null : lu.id)}
-                        style={{
-                          padding: '8px 14px', borderRadius: 8, cursor: 'pointer',
-                          background: refusalLU === lu.id ? '#fff3e0' : '#f5f5f5',
-                          border: `2px solid ${refusalLU === lu.id ? '#ff9800' : '#e0e0e0'}`,
-                          fontWeight: refusalLU === lu.id ? 700 : 400,
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        }}>
-                        <span>{lu.name}</span>
-                        {refusalLU === lu.id && <span style={{ color: '#ff9800' }}>✓</span>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+
+              <p style={{ textAlign: 'center', lineHeight: 1.5, margin: '0 0 8px 0' }}>
+                {timer.refusalYear === 3
+                  ? `После 3 года можно отказаться от ${MAX_REFUSAL_COUNT > 1 ? `до ${MAX_REFUSAL_COUNT} участков` : 'одного участка'}.`
+                  : `После 5 года можно отказаться от ${MAX_REFUSAL_COUNT > 1 ? `до ${MAX_REFUSAL_COUNT} участков` : 'участков'}.`}
+              </p>
+
+              {ownedLUs.length > 0 ? (
+                <RefusalMap
+                  ownedCells={useGameStore.getState().gridCells.owned}
+                  allTeamsCells={useGameStore.getState().gridCells.allTeams}
+                  selectedRefs={refusalRefs}
+                  maxCount={MAX_REFUSAL_COUNT}
+                  onToggle={toggleRefusalRef}
+                />
+              ) : (
+                <p style={{ textAlign: 'center', color: '#999' }}>Нет участков для отказа</p>
               )}
             </div>
+
             <div className={styles.modalActions}>
-              <button className={styles.purchaseModalBtn}
+              <button
+                className={styles.purchaseModalBtn}
                 onClick={() => {
-                  if (!refusalLU && ownedLUs.length > 0) { alert('Выберите участок для отказа'); return; }
-                  handleRefusalAccept(refusalLU);
+                  if (refusalRefs.length === 0 && ownedLUs.length > 0) {
+                    alert('Выберите хотя бы один участок на карте');
+                    return;
+                  }
+                  handleRefusalAccept(refusalRefs);
                 }}
-                style={{ background: '#e65100' }}>
-                Отказаться и продолжить
+                style={{ background: '#e65100' }}
+              >
+                {refusalRefs.length > 0
+                  ? `Отказаться от: ${refusalRefs.join(', ')}`
+                  : 'Пропустить и продолжить'}
               </button>
-              <button className={styles.cancelModalBtn} onClick={() => goToNextYear()}>
+              <button className={styles.cancelModalBtn} onClick={() => { setRefusalRefs([]); goToNextYear(); }}>
                 Продолжить с текущими
               </button>
             </div>
           </div>
+          <RefusalTour onDone={() => { }} />
         </div>
       )}
 
-      {/* Финальное окно */}
       {showFinalModal && (
         <div className={styles.cellModalOverlay}>
           <div className={styles.cellModal}>
@@ -1298,7 +1218,7 @@ export default function ResearchPanel({ onComplete }) {
           </div>
         </div>
       )}
-
+      <ResearchPanelTour globalYear={globalYear} onDone={() => { }} />
     </div>
   );
 }

@@ -3,7 +3,13 @@ import useGameStore from '../store/gameStore';
 import { getSessionByCode, joinSession } from './apiHelpers';
 import './GameLobby.css';
 
-const ROLES = ['Геолог', 'Геофизик', 'Инженер по бурению', 'Экономист', 'Менеджер проекта'];
+const ROLES = [
+    { value: 'Геолог',               icon: '' },
+    { value: 'Геофизик',             icon: '📡' },
+    { value: 'Инженер по бурению',   icon: '⚙️' },
+    { value: 'Экономист',            icon: '📊' },
+    { value: 'Менеджер проекта',     icon: '🗂️' },
+];
 
 // ── Шаг 1: ввод кода сессии ───────────────────────────────────────────────────
 
@@ -15,7 +21,6 @@ const StepCode = ({ onNext }) => {
     const handleSubmit = async () => {
         const trimmed = code.trim().toUpperCase();
         if (trimmed.length < 4) { setError('Введите корректный код'); return; }
-
         setLoading(true);
         setError('');
         try {
@@ -35,7 +40,6 @@ const StepCode = ({ onNext }) => {
             <div className="step-icon">🔑</div>
             <h2>Введите код сессии</h2>
             <p className="step-hint">Код выдаёт организатор перед началом игры</p>
-
             <div className="code-input-wrap">
                 <input
                     type="text"
@@ -48,9 +52,7 @@ const StepCode = ({ onNext }) => {
                     autoFocus
                 />
             </div>
-
             {error && <div className="lobby-error">{error}</div>}
-
             <button
                 className="lobby-btn-primary"
                 onClick={handleSubmit}
@@ -87,9 +89,7 @@ const StepTeam = ({ sessionCode, sessionConfig, onJoin }) => {
         });
     };
 
-    const canProceed =
-        teamName.trim() !== '' &&
-        members.every(m => m.name.trim() !== '');
+    const canProceed = teamName.trim() !== '' && members.every(m => m.name.trim() !== '');
 
     const handleJoin = async () => {
         if (!canProceed) return;
@@ -108,51 +108,65 @@ const StepTeam = ({ sessionCode, sessionConfig, onJoin }) => {
         }
     };
 
+    const getRoleIcon = (roleValue) =>
+        ROLES.find(r => r.value === roleValue)?.icon ?? '👤';
+
     return (
-        <div className="lobby-step lobby-step-wide">
-            {/* Инфо сессии */}
-            <div className="session-info-bar">
-                <div className="session-info-chip">
-                    <span className="chip-label">Сессия</span>
-                    <span className="chip-value">{sessionCode}</span>
+        <div className="team-setup-page">
+
+            {/* ── Шапка сессии ── */}
+            <div className="session-banner">
+                <div className="session-banner-chip">
+                    <span className="sbc-label">Сессия</span>
+                    <span className="sbc-value">{sessionCode}</span>
                 </div>
-                <div className="session-info-chip">
-                    <span className="chip-label">Режим</span>
-                    <span className="chip-value">
+                <div className="session-banner-divider" />
+                <div className="session-banner-chip">
+                    <span className="sbc-label">Режим</span>
+                    <span className="sbc-value">
                         {sessionConfig.gameMode === 'online' ? '🌐 Онлайн' : '👤 Одиночная'}
                     </span>
                 </div>
-                <div className="session-info-chip">
-                    <span className="chip-label">Бюджет</span>
-                    <span className="chip-value">
-                        {sessionConfig.budget?.toLocaleString('ru-RU') ?? '—'} млн ₽
+                <div className="session-banner-divider" />
+                <div className="session-banner-chip">
+                    <span className="sbc-label">Бюджет</span>
+                    <span className="sbc-value sbc-budget">
+                        {sessionConfig.budget?.toLocaleString('ru-RU') ?? '—'} <span className="sbc-unit">млн ₽</span>
                     </span>
                 </div>
             </div>
 
-            <h2>Данные команды</h2>
-
-            {/* Название */}
-            <div className="field-group">
-                <label className="field-label">Название команды</label>
-                <input
-                    type="text"
-                    className="field-input"
-                    placeholder="Например: Стражи Галактики"
-                    value={teamName}
-                    onChange={e => setTeamName(e.target.value)}
-                    maxLength={50}
-                />
+            {/* ── Заголовок ── */}
+            <div className="team-setup-header">
+                <h2>Данные команды</h2>
+                <p>Заполните название и состав — это будет видно всем участникам игры</p>
             </div>
 
-            {/* Размер команды */}
-            <div className="field-group">
-                <label className="field-label">Количество участников</label>
-                <div className="size-btns">
+            {/* ── Название команды ── */}
+            <div className="team-name-block">
+                <label className="ts-label">Название команды</label>
+                <div className="team-name-field-wrap">
+                    <span className="team-name-prefix">🏴</span>
+                    <input
+                        type="text"
+                        className="team-name-field"
+                        placeholder="Например: Стражи Галактики"
+                        value={teamName}
+                        onChange={e => setTeamName(e.target.value)}
+                        maxLength={50}
+                    />
+                    {teamName.trim() && <span className="team-name-ok">✓</span>}
+                </div>
+            </div>
+
+            {/* ── Размер команды ── */}
+            <div className="team-size-block">
+                <label className="ts-label">Количество участников</label>
+                <div className="size-pills">
                     {[1, 2, 3, 4, 5].map(n => (
                         <button
                             key={n}
-                            className={`size-btn ${teamSize === n ? 'active' : ''}`}
+                            className={`size-pill ${teamSize === n ? 'active' : ''}`}
                             onClick={() => handleSizeChange(n)}
                         >
                             {n}
@@ -161,35 +175,46 @@ const StepTeam = ({ sessionCode, sessionConfig, onJoin }) => {
                 </div>
             </div>
 
-            {/* Участники */}
-            <div className="members-grid">
+            {/* ── Карточки участников ── */}
+            <div className="members-deck">
                 {members.map((m, i) => (
-                    <div key={i} className="member-card">
-                        <div className="member-num">Участник {i + 1}</div>
+                    <div key={i} className={`member-tile ${m.name.trim() ? 'filled' : ''}`}>
+                        <div className="member-tile-header">
+                            <span className="member-avatar">{getRoleIcon(m.role)}</span>
+                            <span className="member-index">Участник {i + 1}</span>
+                            {m.name.trim() && <span className="member-done">✓</span>}
+                        </div>
                         <input
                             type="text"
-                            className="field-input"
+                            className="member-name-input"
                             placeholder="Имя"
                             value={m.name}
                             onChange={e => updateMember(i, 'name', e.target.value)}
                         />
-                        <select
-                            className="field-select"
-                            value={m.role}
-                            onChange={e => updateMember(i, 'role', e.target.value)}
-                        >
-                            {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                        </select>
+                        <div className="member-role-row">
+                            {ROLES.map(r => (
+                                <button
+                                    key={r.value}
+                                    className={`role-chip ${m.role === r.value ? 'active' : ''}`}
+                                    onClick={() => updateMember(i, 'role', r.value)}
+                                    title={r.value}
+                                >
+                                    <span>{r.icon}</span>
+                                    <span className="role-chip-label">{r.value}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 ))}
             </div>
 
+            {/* ── Ошибки / предупреждения ── */}
             {error && <div className="lobby-error">{error}</div>}
-
             {!canProceed && teamName.trim() !== '' && (
                 <div className="lobby-warn">Заполните имена всех участников</div>
             )}
 
+            {/* ── Кнопка ── */}
             <button
                 className="lobby-btn-primary"
                 onClick={handleJoin}
@@ -205,7 +230,7 @@ const StepTeam = ({ sessionCode, sessionConfig, onJoin }) => {
 
 const GameLobby = () => {
     const { setTeam } = useGameStore();
-    const [step, setStep] = useState('code');       // 'code' | 'team'
+    const [step, setStep] = useState('code');
     const [sessionCode, setSessionCode] = useState('');
     const [sessionConfig, setSessionConfig] = useState(null);
 
@@ -216,7 +241,6 @@ const GameLobby = () => {
     };
 
     const handleJoin = (result) => {
-        // result содержит { teamId, token, sessionConfig, ... }
         setTeam({
             name: result.teamName,
             teamId: result.teamId,

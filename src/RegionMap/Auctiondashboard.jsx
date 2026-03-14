@@ -1,6 +1,6 @@
 // AuctionDashboard.jsx — модальное окно всех аукционов
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './AuctionDashboard.css';
 import { AUCTION_START_PRICE } from '../../store/gameStore';
 
@@ -8,14 +8,26 @@ const AuctionDashboard = ({ auctions, player, budget, onPlaceBid, onLeaveAuction
   const myId = player.teamId || player.name;
   const activeEntries = Object.entries(auctions.active || {});
 
-  const [bidAmounts, setBidAmounts] = useState(() => {
-    const init = {};
-    activeEntries.forEach(([cellRef, auction]) => {
-      init[cellRef] = String(auction.currentBid + AUCTION_START_PRICE);
+  // bidAmounts: { [cellRef]: number } — всегда числа, не строки
+  const [bidAmounts, setBidAmounts] = useState({});
+  const [messages, setMessages]     = useState({});
+
+  // Каждый раз когда обновились аукционы — синхронизируем поля ввода.
+  // Правило: если текущее значение поля МЕНЬШЕ нового минимума — поднимаем до минимума.
+  // Если поля ещё нет вообще — ставим минимум.
+  useEffect(() => {
+    setBidAmounts(prev => {
+      const next = { ...prev };
+      activeEntries.forEach(([cellRef, auction]) => {
+        const minBid = auction.currentBid + AUCTION_START_PRICE;
+        const cur = next[cellRef];
+        if (cur === undefined || cur === null || cur < minBid) {
+          next[cellRef] = minBid;
+        }
+      });
+      return next;
     });
-    return init;
-  });
-  const [messages, setMessages] = useState({});
+  }, [auctions.active]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (currentPhase !== 'auction') return null;
 
@@ -32,10 +44,9 @@ const AuctionDashboard = ({ auctions, player, budget, onPlaceBid, onLeaveAuction
     const auction = auctions.active[cellRef];
     if (!auction) return;
 
-    const amount = Number(bidAmounts[cellRef]);
-    const minBid = auction.currentBid + AUCTION_START_PRICE;
+    const amount  = Number(bidAmounts[cellRef]);
+    const minBid  = auction.currentBid + AUCTION_START_PRICE;
 
-    // Исправленная проверка кратности: просто проверяем кратность шагу
     if (!Number.isFinite(amount) || amount % AUCTION_START_PRICE !== 0) {
       setMessages(m => ({ ...m, [cellRef]: `Ставка должна быть кратна ${AUCTION_START_PRICE} млн` }));
       return;
@@ -52,19 +63,11 @@ const AuctionDashboard = ({ auctions, player, budget, onPlaceBid, onLeaveAuction
     const ok = onPlaceBid(cellRef, amount);
     if (ok) {
       setMessages(m => ({ ...m, [cellRef]: `✓ Ставка ${amount} млн принята!` }));
-      setBidAmounts(b => ({ ...b, [cellRef]: String(amount + AUCTION_START_PRICE) }));
+      // После успешной ставки — следующий шаг
+      setBidAmounts(b => ({ ...b, [cellRef]: amount + AUCTION_START_PRICE }));
     } else {
       setMessages(m => ({ ...m, [cellRef]: 'Ошибка при размещении ставки' }));
     }
-  };
-
-  // Синхронизируем дефолтное значение поля если аукцион обновился снаружи
-  const getBidValue = (cellRef, auction) => {
-    const stored = bidAmounts[cellRef];
-    const minNext = auction.currentBid + AUCTION_START_PRICE;
-    // Если хранимое значение меньше минимума — подтягиваем до минимума
-    if (!stored || Number(stored) < minNext) return String(minNext);
-    return stored;
   };
 
   return (
@@ -97,11 +100,18 @@ const AuctionDashboard = ({ auctions, player, budget, onPlaceBid, onLeaveAuction
         {/* Карточки */}
         <div className="auction-dashboard-cards">
           {myAuctions.map(([cellRef, auction]) => {
-            const weLeading = auction.currentBidTeamId === myId || auction.currentBidTeamName === player.name;
+            const weLeading  = auction.currentBidTeamId === myId || auction.currentBidTeamName === player.name;
             const minNextBid = auction.currentBid + AUCTION_START_PRICE;
-            const bidVal = getBidValue(cellRef, auction);
-            const msg = messages[cellRef];
+
+            // Берём значение из state (число), или минимум если не задано
+            const bidVal = bidAmounts[cellRef] !== undefined ? bidAmounts[cellRef] : minNextBid;
+
+            const msg       = messages[cellRef];
             const isSuccess = msg?.startsWith('✓');
+
+            const isDisabled = !Number.isFinite(Number(bidVal))
+              || Number(bidVal) < minNextBid
+              || Number(bidVal) > budget;
 
             return (
               <div
@@ -160,7 +170,13 @@ const AuctionDashboard = ({ auctions, player, budget, onPlaceBid, onLeaveAuction
                             min={minNextBid}
                             step={AUCTION_START_PRICE}
                             max={budget}
-                            onChange={e => setBidAmounts(b => ({ ...b, [cellRef]: e.target.value }))}
+                            onChange={e => {
+                              const raw = e.target.value;
+                              // Храним как число; если поле пустое — 0 (покажет ошибку при попытке поставить)
+                              setBidAmounts(b => ({ ...b, [cellRef]: raw === '' ? '' : Number(raw) }));
+                              // Сбрасываем сообщение при изменении
+                              setMessages(m => ({ ...m, [cellRef]: undefined }));
+                            }}
                             onKeyDown={e => e.key === 'Enter' && handleBid(cellRef)}
                           />
                           <span className="auction-bid-currency">млн</span>
@@ -168,7 +184,7 @@ const AuctionDashboard = ({ auctions, player, budget, onPlaceBid, onLeaveAuction
                         <button
                           className="auction-place-bid-btn"
                           onClick={() => handleBid(cellRef)}
-                          disabled={Number(bidVal) < minNextBid || Number(bidVal) > budget}
+                          disabled={isDisabled}
                         >
                           Поставить
                         </button>

@@ -3,6 +3,7 @@ import GameLobby from './GameLobby';
 import GameBoard from './GameBoard';
 import AdminPanel from './AdminPanel';
 import useGameStore from '../store/gameStore';
+import useGlobalTimer from './useGlobalTimer'
 import './App.css';
 
 /**
@@ -15,7 +16,7 @@ import './App.css';
  */
 function App() {
   const { player } = useGameStore();
-
+  useGlobalTimer();
   const isAdmin = () =>
     window.location.pathname === '/admin' ||
     new URLSearchParams(window.location.search).has('admin');

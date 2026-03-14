@@ -146,9 +146,9 @@ const ResultsOverlay = ({
                 Вы уверены, что хотите перейти на {globalYear + 1} год?
               </p>
               <p style={{ textAlign: 'center', color: '#d32f2f', fontWeight: 600 }}>
-                Данные текущего года будут сохранены.
+                Данные текущего года будут сохранены, но новый год начнётся с нуля.
                 <br />
-                Карточки EventsZone будут обновлены для нового года.
+                Карточки на зоне событий сброшены для нового года.
               </p>
               {timeRemaining > 0 && (
                 <p style={{ textAlign: 'center', marginTop: '1rem', fontSize: '0.95rem', color: '#666' }}>

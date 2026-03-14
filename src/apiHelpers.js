@@ -119,7 +119,7 @@ const MOCKS = {
     return {
       budgets: { student: 99999999, professional: 99999999 },
       luCosts: { base: 200 },
-      researchCosts: { mobilization: 100 },
+      researchCosts: { mobilization: 99999999 },
     };
   },
 

@@ -34,7 +34,6 @@
 
 .researchBackBtn:hover {
   background: #be956f;
-  color: #ffffff;
   transform: translateY(-2px);
   border-color: #88745c;
 }
@@ -48,14 +47,12 @@
 .researchNextBtn:hover:not(:disabled) {
   background: #be956f;
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px #1f314559;
 }
 
 .researchNextBtn:disabled {
   background: #5c7fa3;
   opacity: 0.6;
   cursor: not-allowed;
-  box-shadow: none;
 }
 
 .timer {
@@ -70,7 +67,6 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
   min-width: 180px;
   border: 2px solid rgba(255, 255, 255, 0.15);
-  transition: background 0.4s, border-color 0.4s;
   z-index: 1000;
   display: flex;
   flex-direction: column;
@@ -85,7 +81,6 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   opacity: 0.8;
-  margin-bottom: 2px;
   color: white;
 }
 
@@ -101,7 +96,6 @@
 .timerSubtitle {
   font-size: 10px;
   opacity: 0.65;
-  margin-top: 2px;
   color: white;
 }
 
@@ -114,7 +108,7 @@
 }
 
 .panelTitle {
-  margin: 0 0 12px 0;
+  margin: 0 0 12px;
   color: rgba(255, 248, 235, 1);
   font-size: 2.4rem;
   font-weight: 700;
@@ -221,39 +215,73 @@
   margin-top: 4px;
 }
 
-.luSt_ready .luCardStatus      { color: #ffd580; }
-.luSt_done .luCardStatus       { color: #b8efc0; }
-.luSt_skipped .luCardStatus    { color: #ffcc80; }
-.luSt_noResearch .luCardStatus { color: rgba(255, 248, 235, 0.3); }
-
-.luSectionActions {
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 248, 235, 0.1);
+.luSt_ready .luCardStatus {
+  color: #ffd580;
 }
 
-.skipAllBtn {
+.luSt_done .luCardStatus {
+  color: #b8efc0;
+}
+
+.luSt_skipped .luCardStatus {
+  color: #ffcc80;
+}
+
+.luSt_noResearch .luCardStatus {
+  color: rgba(255, 248, 235, 0.3);
+}
+
+/* ═══ Баннер отмены риска ═══════════════════════════════════════════════════ */
+.cancelBanner {
+  position: sticky;
+  top: 76px;
+  z-index: 500;
+  background: linear-gradient(90deg, #1a237e, #283593);
+  color: white;
+  padding: 14px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-weight: 700;
+  font-size: 1rem;
+  border-bottom: 3px solid #7986cb;
+  box-shadow: 0 4px 16px rgba(26, 35, 126, 0.5);
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.cancelBannerAbort {
   padding: 8px 20px;
-  background: transparent;
-  color: rgba(255, 248, 235, 0.7);
-  border: 1px solid rgba(255, 248, 235, 0.3);
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.4);
   border-radius: 8px;
   font-weight: 700;
-  font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
-.skipAllBtn:hover {
-  background: rgba(255, 248, 235, 0.12);
-  color: #fff8eb;
-  border-color: rgba(255, 248, 235, 0.6);
+.cancelBannerAbort:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .activeLineArea {
   flex: 1;
   overflow-y: auto;
-  padding: 24px 28px;
-  padding-bottom: 100px;
+  padding: 24px 28px 100px;
 }
 
 .emptyMsg {
@@ -332,8 +360,15 @@
   font-family: monospace;
 }
 
-.lineScore.positive { background: #4caf50; color: white; }
-.lineScore.negative { background: #f44336; color: white; }
+.lineScore.positive {
+  background: #4caf50;
+  color: white;
+}
+
+.lineScore.negative {
+  background: #f44336;
+  color: white;
+}
 
 .lineStatus {
   padding: 5px 12px;
@@ -346,7 +381,6 @@
 
 .lineStatus.skipped {
   background: #ff9800;
-  color: #fff;
 }
 
 .skipLineBtn {
@@ -373,7 +407,132 @@
   margin-bottom: 12px;
 }
 
-/* ── Базовая карточка (возможность / случайность) ── */
+/* ═══ РИСК ══════════════════════════════════════════════════════════════════ */
+.riskCard {
+  position: relative;
+  aspect-ratio: 3/4;
+  border: 3px solid #e53935;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f5f5f5;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  cursor: default;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+
+/* Режим выбора — карточку можно нажать */
+.riskPickable {
+  border-color: #1a237e !important;
+  cursor: pointer !important;
+  box-shadow: 0 0 0 3px #7986cb, 0 6px 18px rgba(26, 35, 126, 0.4) !important;
+  animation: pulsePickable 1.4s ease-in-out infinite;
+}
+
+@keyframes pulsePickable {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+/* Отменённая карточка */
+.riskCancelled {
+  border-color: #9e9e9e !important;
+  opacity: 0.55;
+  filter: grayscale(0.7);
+}
+
+.riskCancelBanner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-12deg);
+  background: rgba(26, 35, 126, 0.88);
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  padding: 6px 14px;
+  border-radius: 6px;
+  z-index: 20;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.riskBgImage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  filter: brightness(0.92);
+}
+
+.riskBadge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #ff6d00;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+  z-index: 10;
+  font-family: 'Courier New', monospace;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.riskFooter {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40%;
+  background: white;
+  padding: 10px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 2px solid #e53935;
+}
+
+.riskTitle {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #1a1a1a;
+  line-height: 1.25;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.riskDesc {
+  font-size: 0.65rem;
+  color: #666;
+  line-height: 1.35;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+/* ═══ ВОЗМОЖНОСТЬ ══════════════════════════════════════════════════════════ */
 .eventCard {
   aspect-ratio: 3/4;
   border: 3px solid #c17a45;
@@ -395,42 +554,191 @@
   cursor: default;
 }
 
-.optionalCard {
-  opacity: 0.88;
-  border-style: dashed;
-}
-
-.optionalCard:hover:not(.revealed) {
-  opacity: 1;
-}
-
-.cardBack {
+.eventCard.opportunity .cardFront {
+  background: rgba(232, 245, 233, 0.97);
+  border: 3px solid #4caf50;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #c17a45 0%, #8b5a2b 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: white;
-  position: relative;
-  gap: 4px;
+  padding: 1rem;
 }
 
-.cardBack::before {
-  content: '';
+.opportunityResult,
+.opportunityPreview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.points {
+  font-size: 2rem;
+  font-weight: 900;
+  color: #6b4423;
+}
+
+.cardFront {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+/* ═══ СЛУЧАЙНОСТЬ — как риск: картинка на карточке ════════════════════════ */
+.randomCard {
+  position: relative;
+  aspect-ratio: 3/4;
+  border: 3px dashed #ff9800;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff8e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+
+.randomCard:hover:not(.randomPos):not(.randomNeg) {
+  transform: scale(1.04);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+
+.randomCard.randomPos {
+  border-color: #43a047;
+  border-style: solid;
+}
+
+.randomCard.randomNeg {
+  border-color: #e53935;
+  border-style: solid;
+}
+
+.optionalCard {
+  opacity: 0.9;
+}
+
+.optionalCard:hover {
+  opacity: 1;
+}
+
+.randomBgImage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  filter: brightness(0.85);
+}
+
+/* Рубашка случайности */
+.randomBack {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.randomBackOverlay {
   position: absolute;
   inset: 0;
-  background-image:
-    radial-gradient(circle at 20% 30%, rgba(255,255,255,0.1) 0%, transparent 40%),
-    radial-gradient(circle at 80% 70%, rgba(0,0,0,0.1) 0%, transparent 40%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.28);
+  z-index: 5;
+}
+
+/* Раскрытая случайность */
+.randomFront {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.randomFrontOverlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-top: 2px solid #ff9800;
+  z-index: 5;
+}
+
+.randomCard.randomPos .randomFrontOverlay {
+  border-top-color: #43a047;
+}
+
+.randomCard.randomNeg .randomFrontOverlay {
+  border-top-color: #e53935;
+}
+
+.randomEffectBadge {
+  font-size: 0.9rem;
+  font-weight: 900;
+  color: #43a047;
+  font-family: monospace;
+}
+
+.randomCard.randomNeg .randomEffectBadge {
+  color: #e53935;
+}
+
+.randomSkippedBadge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #9e9e9e;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 4px;
+  padding: 2px 6px;
+  display: inline-block;
+}
+
+.randomTitle {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #333;
+  line-height: 1.25;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .cardTypeIcon {
-  font-size: 3.5rem;
-  filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));
+  font-size: 3rem;
+  filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.5));
   position: relative;
   z-index: 1;
+}
+
+.optionalBadge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: rgba(255, 255, 255, 0.35);
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  z-index: 6;
 }
 
 .cardPosition {
@@ -448,74 +756,6 @@
   font-size: 11px;
   font-weight: 900;
   z-index: 1;
-}
-
-.optionalBadge {
-  position: absolute;
-  top: 6px;
-  left: 6px;
-  background: rgba(255,255,255,0.25);
-  color: white;
-  font-size: 9px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 6px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  z-index: 1;
-}
-
-.cardFront {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-}
-
-.eventCard.opportunity .cardFront { background: rgba(232, 245, 233, 0.97); border: 3px solid #4caf50; }
-.eventCard.random .cardFront      { background: rgba(255, 248, 225, 0.97); border: 3px solid #ff9800; }
-
-.opportunityResult,
-.randomResult,
-.opportunityPreview {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.points {
-  font-size: 2rem;
-  font-weight: 900;
-  color: #6b4423;
-}
-
-.playedBadge {
-  font-size: 0.85rem;
-  font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 8px;
-  background: #8b5a2b;
-  color: white;
-}
-
-.skippedBadge {
-  font-size: 0.85rem;
-  font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 8px;
-  background: #9e9e9e;
-  color: white;
-  text-align: center;
-}
-
-.pointsSmall {
-  font-size: 0.8rem;
-  margin-left: 4px;
-  opacity: 0.8;
 }
 
 .randomHint {
@@ -559,60 +799,10 @@
   font-weight: 600;
 }
 
-.bottomBar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(107, 68, 35, 0.97);
-  border-top: 3px solid #c17a45;
-  padding: 16px 32px;
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  z-index: 150;
-}
-
-.bottomInfo {
-  flex: 1;
-  font-size: 1rem;
-  color: rgba(255, 248, 235, 0.7);
-  font-weight: 600;
-}
-
-.confirmBtnBottom {
-  padding: 14px 36px;
-  background: linear-gradient(135deg, #2fa394, #1a7a6e);
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  font-weight: 800;
-  font-size: 1rem;
-  cursor: pointer;
-  letter-spacing: 0.06em;
-  box-shadow: 0 6px 18px rgba(47, 163, 148, 0.4);
-  transition: opacity 0.15s, transform 0.1s;
-}
-
-.confirmBtnBottom:hover:not(:disabled) {
-  opacity: 0.9;
-  transform: translateY(-2px);
-}
-
-.confirmBtnBottom:disabled {
-  background: #444;
-  color: #666;
-  box-shadow: none;
-  cursor: not-allowed;
-  transform: none;
-}
-
+/* ═══ МОДАЛЫ ════════════════════════════════════════════════════════════════ */
 .cardModalOverlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background: rgba(107, 68, 35, 0.85);
   display: flex;
   align-items: center;
@@ -630,6 +820,8 @@
   width: 100%;
   position: relative;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .mustAnswerHint {
@@ -645,7 +837,7 @@
 }
 
 .cardModal h3 {
-  margin: 0 0 12px 0;
+  margin: 0 0 12px;
   color: #6b4423;
   text-align: center;
   font-size: 1.7rem;
@@ -656,6 +848,20 @@
   padding: 8px 0;
 }
 
+.modalImageWrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.modalImage {
+  max-width: 100%;
+  max-height: 220px;
+  border-radius: 10px;
+  object-fit: contain;
+  border: 2px solid rgba(193, 122, 69, 0.2);
+}
+
 .question,
 .description {
   font-size: 1.05rem;
@@ -664,6 +870,49 @@
   margin-bottom: 1.5rem;
   line-height: 1.6;
   font-weight: 500;
+}
+
+.randomCardTitle {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #6b4423;
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+/* Превью эффекта в модале */
+.effectPreview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 1.1rem;
+  margin: 0 0 18px;
+  text-align: center;
+  font-family: monospace;
+}
+
+.effectPos {
+  background: rgba(67, 160, 71, 0.12);
+  color: #2e7d32;
+  border: 2px solid rgba(67, 160, 71, 0.3);
+}
+
+.effectNeg {
+  background: rgba(229, 57, 53, 0.10);
+  color: #c62828;
+  border: 2px solid rgba(229, 57, 53, 0.3);
+}
+
+.effectHint {
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: sans-serif;
+  opacity: 0.8;
 }
 
 .options {
@@ -697,23 +946,6 @@
   color: #6b4423;
   font-weight: 700;
   font-size: 0.95rem;
-}
-
-.hiddenPoints {
-  text-align: center;
-  font-size: 1rem;
-  color: #ff9800;
-  font-weight: 600;
-  padding: 1rem;
-  background: #fff3e0;
-  border-radius: 8px;
-  margin: 1rem 0;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 0.7; }
-  50% { opacity: 1; }
 }
 
 .randomActions {
@@ -753,134 +985,38 @@
   color: white;
 }
 
-/* ═══════════════════════════════════════════════════════
-   КАРТОЧКА РИСКА — как на референсе:
-   картинка занимает верх, очки в круге поверх,
-   белая полоска с названием и описанием внизу
-═══════════════════════════════════════════════════════ */
-.riskCard {
-  position: relative;
-  aspect-ratio: 3/4;
-  border: 3px solid #e53935;
-  border-radius: 12px;
-  overflow: hidden;
-  background: #f5f5f5;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  cursor: default;
-  /* НЕ наследует .eventCard */
-}
-
-/* картинка занимает верхние 62% */
-.riskBgImage {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);  /* Вот это ключевое правило */
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    display: block;
-    filter: brightness(0.92);
-}
-
-/* оранжевый круг с очками поверх картинки */
-.riskBadge {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: #ff6d00;
-  color: white;
-  font-size: 1.1rem;
-  font-weight: 900;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.45);
-  z-index: 10;
-  font-family: 'Courier New', monospace;
-  letter-spacing: -0.05em;
-  border: 2px solid rgba(255,255,255,0.3);
-}
-
-/* белая нижняя полоска */
-.riskFooter {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 40%;
-  background: white;
-  padding: 10px 10px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  border-top: 2px solid #e53935;
-}
-
-.riskTitle {
-  font-size: 0.8rem;
-  font-weight: 800;
-  color: #1a1a1a;
-  line-height: 1.25;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-.riskDesc {
-  font-size: 0.65rem;
-  color: #666;
-  line-height: 1.35;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-}
-
-/* картинка в модале */
-.modalImageWrap {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 14px;
-}
-
-.modalImage {
-  max-width: 100%;
-  max-height: 220px;
-  border-radius: 10px;
-  object-fit: contain;
-  border: 2px solid rgba(193,122,69,0.2);
-}
-
-/* картинка на раскрытой карточке случайности */
-.randomCardImage {
-  width: 100%;
-  height: 55%;
-  object-fit: cover;
-  border-radius: 6px;
-  margin-bottom: 6px;
-}
-
 .cardImage {
   display: block;
 }
 
 @media (max-width: 1200px) {
-  .cardsRow { grid-template-columns: repeat(4, 1fr); }
+  .cardsRow {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 @media (max-width: 900px) {
-  .cardsRow { grid-template-columns: repeat(3, 1fr); }
-  .luCardsRow { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; }
-  .luCard { min-width: 140px; flex-shrink: 0; }
+  .cardsRow {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .luCardsRow {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .luCard {
+    min-width: 140px;
+    flex-shrink: 0;
+  }
 }
 
 @media (max-width: 600px) {
-  .cardsRow { grid-template-columns: repeat(2, 1fr); }
-  .activeLineArea { padding: 16px; }
+  .cardsRow {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .activeLineArea {
+    padding: 16px;
+  }
 }

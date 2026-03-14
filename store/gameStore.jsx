@@ -4,7 +4,7 @@ import { devtools, persist } from 'zustand/middleware';
 
 export const BUDGET_CONFIG = {
   STUDENT: 99999,
-  PROFESSIONAL: 100,
+  PROFESSIONAL: 99999,
 };
 
 export const AUCTION_START_PRICE = 50;
@@ -20,7 +20,9 @@ export const PHASE_DURATIONS = {
 
 export const REFUSAL_YEARS = [3, 5];
 
-const YEAR_DURATIONS = {
+// Дефолтные длительности в секундах.
+// Перезаписываются через setSessionTimers() когда придёт конфиг с бэка.
+export const YEAR_DURATIONS = {
   1: 25 * 60,
   2: 20 * 60,
   3: 15 * 60,
@@ -33,21 +35,21 @@ const YEAR_DURATIONS = {
   10: 10 * 60,
 };
 
-export { YEAR_DURATIONS };
+export const REGION_MAP_DURATION = 20 * 60;
 
 const defaultLUProgress = {
   purchasedWorks: [],
-  purchasedWorksByYear: {},     // история НИРов по годам
-  purchasedCells: {},           // ячейки ТЕКУЩЕГО года (сбрасывается)
-  purchasedCellsByYear: {},     // история ячеек по годам
+  purchasedWorksByYear: {},
+  purchasedCells: {},
+  purchasedCellsByYear: {},
   totalSpent: 0,
-  successRates: {},             // успешность ТЕКУЩЕГО года (сбрасывается)
-  successRatesByYear: {},       // история успешности по годам
-  mobilizedColumns: [],         // мобилизации ТЕКУЩЕГО года (сбрасывается)
-  mobilizedColumnsByYear: {},   // история мобилизаций по годам
-  columnsByYear: {},            // какой столбец выбран в каком году (НЕ сбрасывается)
-  skippedYears: [],             // годы-пропуски (НЕ сбрасывается)
-  completedColumns: [],         // завершённые столбцы (НЕ сбрасывается)
+  successRates: {},
+  successRatesByYear: {},
+  mobilizedColumns: [],
+  mobilizedColumnsByYear: {},
+  columnsByYear: {},
+  skippedYears: [],
+  completedColumns: [],
 };
 
 const useGameStore = create(
@@ -55,7 +57,6 @@ const useGameStore = create(
     persist(
       (set, get) => ({
 
-        // ── СОСТОЯНИЕ ИГРЫ ──────────────────────────────────────────────────
         game: {
           id: null,
           status: 'SETUP',
@@ -66,7 +67,14 @@ const useGameStore = create(
           currentYear: 1,
         },
 
-        // ── ГЛОБАЛЬНЫЙ ТАЙМЕР ────────────────────────────────────────────────
+        // ── Глобальный таймер ────────────────────────────────────────────────
+        // timeRemaining — секунды оставшегося времени текущей фазы/года.
+        // yearDurations — конфигурируемые длительности по годам (сек).
+        //   Дефолт = YEAR_DURATIONS, перезаписывается через setSessionTimers().
+        // regionMapDuration — длительность фазы карты региона (сек).
+        //   Когда придёт конфиг с бэка, заполни через setSessionTimers().
+        // phase — 'REGION_MAP' | 'RESEARCH' | 'EVENTS' | 'FIELD_WORK' | 'RESULTS'
+        //   Компоненты вызывают setGlobalPhase() при монтировании.
         globalTimer: {
           currentYear: 1,
           timeRemaining: YEAR_DURATIONS[1],
@@ -76,9 +84,11 @@ const useGameStore = create(
           refusalYear: null,
           refusalTimeLeft: 0,
           phase: 'RESEARCH',
+          // Конфигурация таймеров — заполняется при старте сессии
+          yearDurations: { ...YEAR_DURATIONS },
+          regionMapDuration: REGION_MAP_DURATION,
         },
 
-        // ── ИГРОК / КОМАНДА ─────────────────────────────────────────────────
         player: {
           id: null,
           name: '',
@@ -90,72 +100,58 @@ const useGameStore = create(
           teamMembers: [],
         },
 
-        // ── КАРТОЧКИ ИНФОРМАЦИИ ──────────────────────────────────────────────
         licenseUnits: {
           available: [],
           owned: [],
           current: null,
         },
 
-        // ── КУПЛЕННЫЕ ЯЧЕЙКИ СЕТКИ ──────────────────────────────────────────
         gridCells: {
           owned: {},
           allTeams: {},
         },
 
-        // ── АУКЦИОНЫ ────────────────────────────────────────────────────────
         auctions: {
           active: {},
           completed: {},
         },
 
-        // ── КАРТА РЕГИОНА ────────────────────────────────────────────────────
         regionMap: {
           cells: [],
           resourceDensityRevealed: false,
         },
 
-        // ── НАУЧНЫЕ ИССЛЕДОВАНИЯ ─────────────────────────────────────────────
         research: {
           availableWorks: [],
-          progressByLU: {},  // { luId: { ...defaultLUProgress } }
+          progressByLU: {},
         },
 
-        // ── СОБЫТИЯ ──────────────────────────────────────────────────────────
         events: {
           linesByLU: {},
           revealedCards: {},
-          lineScores: {},      // сохраняется между годами (для блокировки столбцов)
+          lineScores: {},
           skippedLines: {},
-          historyByYear: {},   // архив по годам { [год]: { linesByLU, revealedCards, lineScores, skippedLines } }
+          historyByYear: {},
           isCompleted: false,
           yearScores: {},
-          // Статистика по годам для бэкенда
           yearlyStats: {},
-          // { year: { luId: { score, cardsPlayed, cardsSkipped } } }
         },
 
-        // ── СТАТИСТИКА ПО ГОДАМ ──────────────────────────────────────────────
         statistics: {
           yearlyData: {},
-          // { year: [ { selectedLUs, column, cellKey, workName, totalCost, action, timestamp } ] }
         },
 
-        // ── ПОЛЕВЫЕ РАБОТЫ ───────────────────────────────────────────────────
         fieldWork: {
           availableOptions: [],
           selectionsByLU: {},
         },
 
-        // ── РЕЗУЛЬТАТЫ ───────────────────────────────────────────────────────
         results: {
           cardsByLU: {},
           finalScore: 0,
         },
 
-        // ════════════════════════════════════════════════════════════════════
-        //  ДЕЙСТВИЯ: ГЛОБАЛЬНЫЙ ТАЙМЕР
-        // ════════════════════════════════════════════════════════════════════
+        // ── Таймер: методы ───────────────────────────────────────────────────
 
         startGlobalTimer: () => {
           set((state) => ({
@@ -193,7 +189,10 @@ const useGameStore = create(
               return;
             }
             set((state) => ({
-              globalTimer: { ...state.globalTimer, refusalTimeLeft: state.globalTimer.refusalTimeLeft - 1 },
+              globalTimer: {
+                ...state.globalTimer,
+                refusalTimeLeft: state.globalTimer.refusalTimeLeft - 1,
+              },
             }));
             return;
           }
@@ -206,8 +205,66 @@ const useGameStore = create(
           }
 
           set((state) => ({
-            globalTimer: { ...state.globalTimer, timeRemaining: state.globalTimer.timeRemaining - 1 },
+            globalTimer: {
+              ...state.globalTimer,
+              timeRemaining: state.globalTimer.timeRemaining - 1,
+            },
           }));
+        },
+
+        // ── Установить конфиг таймеров с бэка ────────────────────────────────
+        // Вызывается после joinSession когда пришёл sessionConfig.
+        // yearTimers — объект { 1: минуты, 2: минуты, ... }
+        // regionMapTimer — минуты
+        setSessionTimers: (yearTimers, regionMapTimer) => {
+          const yearDurations = {};
+          Object.entries(yearTimers || {}).forEach(([y, mins]) => {
+            yearDurations[Number(y)] = Number(mins) * 60;
+          });
+          const regionMapDuration = regionMapTimer
+            ? Number(regionMapTimer) * 60
+            : REGION_MAP_DURATION;
+
+          const year = get().globalTimer.currentYear;
+          const phase = get().globalTimer.phase;
+
+          // Если фаза — карта региона, ставим regionMapDuration
+          // Иначе ставим время текущего года
+          const timeRemaining = phase === 'REGION_MAP'
+            ? regionMapDuration
+            : (yearDurations[year] ?? YEAR_DURATIONS[year]);
+
+          set((state) => ({
+            globalTimer: {
+              ...state.globalTimer,
+              yearDurations,
+              regionMapDuration,
+              timeRemaining,
+            },
+          }));
+        },
+
+        // ── Установить фазу (вызывается при монтировании компонента) ─────────
+        // REGION_MAP  → таймер = regionMapDuration
+        // RESEARCH / EVENTS / FIELD_WORK / RESULTS → таймер = yearDurations[year]
+        // Таймер сбрасывается только если фаза действительно изменилась.
+        setGlobalPhase: (phase) => {
+          set((state) => {
+            if (state.globalTimer.phase === phase) return state; // нет изменений
+            const year = state.globalTimer.currentYear;
+            const timeRemaining = phase === 'REGION_MAP'
+              ? (state.globalTimer.regionMapDuration ?? REGION_MAP_DURATION)
+              : (state.globalTimer.yearDurations?.[year] ?? YEAR_DURATIONS[year]);
+            return {
+              globalTimer: {
+                ...state.globalTimer,
+                phase,
+                timeRemaining,
+                isRunning: true,
+                isPaused: false,
+              },
+            };
+          });
         },
 
         advanceToNextYear: () => {
@@ -219,27 +276,33 @@ const useGameStore = create(
             }));
             return;
           }
+          const dur = globalTimer.yearDurations?.[nextYear] ?? YEAR_DURATIONS[nextYear];
           set((state) => ({
             game: { ...state.game, currentYear: nextYear },
             globalTimer: {
               ...state.globalTimer,
               currentYear: nextYear,
-              timeRemaining: YEAR_DURATIONS[nextYear],
+              timeRemaining: dur,
               isRunning: true,
+              isPaused: false,
               pendingRefusal: false,
               refusalYear: null,
               refusalTimeLeft: 0,
+              // Фаза сбрасывается на RESEARCH в начале нового года
+              phase: 'RESEARCH',
             },
           }));
         },
 
         setGlobalYear: (year) => {
+          const { globalTimer } = get();
+          const dur = globalTimer.yearDurations?.[year] ?? YEAR_DURATIONS[year];
           set((state) => ({
             game: { ...state.game, currentYear: year },
             globalTimer: {
               ...state.globalTimer,
               currentYear: year,
-              timeRemaining: YEAR_DURATIONS[year],
+              timeRemaining: dur,
               pendingRefusal: false,
               refusalYear: null,
               refusalTimeLeft: 0,
@@ -263,31 +326,29 @@ const useGameStore = create(
         completeRefusalPeriod: () => {
           const { globalTimer } = get();
           const nextYear = globalTimer.refusalYear + 1;
+          const dur = globalTimer.yearDurations?.[nextYear] ?? YEAR_DURATIONS[nextYear];
           set((state) => ({
             game: { ...state.game, currentYear: nextYear },
             globalTimer: {
               ...state.globalTimer,
               currentYear: nextYear,
-              timeRemaining: YEAR_DURATIONS[nextYear],
+              timeRemaining: dur,
               isRunning: true,
+              isPaused: false,
               pendingRefusal: false,
               refusalYear: null,
               refusalTimeLeft: 0,
+              phase: 'RESEARCH',
             },
-          }));
-        },
-
-        setGlobalPhase: (phase) => {
-          set((state) => ({
-            globalTimer: { ...state.globalTimer, phase },
           }));
         },
 
         resetGlobalTimer: () => {
           set((state) => ({
             globalTimer: {
+              ...state.globalTimer,
               currentYear: 1,
-              timeRemaining: YEAR_DURATIONS[1],
+              timeRemaining: state.globalTimer.yearDurations?.[1] ?? YEAR_DURATIONS[1],
               isRunning: false,
               isPaused: false,
               pendingRefusal: false,
@@ -299,8 +360,35 @@ const useGameStore = create(
           }));
         },
 
-        // ── Запись статистики года ────────────────────────────────────────────
-        // Записывает ОДИН элемент (покупку или действие) для данного года
+        // setYear используется в ResearchPanel при ручном переходе
+        setYear: (year) => {
+          const { globalTimer } = get();
+          const dur = globalTimer.yearDurations?.[year] ?? YEAR_DURATIONS[year];
+          set({
+            game: { ...get().game, currentYear: year },
+            globalTimer: {
+              ...get().globalTimer,
+              currentYear: year,
+              timeRemaining: dur,
+            },
+          });
+        },
+
+        nextYear: () => {
+          const y = get().game.currentYear;
+          if (y < 10) {
+            const dur = get().globalTimer.yearDurations?.[y + 1] ?? YEAR_DURATIONS[y + 1];
+            set({
+              game: { ...get().game, currentYear: y + 1 },
+              globalTimer: {
+                ...get().globalTimer,
+                currentYear: y + 1,
+                timeRemaining: dur,
+              },
+            });
+          }
+        },
+
         recordYearStatistics: (year, data) => {
           set((state) => {
             const existing = state.statistics.yearlyData[year] || [];
@@ -316,64 +404,36 @@ const useGameStore = create(
           });
         },
 
-        // ── Сброс карточек событий при смене года ────────────────────────────
         resetEventCardsForNewYear: (nextYear) => {
           set((state) => {
             const prevYear = nextYear - 1;
             const currentEvents = state.events;
-
-            // Архивируем текущий год
             const historyEntry = {
               linesByLU: { ...currentEvents.linesByLU },
               revealedCards: { ...currentEvents.revealedCards },
               lineScores: { ...currentEvents.lineScores },
               skippedLines: { ...currentEvents.skippedLines },
             };
-
-            // Сохраняем scores в yearlyStats перед сбросом
             const yearlyStats = { ...state.events.yearlyStats };
             yearlyStats[prevYear] = yearlyStats[prevYear] || {};
             Object.keys(currentEvents.lineScores).forEach(luId => {
-              yearlyStats[prevYear][luId] = {
-                score: currentEvents.lineScores[luId] || 0,
-              };
+              yearlyStats[prevYear][luId] = { score: currentEvents.lineScores[luId] || 0 };
             });
-
             return {
               events: {
                 ...currentEvents,
-                linesByLU: {},           // сброс: новые линии сгенерируются в EventsZone
-                revealedCards: {},       // сброс
-                skippedLines: {},        // сброс
-                isCompleted: false,      // сброс
-                // lineScores НЕ сбрасываем — ResearchPanel читает их при confirmSession
+                linesByLU: {},
+                revealedCards: {},
+                skippedLines: {},
+                isCompleted: false,
                 historyByYear: {
                   ...(currentEvents.historyByYear || {}),
-                  [prevYear]: historyEntry,  // архив
+                  [prevYear]: historyEntry,
                 },
                 yearlyStats,
               },
             };
           });
-        },
-
-        // ════════════════════════════════════════════════════════════════════
-        //  ОСТАЛЬНЫЕ ДЕЙСТВИЯ
-        // ════════════════════════════════════════════════════════════════════
-
-        setYear: (year) => set({
-          game: { ...get().game, currentYear: year },
-          globalTimer: { ...get().globalTimer, currentYear: year },
-        }),
-
-        nextYear: () => {
-          const y = get().game.currentYear;
-          if (y < 10) {
-            set({
-              game: { ...get().game, currentYear: y + 1 },
-              globalTimer: { ...get().globalTimer, currentYear: y + 1 },
-            });
-          }
         },
 
         initializeGame: (gameData) => {
@@ -403,13 +463,11 @@ const useGameStore = create(
           });
         },
 
-        // ── Покупка ячеек сетки ──────────────────────────────────────────────
         purchaseGridCell: (cellRef, cellName) => {
           const { gridCells, player, auctions } = get();
           const ownedCount = Object.keys(gridCells.owned).length;
           if (ownedCount >= 5) return 'limit';
           if (gridCells.owned[cellRef]) return 'already_owned';
-
           const existing = gridCells.allTeams[cellRef];
           if (existing && existing.ownedByTeamId && existing.ownedByTeamId !== player.teamId) {
             if (!auctions.active[cellRef]) {
@@ -433,20 +491,16 @@ const useGameStore = create(
             }
             return 'auction';
           }
-
           if (auctions.active[cellRef]) return 'auction';
-
           const cellData = {
             id: cellRef, cellRef, name: cellName,
             ownedByTeamId: player.teamId || player.name,
             ownedByTeamName: player.name,
             purchasedAt: new Date().toISOString(),
           };
-
           const newOwned = { ...gridCells.owned, [cellRef]: cellData };
           const newAllTeams = { ...gridCells.allTeams, [cellRef]: cellData };
           const newCurrent = get().licenseUnits.current || cellData;
-
           set({
             gridCells: { owned: newOwned, allTeams: newAllTeams },
             licenseUnits: { ...get().licenseUnits, current: newCurrent },
@@ -457,16 +511,13 @@ const useGameStore = create(
         unpurchaseGridCell: (cellRef) => {
           const { gridCells } = get();
           if (!gridCells.owned[cellRef]) return false;
-
           const newOwned = { ...gridCells.owned };
           const newAllTeams = { ...gridCells.allTeams };
           delete newOwned[cellRef];
           delete newAllTeams[cellRef];
-
           const remaining = Object.values(newOwned);
           const currentLU = get().licenseUnits.current;
           const newCurrent = currentLU?.cellRef === cellRef ? (remaining[0] || null) : currentLU;
-
           set({
             gridCells: { owned: newOwned, allTeams: newAllTeams },
             licenseUnits: { ...get().licenseUnits, current: newCurrent },
@@ -474,27 +525,19 @@ const useGameStore = create(
           return true;
         },
 
-        // ── Аукцион ──────────────────────────────────────────────────────────
         registerForAuction: (cellRef) => {
           const { auctions, player, gridCells } = get();
           const myId = player.teamId || player.name;
           let auction = auctions.active[cellRef];
-
           if (auction) {
             if (!auction.participants.includes(myId)) {
-              set({
-                auctions: {
-                  ...get().auctions,
-                  active: { ...get().auctions.active, [cellRef]: { ...auction, participants: [...auction.participants, myId] } },
-                },
-              });
+              set({ auctions: { ...get().auctions, active: { ...get().auctions.active, [cellRef]: { ...auction, participants: [...auction.participants, myId] } } } });
               return true;
             }
             return false;
           } else {
             const cellData = gridCells.allTeams[cellRef];
             if (!cellData || !cellData.ownedByTeamId) return false;
-
             set({
               auctions: {
                 ...get().auctions,
@@ -522,11 +565,9 @@ const useGameStore = create(
           if (!auction) return false;
           if (amount <= auction.currentBid) return false;
           if (player.budget < amount) return false;
-
           const myId = player.teamId || player.name;
           const participants = [...(auction.participants || [])];
           if (!participants.includes(myId)) participants.push(myId);
-
           set({
             auctions: {
               ...get().auctions,
@@ -556,13 +597,10 @@ const useGameStore = create(
           const { auctions, player, gridCells } = get();
           const auction = auctions.active[cellRef];
           if (!auction) return false;
-
           const myId = player.teamId || player.name;
           const weWon = auction.currentBidTeamId === myId || auction.currentBidTeamName === player.name;
-
           const active = { ...auctions.active };
           delete active[cellRef];
-
           if (weWon) {
             if (player.budget < auction.currentBid) return false;
             const cellData = {
@@ -608,120 +646,35 @@ const useGameStore = create(
           });
         },
 
-        simulateOtherTeamOwns: (cellRef, cellName) => {
-          const { gridCells, player } = get();
-          const myId = player.teamId || player.name;
-          const cellData = {
-            id: cellRef, cellRef, name: cellName,
-            ownedByTeamId: 'other_team_' + Date.now(),
-            ownedByTeamName: 'Другая команда',
-            purchasedAt: new Date().toISOString(),
-          };
-          const newOwned = { ...gridCells.owned };
-          if (newOwned[cellRef] && newOwned[cellRef].ownedByTeamId === myId) delete newOwned[cellRef];
-          set({ gridCells: { owned: newOwned, allTeams: { ...gridCells.allTeams, [cellRef]: cellData } } });
-        },
-
-        // ── Карточки информации (старая логика) ──────────────────────────────
-        purchaseLU: (lu) => {
-          const budget = get().player.budget;
-          if (budget < lu.cost) return false;
-          set({
-            player: { ...get().player, budget: budget - lu.cost },
-            licenseUnits: {
-              ...get().licenseUnits,
-              available: get().licenseUnits.available.filter(l => l.id !== lu.id),
-              owned: [...get().licenseUnits.owned, lu],
-            },
-          });
-          return true;
-        },
-
-        unpurchaseLU: (luId) => {
-          const lu = get().licenseUnits.owned.find(l => l.id === luId);
-          if (!lu) return false;
-          set({
-            player: { ...get().player, budget: get().player.budget + lu.cost },
-            licenseUnits: {
-              ...get().licenseUnits,
-              available: [...get().licenseUnits.available, lu],
-              owned: get().licenseUnits.owned.filter(l => l.id !== luId),
-            },
-          });
-          return true;
-        },
-
-        // ── Фазы ─────────────────────────────────────────────────────────────
-        nextPhase: () => {
-          const phases = ['REGION_MAP', 'RESEARCH', 'EVENTS', 'FIELD_WORK', 'RESULTS'];
-          const idx = phases.indexOf(get().game.currentPhase);
-          if (idx < phases.length - 1) {
-            set({ game: { ...get().game, currentPhase: phases[idx + 1] } });
-          } else {
-            get().nextLU();
-          }
-        },
-
-        nextLU: () => {
-          const cells = Object.values(get().gridCells.owned);
-          const current = get().licenseUnits.current;
-          const idx = cells.findIndex(c => c.cellRef === current?.cellRef);
-          if (idx < cells.length - 1) {
-            const nextYear = Math.min(get().game.currentYear + 1, 10);
-            set({
-              licenseUnits: { ...get().licenseUnits, current: cells[idx + 1] },
-              game: { ...get().game, currentPhase: 'REGION_MAP', currentRound: get().game.currentRound + 1, currentYear: nextYear },
-            });
-          } else {
-            get().finishGame();
-          }
-        },
-
-        // ── НИР ─────────────────────────────────────────────────────────────
         purchaseResearch: (luId, researchWork) => {
           const budget = get().player.budget;
           if (budget < researchWork.baseCost) return false;
-
           const cur = get().research.progressByLU[luId] || { ...defaultLUProgress };
           const currentYear = get().globalTimer.currentYear;
-
-          // Обновляем rates для ТЕКУЩЕГО года
           const rates = { ...cur.successRates };
           Object.keys(researchWork.successRates).forEach(wt => {
             rates[wt] = Math.min((rates[wt] || 0) + researchWork.successRates[wt], 95);
           });
-
-          // Сохраняем rates в историю
           const ratesByYear = { ...(cur.successRatesByYear || {}) };
           ratesByYear[currentYear] = { ...rates };
-
-          // Обновляем мобилизации для ТЕКУЩЕГО года
           const mobCols = [...(cur.mobilizedColumns || [])];
           const mobColsByYear = { ...(cur.mobilizedColumnsByYear || {}) };
-          
           if (researchWork.mobilizationType && !mobCols.includes(researchWork.mobilizationType)) {
             mobCols.push(researchWork.mobilizationType);
             mobColsByYear[currentYear] = [...(mobColsByYear[currentYear] || []), researchWork.mobilizationType];
           }
-
-          // Запоминаем, какой столбец выбран в этом году
           const colsByYear = { ...(cur.columnsByYear || {}) };
-          if (researchWork.mobilizationType) {
-            colsByYear[currentYear] = researchWork.mobilizationType;
-          }
-
-          // Сохраняем купленные работы в историю
+          if (researchWork.mobilizationType) colsByYear[currentYear] = researchWork.mobilizationType;
           const worksByYear = { ...(cur.purchasedWorksByYear || {}) };
           worksByYear[currentYear] = [...(worksByYear[currentYear] || []), researchWork];
-
           const updated = {
             ...cur,
             purchasedWorks: [...cur.purchasedWorks, researchWork],
             purchasedWorksByYear: worksByYear,
             purchasedCells: { ...(cur.purchasedCells || {}), [researchWork.metadata?.cellKey || researchWork.id]: researchWork },
-            purchasedCellsByYear: { 
-              ...(cur.purchasedCellsByYear || {}), 
-              [currentYear]: { ...(cur.purchasedCellsByYear?.[currentYear] || {}), [researchWork.metadata?.cellKey || researchWork.id]: researchWork }
+            purchasedCellsByYear: {
+              ...(cur.purchasedCellsByYear || {}),
+              [currentYear]: { ...(cur.purchasedCellsByYear?.[currentYear] || {}), [researchWork.metadata?.cellKey || researchWork.id]: researchWork },
             },
             totalSpent: cur.totalSpent + researchWork.baseCost,
             successRates: rates,
@@ -732,7 +685,6 @@ const useGameStore = create(
             skippedYears: cur.skippedYears || [],
             completedColumns: cur.completedColumns || [],
           };
-
           set({
             player: { ...get().player, budget: budget - researchWork.baseCost },
             research: { ...get().research, progressByLU: { ...get().research.progressByLU, [luId]: updated } },
@@ -740,7 +692,6 @@ const useGameStore = create(
           return true;
         },
 
-        // ── Пометить год как "пропущен" для ЛУ ──────────────────────────────
         markYearSkippedForLU: (luId, year) => {
           set(state => {
             const prog = state.research.progressByLU[luId] || { ...defaultLUProgress };
@@ -749,55 +700,42 @@ const useGameStore = create(
             return {
               research: {
                 ...state.research,
-                progressByLU: {
-                  ...state.research.progressByLU,
-                  [luId]: { ...prog, skippedYears },
-                },
+                progressByLU: { ...state.research.progressByLU, [luId]: { ...prog, skippedYears } },
               },
             };
           });
         },
 
-        // ── События ──────────────────────────────────────────────────────────
-        updateEventLine: (luId, d) => set({ 
-          events: { ...get().events, linesByLU: { ...get().events.linesByLU, [luId]: d } } 
-        }),
-        
+        updateEventLine: (luId, d) => set({ events: { ...get().events, linesByLU: { ...get().events.linesByLU, [luId]: d } } }),
+
         saveEventLine: (luId, lineData) => {
-          // lineData теперь содержит поле year
           set((state) => ({
-            events: {
-              ...state.events,
-              linesByLU: {
-                ...state.events.linesByLU,
-                [luId]: lineData,  // lineData содержит поле year
-              },
-            },
+            events: { ...state.events, linesByLU: { ...state.events.linesByLU, [luId]: lineData } },
           }));
         },
-        
+
         revealEventCard: (luId, k, d) => set({
           events: {
             ...get().events,
             revealedCards: { ...get().events.revealedCards, [luId]: { ...(get().events.revealedCards[luId] || {}), [k]: d } },
           },
         }),
-        
+
         updateEventLineScore: (luId, p) => set({
           events: { ...get().events, lineScores: { ...get().events.lineScores, [luId]: (get().events.lineScores[luId] || 0) + p } },
         }),
-        
+
         skipEventLine: (luId) => set({
           events: { ...get().events, skippedLines: { ...get().events.skippedLines, [luId]: [...(get().events.skippedLines[luId] || []), Date.now()] } },
         }),
-        
+
         completeEvents: () => set({ events: { ...get().events, isCompleted: true } }),
 
-        // ── Полевые работы ───────────────────────────────────────────────────
         selectFieldWork: (luId, d) => {
           set({ fieldWork: { ...get().fieldWork, selectionsByLU: { ...get().fieldWork.selectionsByLU, [luId]: d } } });
           return true;
         },
+
         selectFieldWorkWithBudget: (luId, options, totalCost, qualityScore) => {
           const budget = get().player.budget;
           if (budget < totalCost) return false;
@@ -808,7 +746,6 @@ const useGameStore = create(
           return true;
         },
 
-        // ── Результаты ───────────────────────────────────────────────────────
         saveResult: (luId, card) => set({ results: { ...get().results, cardsByLU: { ...get().results.cardsByLU, [luId]: card } } }),
 
         startGame: (gameData) => {
@@ -832,6 +769,7 @@ const useGameStore = create(
         },
 
         resetGame: () => {
+          const { globalTimer } = get();
           set({
             game: { id: null, status: 'SETUP', currentRound: 1, currentPhase: 'LOBBY', currentLUProgress: {}, createdAt: null, currentYear: 1 },
             player: { id: null, name: '', teamId: null, budget: 1000, initialBudget: 1000, experienceLevel: 'student', totalScore: 0, teamMembers: [] },
@@ -840,31 +778,24 @@ const useGameStore = create(
             auctions: { active: {}, completed: {} },
             regionMap: { cells: [], resourceDensityRevealed: false },
             research: { availableWorks: [], progressByLU: {} },
-            events: { 
-              linesByLU: {}, 
-              revealedCards: {}, 
-              lineScores: {}, 
-              skippedLines: {}, 
-              historyByYear: {}, 
-              isCompleted: false, 
-              yearScores: {},
-              yearlyStats: {} 
-            },
+            events: { linesByLU: {}, revealedCards: {}, lineScores: {}, skippedLines: {}, historyByYear: {}, isCompleted: false, yearScores: {}, yearlyStats: {} },
             statistics: { yearlyData: {} },
             fieldWork: { availableOptions: [], selectionsByLU: {} },
             results: { cardsByLU: {}, finalScore: 0 },
             globalTimer: {
-              currentYear: 1, timeRemaining: YEAR_DURATIONS[1],
-              isRunning: false, isPaused: false,
-              pendingRefusal: false, refusalYear: null, refusalTimeLeft: 0,
+              currentYear: 1,
+              timeRemaining: globalTimer.yearDurations?.[1] ?? YEAR_DURATIONS[1],
+              isRunning: false,
+              isPaused: false,
+              pendingRefusal: false,
+              refusalYear: null,
+              refusalTimeLeft: 0,
               phase: 'RESEARCH',
+              yearDurations: globalTimer.yearDurations ?? { ...YEAR_DURATIONS },
+              regionMapDuration: globalTimer.regionMapDuration ?? REGION_MAP_DURATION,
             },
           });
         },
-
-        // ════════════════════════════════════════════════════════════════════
-        //  ГЕТТЕРЫ
-        // ════════════════════════════════════════════════════════════════════
 
         getCurrentLU: () => get().licenseUnits.current,
 
@@ -926,14 +857,12 @@ const useGameStore = create(
           refusalTimeLeft: get().globalTimer.refusalTimeLeft,
         }),
 
-        // Получить все данные по конкретному году для всех ЛУ
         getYearStats: (year) => {
           const state = get();
           const eventsHistory = state.events.historyByYear?.[year] || {
-            linesByLU: state.events.linesByLU,   // текущий год
+            linesByLU: state.events.linesByLU,
             lineScores: state.events.lineScores,
           };
-          
           const researchByLU = {};
           Object.keys(state.research.progressByLU).forEach(luId => {
             const prog = state.research.progressByLU[luId];
@@ -946,15 +875,9 @@ const useGameStore = create(
               skipped: (prog.skippedYears || []).includes(year),
             };
           });
-          
-          return { 
-            year, 
-            research: researchByLU, 
-            events: eventsHistory 
-          };
+          return { year, research: researchByLU, events: eventsHistory };
         },
 
-        // Получить полную статистику сессии (для бэкенда/финального экрана)
         getSessionStatistics: () => {
           const state = get();
           return {
@@ -968,6 +891,60 @@ const useGameStore = create(
             eventHistoryByYear: state.events.historyByYear,
             fieldWork: state.fieldWork.selectionsByLU,
           };
+        },
+
+        simulateOtherTeamOwns: (cellRef, cellName) => {
+          const { gridCells, player } = get();
+          const myId = player.teamId || player.name;
+          const cellData = { id: cellRef, cellRef, name: cellName, ownedByTeamId: 'other_team_' + Date.now(), ownedByTeamName: 'Другая команда', purchasedAt: new Date().toISOString() };
+          const newOwned = { ...gridCells.owned };
+          if (newOwned[cellRef] && newOwned[cellRef].ownedByTeamId === myId) delete newOwned[cellRef];
+          set({ gridCells: { owned: newOwned, allTeams: { ...gridCells.allTeams, [cellRef]: cellData } } });
+        },
+
+        purchaseLU: (lu) => {
+          const budget = get().player.budget;
+          if (budget < lu.cost) return false;
+          set({
+            player: { ...get().player, budget: budget - lu.cost },
+            licenseUnits: { ...get().licenseUnits, available: get().licenseUnits.available.filter(l => l.id !== lu.id), owned: [...get().licenseUnits.owned, lu] },
+          });
+          return true;
+        },
+
+        unpurchaseLU: (luId) => {
+          const lu = get().licenseUnits.owned.find(l => l.id === luId);
+          if (!lu) return false;
+          set({
+            player: { ...get().player, budget: get().player.budget + lu.cost },
+            licenseUnits: { ...get().licenseUnits, available: [...get().licenseUnits.available, lu], owned: get().licenseUnits.owned.filter(l => l.id !== luId) },
+          });
+          return true;
+        },
+
+        nextPhase: () => {
+          const phases = ['REGION_MAP', 'RESEARCH', 'EVENTS', 'FIELD_WORK', 'RESULTS'];
+          const idx = phases.indexOf(get().game.currentPhase);
+          if (idx < phases.length - 1) {
+            set({ game: { ...get().game, currentPhase: phases[idx + 1] } });
+          } else {
+            get().nextLU();
+          }
+        },
+
+        nextLU: () => {
+          const cells = Object.values(get().gridCells.owned);
+          const current = get().licenseUnits.current;
+          const idx = cells.findIndex(c => c.cellRef === current?.cellRef);
+          if (idx < cells.length - 1) {
+            const nextYear = Math.min(get().game.currentYear + 1, 10);
+            set({
+              licenseUnits: { ...get().licenseUnits, current: cells[idx + 1] },
+              game: { ...get().game, currentPhase: 'REGION_MAP', currentRound: get().game.currentRound + 1, currentYear: nextYear },
+            });
+          } else {
+            get().finishGame();
+          }
         },
       }),
       {

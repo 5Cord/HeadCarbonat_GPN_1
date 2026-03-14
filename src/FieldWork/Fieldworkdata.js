@@ -31,16 +31,16 @@ export const FIELD_WORK_BLOCKS = [
         cardId: 'srr2d_shag_pp',
         cardTitle: 'Шаг ПП',
         options: [
-          { rank: 1, param: '12,5 м',  cost: 500 },
-          { rank: 2, param: '25 м',    cost: 400 }
+          { rank: 1, param: '12,5 м', cost: 500 },
+          { rank: 2, param: '25 м', cost: 400 }
         ]
       },
       {
         cardId: 'srr2d_udaleniya',
         cardTitle: 'Удаления',
         options: [
-          { rank: 1, param: '3 км',  cost: 200 },
-          { rank: 2, param: '5 км',  cost: 100 }
+          { rank: 1, param: '3 км', cost: 200 },
+          { rank: 2, param: '5 км', cost: 100 }
         ]
       }
     ]
@@ -58,7 +58,7 @@ export const FIELD_WORK_BLOCKS = [
         cardTitle: 'Азимутальность',
         options: [
           { rank: 1, param: 'Полноазимутальная', cost: 350 },
-          { rank: 2, param: 'Узкоазимутальная',  cost: 250 }
+          { rank: 2, param: 'Узкоазимутальная', cost: 250 }
         ]
       },
       {
@@ -73,8 +73,8 @@ export const FIELD_WORK_BLOCKS = [
         cardId: 'srr3d_kratnost',
         cardTitle: 'Кратность',
         options: [
-          { rank: 1, param: 'Более 300',  cost: 600 },
-          { rank: 2, param: '150–300',     cost: 350 }
+          { rank: 1, param: 'Более 300', cost: 600 },
+          { rank: 2, param: '150–300', cost: 350 }
         ]
       }
     ]
@@ -90,9 +90,9 @@ export const FIELD_WORK_BLOCKS = [
         cardId: '1pr_ispytaniya',
         cardTitle: 'Испытания',
         options: [
-          { rank: 1, param: 'ИПТ, MDT, перфорация',  cost: 70 },
-          { rank: 2, param: 'MDT, перфорация',        cost: 50 },
-          { rank: 3, param: 'ИПТ, перфорация',        cost: 10 }
+          { rank: 1, param: 'ИПТ, MDT, перфорация', cost: 70 },
+          { rank: 2, param: 'MDT, перфорация', cost: 50 },
+          { rank: 3, param: 'ИПТ, перфорация', cost: 10 }
         ]
       },
       {
@@ -100,17 +100,17 @@ export const FIELD_WORK_BLOCKS = [
         cardTitle: 'Комплекс ГИС',
         options: [
           { rank: 1, param: 'НК, АК, ГК, УЭС, КВ, ГГКП, ЛП, ЯМК, ИНГКС, FMI, АКШ (SS)', cost: 75 },
-          { rank: 2, param: 'НК, АК, ГК, УЭС, КВ, ГГКП, ЛП, ЯМК, ИНГКС',                 cost: 50 },
-          { rank: 3, param: 'НК, АК, ГК, УЭС, КВ, ГГКП, ЛП, ЯМК',                         cost: 25 }
+          { rank: 2, param: 'НК, АК, ГК, УЭС, КВ, ГГКП, ЛП, ЯМК, ИНГКС', cost: 50 },
+          { rank: 3, param: 'НК, АК, ГК, УЭС, КВ, ГГКП, ЛП, ЯМК', cost: 25 }
         ]
       },
       {
         cardId: '1pr_kern',
         cardTitle: 'Отбор керна',
         options: [
-          { rank: 1, param: 'Алюминиевая труба half-moon, антизаклиночная система, 9 м за рейс',  cost: 30 },
-          { rank: 2, param: 'Стеклопластиковая труба, антизаклиночная система, 18 м за рейс',     cost: 20 },
-          { rank: 3, param: 'Стеклопластиковая труба, 27 м за рейс',                              cost: 10 }
+          { rank: 1, param: 'Алюминиевая труба half-moon, антизаклиночная система, 9 м за рейс', cost: 30 },
+          { rank: 2, param: 'Стеклопластиковая труба, антизаклиночная система, 18 м за рейс', cost: 20 },
+          { rank: 3, param: 'Стеклопластиковая труба, 27 м за рейс', cost: 10 }
         ]
       }
     ]
@@ -137,7 +137,7 @@ export const FIELD_WORK_BLOCKS = [
         options: [
           { rank: 1, param: '1300 м', cost: 140 },
           { rank: 2, param: '1000 м', cost: 120 },
-          { rank: 3, param: '700 м',  cost: 100 }
+          { rank: 3, param: '700 м', cost: 100 }
         ]
       },
       {
@@ -145,8 +145,8 @@ export const FIELD_WORK_BLOCKS = [
         cardTitle: 'Исследования',
         options: [
           { rank: 1, param: 'LWD, микроимиджер, ГДИС', cost: 30 },
-          { rank: 2, param: 'LWD, микроимиджер',       cost: 25 },
-          { rank: 3, param: 'Комплекс LWD',            cost: 10 }
+          { rank: 2, param: 'LWD, микроимиджер', cost: 25 },
+          { rank: 3, param: 'Комплекс LWD', cost: 10 }
         ]
       }
     ]
@@ -163,9 +163,9 @@ export const FIELD_WORK_BLOCKS = [
         cardId: 'mgrp_podryadchik',
         cardTitle: 'Подрядчик',
         options: [
-          { rank: 1, param: 'Зарубежный лицензиар технологии',          cost: 50 },
-          { rank: 2, param: 'Российский подрядчик (зарубежное обор.)',   cost: 30 },
-          { rank: 3, param: 'Российский вендор',                         cost: 0  }
+          { rank: 1, param: 'Зарубежный лицензиар технологии', cost: 50 },
+          { rank: 2, param: 'Российский подрядчик (зарубежное обор.)', cost: 30 },
+          { rank: 3, param: 'Российский вендор', cost: 0 }
         ]
       },
       {
@@ -174,7 +174,7 @@ export const FIELD_WORK_BLOCKS = [
         options: [
           { rank: 1, param: '1300 м', cost: 140 },
           { rank: 2, param: '1000 м', cost: 120 },
-          { rank: 3, param: '700 м',  cost: 100 }
+          { rank: 3, param: '700 м', cost: 100 }
         ]
       },
       {
@@ -201,16 +201,16 @@ export const FIELD_WORK_BLOCKS = [
         options: [
           { rank: 1, param: '700 м', cost: 60 },
           { rank: 2, param: '500 м', cost: 30 },
-          { rank: 3, param: '300 м', cost: 0  }
+          { rank: 3, param: '300 м', cost: 0 }
         ]
       },
       {
         cardId: 'mzs_podryadchik',
         cardTitle: 'Подрядчик',
         options: [
-          { rank: 1, param: 'Зарубежный лицензиар технологии',        cost: 50 },
+          { rank: 1, param: 'Зарубежный лицензиар технологии', cost: 50 },
           { rank: 2, param: 'Российский подрядчик (зарубежное обор.)', cost: 30 },
-          { rank: 3, param: 'Российский вендор',                       cost: 0  }
+          { rank: 3, param: 'Российский вендор', cost: 0 }
         ]
       },
       {
@@ -218,8 +218,8 @@ export const FIELD_WORK_BLOCKS = [
         cardTitle: 'Кол-во стволов',
         options: [
           { rank: 1, param: '5 стволов', cost: 240 },
-          { rank: 2, param: '4 ствола',  cost: 210 },
-          { rank: 3, param: '3 ствола',  cost: 190 }
+          { rank: 2, param: '4 ствола', cost: 210 },
+          { rank: 3, param: '3 ствола', cost: 190 }
         ]
       }
     ]
@@ -237,7 +237,7 @@ export const FIELD_WORK_BLOCKS = [
         options: [
           { rank: 1, param: 'ВГВ (одновременная закачка) — 40 % газа', cost: 2100 },
           { rank: 2, param: 'ВГВ (одновременная закачка) — 20 % газа', cost: 1800 },
-          { rank: 3, param: 'Без газовых МУН',                         cost: 0    }
+          { rank: 3, param: 'Без газовых МУН', cost: 0 }
         ]
       },
       {
@@ -245,17 +245,17 @@ export const FIELD_WORK_BLOCKS = [
         cardTitle: 'Химия',
         options: [
           { rank: 1, param: 'Полимерное заводнение', cost: 600 },
-          { rank: 2, param: 'Smart-water',           cost: 200 },
-          { rank: 3, param: 'Без химических МУН',    cost: 0   }
+          { rank: 2, param: 'Smart-water', cost: 200 },
+          { rank: 3, param: 'Без химических МУН', cost: 0 }
         ]
       },
       {
         cardId: 'mun_masshtab',
         cardTitle: 'Масштабность',
         options: [
-          { rank: 1, param: 'CO₂ (полномасштабное внедрение)',             cost: 2300 },
-          { rank: 2, param: 'CO₂ (закачка на отдельном участке)',          cost: 2000 },
-          { rank: 3, param: 'CO₂ (huff & puff) на 10 % фонда',           cost: 200  }
+          { rank: 1, param: 'CO₂ (полномасштабное внедрение)', cost: 2300 },
+          { rank: 2, param: 'CO₂ (закачка на отдельном участке)', cost: 2000 },
+          { rank: 3, param: 'CO₂ (huff & puff) на 10 % фонда', cost: 200 }
         ]
       }
     ]
@@ -272,8 +272,8 @@ export const FIELD_WORK_BLOCKS = [
         cardTitle: 'Система разработки',
         options: [
           { rank: 1, param: 'Очаговая система с учётом естественных трещин', cost: 130 },
-          { rank: 2, param: 'Площадная система',                             cost: 100 },
-          { rank: 3, param: 'Без регулярной системы ППД',                    cost: 0   }
+          { rank: 2, param: 'Площадная система', cost: 100 },
+          { rank: 3, param: 'Без регулярной системы ППД', cost: 0 }
         ]
       },
       {
@@ -281,8 +281,8 @@ export const FIELD_WORK_BLOCKS = [
         cardTitle: 'Вода для ППД',
         options: [
           { rank: 1, param: 'С подбором хим. состава и очисткой от мех. примесей', cost: 100 },
-          { rank: 2, param: 'Подготовленная вода',                                  cost: 30  },
-          { rank: 3, param: 'Вода из водозаборных скважин',                        cost: 0   }
+          { rank: 2, param: 'Подготовленная вода', cost: 30 },
+          { rank: 3, param: 'Вода из водозаборных скважин', cost: 0 }
         ]
       }
     ]
@@ -298,27 +298,27 @@ export const FIELD_WORK_BLOCKS = [
         cardId: 'depr_fond',
         cardTitle: 'Процент фонда',
         options: [
-          { rank: 1, param: '50 % фонда в зонах с подозрением на трещиноватость',      cost: 500 },
-          { rank: 2, param: '20 % наиболее рискового фонда в зонах трещиноватости',     cost: 300 },
-          { rank: 3, param: 'Без бурения на депрессии',                                 cost: 0   }
+          { rank: 1, param: '50 % фонда в зонах с подозрением на трещиноватость', cost: 500 },
+          { rank: 2, param: '20 % наиболее рискового фонда в зонах трещиноватости', cost: 300 },
+          { rank: 3, param: 'Без бурения на депрессии', cost: 0 }
         ]
       },
       {
         cardId: 'depr_mehanizm',
         cardTitle: 'Механизм закачки',
         options: [
-          { rank: 1, param: 'Бурение с промывкой буровым раствором',                    cost: 70 },
+          { rank: 1, param: 'Бурение с промывкой буровым раствором', cost: 70 },
           { rank: 2, param: 'Закачка в микрокольцевую зону или нагнетательную колонну', cost: 50 },
-          { rank: 3, param: 'Закачка через стояк',                                      cost: 30 }
+          { rank: 3, param: 'Закачка через стояк', cost: 30 }
         ]
       },
       {
         cardId: 'depr_podryadchik',
         cardTitle: 'Уровень подрядчика',
         options: [
-          { rank: 1, param: 'Зарубежный лицензиар технологии',                    cost: 50 },
-          { rank: 2, param: 'Российский подрядчик с зарубежным оборудованием',    cost: 30 },
-          { rank: 3, param: 'Российский вендор',                                  cost: 0  }
+          { rank: 1, param: 'Зарубежный лицензиар технологии', cost: 50 },
+          { rank: 2, param: 'Российский подрядчик с зарубежным оборудованием', cost: 30 },
+          { rank: 3, param: 'Российский вендор', cost: 0 }
         ]
       }
     ]
@@ -334,18 +334,18 @@ export const FIELD_WORK_BLOCKS = [
         cardId: 'pervppd_kriteriy',
         cardTitle: 'Критерий перевода',
         options: [
-          { rank: 1, param: 'Перевод с учётом системы естественных трещин',   cost: 50 },
-          { rank: 2, param: 'Перевод в зоне потерь по пластовому давлению',   cost: 30 },
-          { rank: 3, param: 'Перевод скважин отработавших запасы',            cost: 10 }
+          { rank: 1, param: 'Перевод с учётом системы естественных трещин', cost: 50 },
+          { rank: 2, param: 'Перевод в зоне потерь по пластовому давлению', cost: 30 },
+          { rank: 3, param: 'Перевод скважин отработавших запасы', cost: 10 }
         ]
       },
       {
         cardId: 'pervppd_tipy',
         cardTitle: 'Типы скважин к переводу',
         options: [
-          { rank: 1, param: 'Перевод ГС скважин с учётом давления раскрытия трещин',          cost: 30 },
-          { rank: 2, param: 'Перевод ВС и ННС с учётом давления раскрытия трещин',            cost: 15 },
-          { rank: 3, param: 'Перевод скважин любой конструкции для обеспечения компенсации',  cost: 10 }
+          { rank: 1, param: 'Перевод ГС скважин с учётом давления раскрытия трещин', cost: 30 },
+          { rank: 2, param: 'Перевод ВС и ННС с учётом давления раскрытия трещин', cost: 15 },
+          { rank: 3, param: 'Перевод скважин любой конструкции для обеспечения компенсации', cost: 10 }
         ]
       }
     ]
@@ -370,9 +370,9 @@ export const FIELD_WORK_BLOCKS = [
         cardId: 'zbs_ugol',
         cardTitle: 'Угол входа ЗБС в пласт',
         options: [
-          { rank: 1, param: '75–90°',  cost: 30 },
-          { rank: 2, param: '50–75°',  cost: 20 },
-          { rank: 3, param: 'до 50°',  cost: 10 }
+          { rank: 1, param: '75–90°', cost: 30 },
+          { rank: 2, param: '50–75°', cost: 20 },
+          { rank: 3, param: 'до 50°', cost: 10 }
         ]
       }
     ]
@@ -441,7 +441,7 @@ export const calculateQualityScore = (selections, blocks) => {
     block.cards.forEach(card => {
       const chosenRank = selections[card.cardId];
       if (chosenRank != null) {
-        totalPoints += (4 - chosenRank); 
+        totalPoints += (4 - chosenRank);
         cardCount++;
       }
     });

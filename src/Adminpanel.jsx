@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     getAdminSessions,
     getAdminTeams,
     getAdminStats,
-    getGameConfig,
-    updateGameConfig,
     deleteSession,
     resetTeam,
     exportData,
@@ -12,46 +10,94 @@ import {
 } from './apiHelpers';
 import './AdminPanel.css';
 
+// ─── Константы ───────────────────────────────────────────────────────────────
 
-const DEFAULT_TIMERS = {
-    selection: 20,
-    research: 10,
-    events: 15,
-    fieldWork: 15,
+const YEARS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+const YEAR_LABEL = (y) => {
+    if (y <= 4) return `Год ${y}`;
+    if (y === 5) return `Год ${y}`;
+    if (y <= 8) return `Год ${y}`;
+    return `Год ${y}`;
 };
 
-const BUDGET_DEFAULTS = { students: 99999999, professionals: 99999999 };
+// Карта региона - своё время (минуты), не зависит от года
+const DEFAULT_REGION_MAP_TIMER = 20;
 
+// НИР + События + Полевые + Результаты - одно общее время на год (минуты)
+const DEFAULT_YEAR_TIMERS = {
+    1: 25,
+    2: 20,
+    3: 15,
+    4: 15,
+    5: 10,
+    6: 15,
+    7: 15,
+    8: 15,
+    9: 10,
+    10: 10,
+};
+
+const BUDGET_DEFAULTS = {
+    students: 99999999,
+    professionals: 99999999,
+};
+
+// ─── CreateSessionTab ─────────────────────────────────────────────────────────
 
 const CreateSessionTab = () => {
     const [step, setStep] = useState('form');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [createdSession, setCreatedSession] = useState(null);
+    const [timersExpanded, setTimersExpanded] = useState(false);
 
     const [form, setForm] = useState({
         gameMode: 'online',
         playerType: 'students',
-        teamsCount: 2,
-        timers: { ...DEFAULT_TIMERS },
         maxLUsPerTeam: 3,
+        budgets: { ...BUDGET_DEFAULTS },
+        regionMapTimer: DEFAULT_REGION_MAP_TIMER,
+        yearTimers: { ...DEFAULT_YEAR_TIMERS },
     });
 
     const setField = (key, value) => setForm(f => ({ ...f, [key]: value }));
 
-    const handlePlayerTypeChange = (type) => {
-        setForm(f => ({ ...f, playerType: type }));
-    };
+    const updateBudget = (type, value) =>
+        setForm(f => ({ ...f, budgets: { ...f.budgets, [type]: Number(value) } }));
 
-    const updateTimer = (key, value) => {
-        setForm(f => ({ ...f, timers: { ...f.timers, [key]: Number(value) } }));
-    };
+    const updateYearTimer = (year, value) =>
+        setForm(f => ({
+            ...f,
+            yearTimers: {
+                ...f.yearTimers,
+                [year]: Math.max(1, Math.min(120, Number(value))),
+            },
+        }));
+
+    const resetTimersToDefault = () =>
+        setForm(f => ({
+            ...f,
+            regionMapTimer: DEFAULT_REGION_MAP_TIMER,
+            yearTimers: { ...DEFAULT_YEAR_TIMERS },
+        }));
 
     const handleCreate = async () => {
         setError('');
         setLoading(true);
         try {
-            const result = await createSession(form);
+            const payload = {
+                gameMode: form.gameMode,
+                playerType: form.playerType,
+                maxLUsPerTeam: form.maxLUsPerTeam,
+                budget: form.budgets[form.playerType],
+                budgets: form.budgets,
+                // Карта региона - одно время, не привязано к году
+                regionMapTimer: form.regionMapTimer,
+                // НИР + События + Полевые + Результаты - одно время на год
+                yearTimers: form.yearTimers,
+            };
+            const result = await createSession(payload);
             setCreatedSession(result);
             setStep('created');
         } catch (e) {
@@ -65,14 +111,15 @@ const CreateSessionTab = () => {
         setStep('form');
         setCreatedSession(null);
         setError('');
+        setTimersExpanded(false);
     };
 
+    // ── Экран результата ──────────────────────────────────────────────────
     if (step === 'created') {
         return (
             <div className="create-session-result">
                 <div className="session-created-icon">✅</div>
                 <h2>Сессия создана!</h2>
-
                 <div className="session-code-display">
                     <div className="session-code-label">Код сессии</div>
                     <div className="session-code-big">{createdSession.sessionCode}</div>
@@ -83,7 +130,6 @@ const CreateSessionTab = () => {
                         📋 Копировать
                     </button>
                 </div>
-
                 <div className="session-summary">
                     <div className="summary-row">
                         <span>Режим</span>
@@ -93,39 +139,35 @@ const CreateSessionTab = () => {
                         <span>Игроки</span>
                         <strong>{form.playerType === 'students' ? '🎓 Студенты' : '💼 Профессионалы'}</strong>
                     </div>
-                    {form.gameMode === 'online' && (
-                        <div className="summary-row">
-                            <span>Команд</span>
-                            <strong>{form.teamsCount}</strong>
-                        </div>
-                    )}
                     <div className="summary-row">
                         <span>Бюджет</span>
-                        <strong>{BUDGET_DEFAULTS[form.playerType].toLocaleString('ru-RU')} млн ₽</strong>
+                        <strong>{form.budgets[form.playerType].toLocaleString('ru-RU')} млн ₽</strong>
                     </div>
                     <div className="summary-row">
                         <span>Макс. ЛУ на команду</span>
                         <strong>{form.maxLUsPerTeam}</strong>
                     </div>
+                    <div className="summary-row">
+                        <span>Карта региона</span>
+                        <strong>{form.regionMapTimer} мин</strong>
+                    </div>
                 </div>
-
                 <p className="session-hint-text">
-                    Покажите код командам — они вводят его на стартовом экране игры.
+                    Покажите код командам - они вводят его на стартовом экране игры.
                 </p>
-
                 <div className="result-actions">
-                    <button className="btn-secondary" onClick={handleReset}>
-                        ＋ Создать ещё
-                    </button>
+                    <button className="btn-secondary" onClick={handleReset}>＋ Создать ещё</button>
                 </div>
             </div>
         );
     }
 
+    // ── Форма ─────────────────────────────────────────────────────────────
     return (
         <div className="create-session-form">
             <h2>Создать новую сессию</h2>
 
+            {/* Режим */}
             <div className="form-section">
                 <div className="form-section-title">Режим игры</div>
                 <div className="toggle-group">
@@ -134,101 +176,152 @@ const CreateSessionTab = () => {
                         onClick={() => setField('gameMode', 'online')}
                     >
                         <span>🌐</span>
-                        <div>
-                            <strong>Онлайн</strong>
-                            <small>Несколько команд одновременно</small>
-                        </div>
+                        <div><strong>Онлайн</strong><small>Несколько команд одновременно</small></div>
                     </button>
                     <button
                         className={`toggle-btn ${form.gameMode === 'solo' ? 'active' : ''}`}
                         onClick={() => setField('gameMode', 'solo')}
                     >
                         <span>👤</span>
-                        <div>
-                            <strong>Одиночная</strong>
-                            <small>Одна команда</small>
-                        </div>
+                        <div><strong>Одиночная</strong><small>Одна команда</small></div>
                     </button>
                 </div>
             </div>
 
+            {/* Тип игроков */}
             <div className="form-section">
                 <div className="form-section-title">Тип игроков</div>
                 <div className="toggle-group">
                     <button
                         className={`toggle-btn ${form.playerType === 'students' ? 'active' : ''}`}
-                        onClick={() => handlePlayerTypeChange('students')}
+                        onClick={() => setField('playerType', 'students')}
                     >
                         <span>🎓</span>
-                        <div>
-                            <strong>Студенты</strong>
-                            <small>Бюджет {BUDGET_DEFAULTS.students.toLocaleString('ru-RU')} млн ₽</small>
-                        </div>
+                        <div><strong>Студенты</strong></div>
                     </button>
                     <button
                         className={`toggle-btn ${form.playerType === 'professionals' ? 'active' : ''}`}
-                        onClick={() => handlePlayerTypeChange('professionals')}
+                        onClick={() => setField('playerType', 'professionals')}
                     >
                         <span>💼</span>
-                        <div>
-                            <strong>Профессионалы</strong>
-                            <small>Бюджет {BUDGET_DEFAULTS.professionals.toLocaleString('ru-RU')} млн ₽</small>
-                        </div>
+                        <div><strong>Профессионалы</strong></div>
                     </button>
                 </div>
             </div>
 
-            {form.gameMode === 'online' && (
-                <div className="form-section">
-                    <div className="form-section-title">
-                        Количество команд
-                        <div className="teams-count-ctrl">
-                            <button onClick={() => setField('teamsCount', Math.max(1, form.teamsCount - 1))}>−</button>
-                            <span>{form.teamsCount}</span>
-                            <button onClick={() => setField('teamsCount', Math.min(8, form.teamsCount + 1))}>+</button>
-                        </div>
-                    </div>
-                    <p className="form-hint">Команды сами вводят название и состав при входе в игру</p>
-                </div>
-            )}
-
+            {/* Бюджеты */}
             <div className="form-section">
-                <div className="form-section-title">Таймеры фаз (минуты)</div>
+                <div className="form-section-title">Бюджеты (млн ₽)</div>
                 <div className="timers-grid">
-                    {[
-                        { key: 'selection', label: 'Выбор участков' },
-                        { key: 'research', label: 'НИР' },
-                        { key: 'events', label: 'События' },
-                        { key: 'fieldWork', label: 'Полевые работы' },
-                    ].map(({ key, label }) => (
-                        <label key={key} className="timer-field">
-                            <span>{label}</span>
-                            <input
-                                type="number"
-                                min={1}
-                                max={120}
-                                value={form.timers[key]}
-                                onChange={e => updateTimer(key, e.target.value)}
-                            />
-                            <span>мин</span>
-                        </label>
-                    ))}
+                    <label className="timer-field">
+                        <span>🎓 Студенты</span>
+                        <input
+                            type="number"
+                            min={1}
+                            value={form.budgets.students}
+                            onChange={e => updateBudget('students', e.target.value)}
+                        />
+                        <span>млн ₽</span>
+                    </label>
+                    <label className="timer-field">
+                        <span>💼 Профессионалы</span>
+                        <input
+                            type="number"
+                            min={1}
+                            value={form.budgets.professionals}
+                            onChange={e => updateBudget('professionals', e.target.value)}
+                        />
+                        <span>млн ₽</span>
+                    </label>
                 </div>
             </div>
 
+            {/* Макс. ЛУ */}
             <div className="form-section">
-                <div className="form-section-title">Дополнительно</div>
+                <div className="form-section-title">Настройка ЛУ</div>
                 <label className="timer-field">
                     <span>Макс. ЛУ на команду</span>
                     <input
                         type="number"
-                        min={1}
+                        min={3}
                         max={5}
                         value={form.maxLUsPerTeam}
-                        onChange={e => setField('maxLUsPerTeam', Math.max(1, Math.min(5, Number(e.target.value))))}
+                        onChange={e => setField('maxLUsPerTeam', Math.max(3, Math.min(5, Number(e.target.value))))}
                     />
-                    <span className="field-range-hint">(1–5)</span>
+                    <span className="field-range-hint">(3–5)</span>
                 </label>
+            </div>
+
+            {/* Таймеры */}
+            <div className="form-section">
+                <div className="form-section-title-row">
+                    <span className="form-section-title">Таймеры</span>
+                    <button className="btn-ghost-small" onClick={resetTimersToDefault}>
+                        ↺ Сбросить к умолчаниям
+                    </button>
+                </div>
+
+                {/* Карта региона - отдельно */}
+                <div className="timer-block-standalone">
+                    <div className="timer-block-label">
+                        <span className="timer-block-icon">🗺️</span>
+                        <div>
+                            <div className="timer-block-name">Карта региона</div>
+                            <div className="timer-block-hint">Одно время - не зависит от года</div>
+                        </div>
+                    </div>
+                    <label className="timer-field timer-field-inline">
+                        <input
+                            type="number"
+                            min={1}
+                            max={120}
+                            value={form.regionMapTimer}
+                            onChange={e => setField('regionMapTimer', Math.max(1, Math.min(120, Number(e.target.value))))}
+                        />
+                        <span>мин</span>
+                    </label>
+                </div>
+
+                {/* Разделитель */}
+                <div className="timer-section-divider">
+                    <span>НИР · События · Полевые работы · Результаты</span>
+                    <span className="timer-section-divider-hint">одно общее время на каждый год</span>
+                </div>
+
+                {/* Годовые таймеры - компактная сетка */}
+                <button
+                    className="years-toggle-btn"
+                    onClick={() => setTimersExpanded(v => !v)}
+                >
+                    <span>{timersExpanded ? '▲ Свернуть' : '▼ Развернуть все годы'}</span>
+                    <span className="years-toggle-summary">
+                        {YEARS.map(y => (
+                            <span key={y} className="year-mini-chip">
+                                {y}: {form.yearTimers[y]}м
+                            </span>
+                        ))}
+                    </span>
+                </button>
+
+                {timersExpanded && (
+                    <div className="year-timers-grid">
+                        {YEARS.map(year => (
+                            <div key={year} className="year-timer-cell">
+                                <div className="year-timer-label">{YEAR_LABEL(year)}</div>
+                                <label className="timer-field">
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={120}
+                                        value={form.yearTimers[year]}
+                                        onChange={e => updateYearTimer(year, e.target.value)}
+                                    />
+                                    <span>мин</span>
+                                </label>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {error && <div className="form-error">{error}</div>}
@@ -244,48 +337,13 @@ const CreateSessionTab = () => {
     );
 };
 
-
-const ConfigEditor = ({ config, onSave }) => {
-    const [editedConfig, setEditedConfig] = useState(config);
-
-    const handleChange = (section, key, value) => {
-        setEditedConfig(prev => ({
-            ...prev,
-            [section]: { ...prev[section], [key]: parseFloat(value) || value },
-        }));
-    };
-
-    return (
-        <div className="config-editor">
-            <div className="config-section">
-                <h3>💰 Бюджеты</h3>
-                <label>
-                    Студенты:
-                    <input type="number" value={editedConfig.budgets?.student || 0}
-                        onChange={e => handleChange('budgets', 'student', e.target.value)} />
-                    млн ₽
-                </label>
-                <label>
-                    Профессионалы:
-                    <input type="number" value={editedConfig.budgets?.professional || 0}
-                        onChange={e => handleChange('budgets', 'professional', e.target.value)} />
-                    млн ₽
-                </label>
-            </div>
-            <button className="save-config-btn" onClick={() => onSave(editedConfig)}>
-                💾 Сохранить изменения
-            </button>
-        </div>
-    );
-};
-
+// ─── AdminPanel ───────────────────────────────────────────────────────────────
 
 const AdminPanel = () => {
     const [activeTab, setActiveTab] = useState('create');
     const [stats, setStats] = useState(null);
     const [sessions, setSessions] = useState([]);
     const [teams, setTeams] = useState([]);
-    const [config, setConfig] = useState(null);
     const [loading, setLoading] = useState(false);
     const [filters] = useState({});
 
@@ -310,40 +368,16 @@ const AdminPanel = () => {
         finally { setLoading(false); }
     };
 
-    const loadConfig = async () => {
-        setLoading(true);
-        try { setConfig(await getGameConfig()); }
-        catch (e) { console.error(e); }
-        finally { setLoading(false); }
-    };
-
-    const handleConfigUpdate = async (updated) => {
-        setLoading(true);
-        try {
-            await updateGameConfig(updated);
-            setConfig(updated);
-            alert('Конфигурация обновлена!');
-        } catch (e) {
-            alert('Ошибка обновления конфигурации');
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const handleDeleteSession = async (sessionId) => {
         if (!window.confirm('Удалить сессию? Это действие необратимо.')) return;
-        try {
-            await deleteSession(sessionId);
-            loadSessions();
-        } catch (e) { alert('Ошибка удаления'); }
+        try { await deleteSession(sessionId); loadSessions(); }
+        catch (e) { alert('Ошибка удаления'); }
     };
 
     const handleResetTeam = async (teamId) => {
         if (!window.confirm('Сбросить прогресс команды?')) return;
-        try {
-            await resetTeam(teamId);
-            loadTeams();
-        } catch (e) { alert('Ошибка сброса'); }
+        try { await resetTeam(teamId); loadTeams(); }
+        catch (e) { alert('Ошибка сброса'); }
     };
 
     const handleExport = async (type, format) => {
@@ -364,7 +398,6 @@ const AdminPanel = () => {
         setActiveTab(tab);
         if (tab === 'sessions') loadSessions();
         if (tab === 'teams') loadTeams();
-        if (tab === 'config') loadConfig();
         if (tab === 'dashboard') loadDashboard();
     };
 
@@ -373,13 +406,12 @@ const AdminPanel = () => {
         { id: 'dashboard', label: '📊 Дашборд' },
         { id: 'sessions', label: '🎮 Сессии' },
         { id: 'teams', label: '👥 Команды' },
-        { id: 'config', label: '⚙️ Конфиг' },
     ];
 
     return (
         <div className="admin-panel">
             <header className="admin-header">
-                <h1>⚙️ Админ-панель · Геологоразведочная игра</h1>
+                <h1>⚙️ Админ-панель · Курс на карбонаты</h1>
                 <button className="logout-btn" onClick={() => localStorage.removeItem('auth_token')}>
                     Выйти
                 </button>
@@ -460,7 +492,7 @@ const AdminPanel = () => {
                                         <td><strong>{t.name}</strong></td>
                                         <td>{t.experienceLevel === 'student' ? '🎓' : '💼'}</td>
                                         <td>{t.members?.length || 0}</td>
-                                        <td>{t.sessionCode || '—'}</td>
+                                        <td>{t.sessionCode || '-'}</td>
                                         <td>{new Date(t.createdAt).toLocaleString('ru-RU')}</td>
                                         <td>
                                             <button className="action-btn view" onClick={() => window.open(`/admin/teams/${t.teamId}`, '_blank')}>👁️</button>
@@ -470,13 +502,6 @@ const AdminPanel = () => {
                                 ))}
                             </tbody>
                         </table>
-                    </div>
-                )}
-
-                {activeTab === 'config' && config && (
-                    <div className="config">
-                        <h2>Конфигурация игры</h2>
-                        <ConfigEditor config={config} onSave={handleConfigUpdate} />
                     </div>
                 )}
             </main>

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import './RegionMap.css';
 import useGameStore, { AUCTION_START_PRICE } from '../../store/gameStore';
 import AuctionDashboard from './AuctionDashboard'; // ← новый компонент
+ import RegionMapTour from './RegionMapTour';
 import {
   saveTeamProgress,
   getSessionStatus,
@@ -29,9 +30,9 @@ const BLOCKED_CELLS = {
   company: ['B5', 'C5', 'B6', 'C6'],
 };
 
-const SELECTION_DURATION = 0.5 * 60;
-const AUCTION_DURATION = 0.5 * 60;
-const POST_AUCTION_TIME = 0.5 * 60;
+const SELECTION_DURATION = 0.3 * 60;
+const AUCTION_DURATION = 0.3 * 60;
+const POST_AUCTION_TIME = 0.3 * 60;
 
 const RM_WARNING_5MIN = 0.3 * 60;
 const RM_WARNING_2MIN = 0.3 * 60;
@@ -142,7 +143,7 @@ const AlertModal = ({ isOpen, onClose, title, children }) => {
   );
 };
 
-const RegionMap = ({ onComplete, onNext }) => {
+const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const {
     player, licenseUnits, gridCells, auctions,
     purchaseLU, purchaseGridCell, placeBid, finalizeAuction,
@@ -623,7 +624,7 @@ const RegionMap = ({ onComplete, onNext }) => {
 
   const DEV_SIMULATED_TEAMS = [
     { cellRef: 'E5', name: 'Участок E5', teamId: 'dev_team_alpha', teamName: 'Команда Альфа' },
-    { cellRef: 'F7', name: 'Участок F7', teamId: 'dev_team_beta',  teamName: 'Команда Бета'  },
+    { cellRef: 'F7', name: 'Участок F7', teamId: 'dev_team_beta', teamName: 'Команда Бета' },
   ];
 
   const shouldShowDevButton = () =>
@@ -662,8 +663,10 @@ const RegionMap = ({ onComplete, onNext }) => {
       )}
 
       {/* ── Управляющие кнопки ── */}
+      {/* ── Управляющие кнопки ── */}
       <div className="map-controls">
-        <button className="control-btn back-control-btn" onClick={onComplete}>Назад</button>
+        <button className="control-btn back-control-btn" onClick={onBack}>← Назад</button>
+        <button className="control-btn back-control-btn" onClick={onMenu}>В меню</button>
         {!teamFinished && !waitingForOthers && currentPhase === 'selection' && (ownedCount > 0 || myAuctionCells.length > 0) && (
           <button className="control-btn finish-selection-btn" onClick={handleFinishSelection}>
             Завершить выбор
@@ -671,7 +674,7 @@ const RegionMap = ({ onComplete, onNext }) => {
         )}
         {currentPhase === 'finished' && ownedCount > 0 && onNext && (
           <button className="control-btn next-control-btn" onClick={onNext}>
-            Далее - Научные исследования
+            Далее — Научные исследования
           </button>
         )}
       </div>
@@ -1119,7 +1122,7 @@ const RegionMap = ({ onComplete, onNext }) => {
       >
         <p>{alertModal?.message}</p>
       </AlertModal>
-
+<RegionMapTour onDone={() => {}} />
     </div>
   );
 };

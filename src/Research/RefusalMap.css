@@ -1,0 +1,215 @@
+/* RefusalMap.css */
+
+.refusal-map-wrap {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  user-select: none;
+}
+
+/* ── Легенда ── */
+.refusal-map-legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.refusal-legend-item {
+  padding: 3px 10px;
+  border-radius: 5px;
+  border: 2px solid transparent;
+}
+
+.refusal-legend-own {
+  background: #bbdefb;
+  border-color: #1976d2;
+  color: #0d47a1;
+}
+
+.refusal-legend-selected {
+  background: #ffcdd2;
+  border-color: #c62828;
+  color: #b71c1c;
+}
+
+.refusal-legend-other {
+  background: #f5f5f5;
+  border-color: #bdbdbd;
+  color: #616161;
+}
+
+.refusal-legend-blocked {
+  background: #e8f5e9;
+  border-color: #388e3c;
+  color: #1b5e20;
+}
+
+/* ── Сетка ── */
+.refusal-map-grid-wrap {
+  overflow-x: auto;
+}
+
+.refusal-grid-col-headers {
+  display: flex;
+  margin-left: 28px;  /* ширина row-header */
+  margin-bottom: 2px;
+}
+
+.refusal-grid-corner {
+  width: 28px;
+  flex-shrink: 0;
+}
+
+.refusal-grid-col-header {
+  width: 36px;
+  min-width: 36px;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #555;
+}
+
+.refusal-grid-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.refusal-grid-row-header {
+  width: 28px;
+  min-width: 28px;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #555;
+  flex-shrink: 0;
+}
+
+/* ── Ячейки ── */
+.refusal-cell {
+  width: 36px;
+  min-width: 36px;
+  height: 30px;
+  border: 1px solid #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: #fafafa;
+  cursor: default;
+  transition: all 0.15s;
+  font-size: 0.6rem;
+  color: #bbb;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.refusal-cell-label {
+  font-size: 0.55rem;
+  opacity: 0.5;
+  line-height: 1;
+}
+
+.refusal-cell-mark {
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* Свой участок — синий, кликабельный */
+.refusal-cell-own {
+  background: #bbdefb;
+  border: 2px solid #1976d2;
+  cursor: pointer;
+  color: #0d47a1;
+}
+
+.refusal-cell-own:hover {
+  background: #90caf9;
+  transform: scale(1.08);
+  z-index: 5;
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.4);
+}
+
+.refusal-cell-own .refusal-cell-own-mark {
+  color: #1565c0;
+  font-size: 0.9rem;
+}
+
+/* Выбран для отказа — красный */
+.refusal-cell-selected {
+  background: #ffcdd2;
+  border: 2px solid #c62828;
+  cursor: pointer;
+  color: #b71c1c;
+}
+
+.refusal-cell-selected:hover {
+  background: #ef9a9a;
+  transform: scale(1.08);
+  z-index: 5;
+  box-shadow: 0 2px 8px rgba(198, 40, 40, 0.4);
+}
+
+.refusal-cell-selected .refusal-cell-mark {
+  color: #c62828;
+  font-size: 1rem;
+}
+
+/* Чужой участок */
+.refusal-cell-other {
+  background: #f5f5f5;
+  border: 1px solid #bdbdbd;
+  color: #9e9e9e;
+}
+
+/* Заблокированные */
+.refusal-cell-blocked {
+  cursor: not-allowed;
+}
+
+.refusal-cell-blocked-reserve {
+  background: #c8e6c9;
+  border: 1px solid #66bb6a;
+}
+
+.refusal-cell-blocked-settlement {
+  background: #fff9c4;
+  border: 1px solid #f9a825;
+}
+
+.refusal-cell-blocked-company {
+  background: #ffe0b2;
+  border: 1px solid #fb8c00;
+}
+
+/* ── Итог ── */
+.refusal-map-selection-summary {
+  text-align: center;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.refusal-summary-hint {
+  color: #1565c0;
+  background: #e3f2fd;
+  padding: 6px 14px;
+  border-radius: 7px;
+  border: 1px solid #90caf9;
+  display: inline-block;
+}
+
+.refusal-summary-chosen {
+  color: #b71c1c;
+  background: #ffebee;
+  padding: 6px 14px;
+  border-radius: 7px;
+  border: 2px solid #ef9a9a;
+  display: inline-block;
+}

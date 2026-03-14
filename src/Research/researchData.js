@@ -1,4 +1,3 @@
-// researchData.js 
 
 export const RESEARCH_WORKS = [
   {
@@ -377,7 +376,6 @@ export const RESEARCH_WORKS = [
   }
 ];
 
-// Всё про мобилизицию
 export const MOBILIZATION_WORKS = [
   { id: 'srr_2d', name: 'Успешность СРР 2D', cost: 300, round: 1, years: [1, 2, 3, 4], dependency: null },
   { id: 'srr_3d', name: 'Успешность СРР 3D', cost: 300, round: 1, years: [1, 2, 3, 4], dependency: null },
@@ -400,7 +398,6 @@ export const RESEARCH_ROUNDS = [
   { id: 3, name: 'Раунд 3: Добыча', years: [9, 10], description: 'Промышленная добыча (9-10 год)' }
 ];
 
-// Для АПИШКИ
 export const prepareResearchDataForAPI = (teamId, luId, purchasedWorks, mobilizedWorks) => {
   return {
     teamId,
