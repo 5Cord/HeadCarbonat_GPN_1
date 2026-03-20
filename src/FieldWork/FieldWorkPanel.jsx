@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+// FieldWorkPanel.jsx — локальный таймер убран, читаем globalTimer из store
+import React, { useState, useEffect, useCallback } from 'react';
 import { FIELD_WORK_BLOCKS, calculateTotalCost, calculateQualityScore, prepareFieldWorkForAPI } from './fieldWorkData';
 import useGameStore from '../../store/gameStore';
 import styles from './FieldWorkPanel.module.css';
 import BudgetBar from '../BudgetBar.jsx';
+import FieldWorkPanelTour from './Fieldworkpaneltour';
 
-const YEAR_DURATIONS = { 1: 25, 2: 20, 3: 15, 4: 15, 5: 10, 6: 15, 7: 15, 8: 15, 9: 10, 10: 10 };
-const W5 = 5 * 60, W2 = 2 * 60, W30 = 30;
+// ─── Утилиты ─────────────────────────────────────────────────────────────────
 
 const fmtTime = (totalSeconds) => {
   const s = Math.max(0, Math.floor(totalSeconds));
@@ -41,9 +42,26 @@ const calcAvgRank = (selections, blocks) => {
   return Math.floor(sum / count);
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// КОМПОНЕНТ
+// ─────────────────────────────────────────────────────────────────────────────
+
 const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }) => {
   const { player, gridCells, research, fieldWork, events } = useGameStore();
-  const globalYear = useGameStore((s) => s.game.currentYear);
+  const { setGlobalPhase } = useGameStore();
+  const globalYear = useGameStore(s => s.game.currentYear);
+
+  // ── ГЛОБАЛЬНЫЙ ТАЙМЕР (только чтение) ─────────────────────────────────────
+  const globalTimer = useGameStore(s => s.globalTimer);
+  const timeRemaining = globalTimer.timeRemaining;
+  const isTimerFinished = timeRemaining <= 0;
+
+  // Объявить фазу при монтировании
+  useEffect(() => {
+    setGlobalPhase('FIELD_WORK');
+  }, []);
+
+  // ── Участки ───────────────────────────────────────────────────────────────
 
   const ownedCells = Object.values(gridCells.owned).map(c => ({
     id: c.cellRef, cellRef: c.cellRef,
@@ -60,49 +78,28 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
   const researchProg = luId ? (research.progressByLU[luId] || null) : null;
   const evScore = luId ? (events.lineScores?.[luId] ?? 0) : 0;
 
-  // ФИХ: avail строится ТОЛЬКО из столбцов, мобилизованных в текущем году.
-  // mobilizedColumnsByYear[globalYear] — массив столбцов именно этого года.
-  // Старые годы хранятся в том же объекте, но сюда не попадают.
-  // Если mobilizedColumnsByYear отсутствует (старые данные), fallback на mobilizedColumns
-  // с фильтрацией по columnsByYear[globalYear] — чтобы не сломать backward compat.
+  // Доступные блоки
   const avail = (() => {
     if (evScore < 0 || !researchProg) return [];
-
-    // Приоритет: берём столбец, выбранный в этом году (один столбец на год)
     const chosenColThisYear = researchProg.columnsByYear?.[globalYear];
-
-    // mobilizedColumnsByYear[year] — список всех столбцов, мобилизованных в этом году
     const mobThisYear = researchProg.mobilizedColumnsByYear?.[globalYear] || [];
-
-    // Если есть данные по году — используем их
-    if (mobThisYear.length > 0) {
-      return FIELD_WORK_BLOCKS.filter(b => mobThisYear.includes(b.mobWorkId));
-    }
-
-    // Fallback для backward compat: если mobilizedColumnsByYear не заполнен,
-    // показываем только блок выбранного в этом году столбца
-    if (chosenColThisYear) {
-      return FIELD_WORK_BLOCKS.filter(b => b.mobWorkId === chosenColThisYear);
-    }
-
-    // Совсем нет данных — пусто
+    if (mobThisYear.length > 0) return FIELD_WORK_BLOCKS.filter(b => mobThisYear.includes(b.mobWorkId));
+    if (chosenColThisYear) return FIELD_WORK_BLOCKS.filter(b => b.mobWorkId === chosenColThisYear);
     return [];
   })();
 
-  // Загружаем selections ТОЛЬКО текущего года
+  // ── Selections ────────────────────────────────────────────────────────────
+
   const getYearSelections = useCallback((id, year) => {
     return fieldWork.selectionsByLU[id]?.selectionsByYear?.[year] || {};
   }, [fieldWork.selectionsByLU]);
 
   const [selections, setSelections] = useState(() => getYearSelections(luId, globalYear));
 
-  // При смене участка или года — загружаем selections именно этого года
   useEffect(() => {
     setSelections(getYearSelections(luId, globalYear));
   }, [luId, globalYear]);
 
-  // Сохраняем selections в store — ТОЛЬКО в слот текущего года,
-  // прошлые годы в selectionsByYear остаются нетронутыми
   useEffect(() => {
     if (!luId) return;
     const tc = calculateTotalCost(selections, avail);
@@ -111,27 +108,18 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
 
     useGameStore.setState(st => {
       const prev = st.fieldWork.selectionsByLU[luId] || {};
-      const prevByYear = prev.selectionsByYear || {};   // все прошлые годы целы
-      const prevMeta = prev.metaByYear || {};           // все прошлые мета целы
+      const prevByYear = prev.selectionsByYear || {};
+      const prevMeta = prev.metaByYear || {};
       return {
         fieldWork: {
           ...st.fieldWork,
           selectionsByLU: {
             ...st.fieldWork.selectionsByLU,
             [luId]: {
-              ...prev,
-              // «текущие» selections — всегда только этот год
-              selections,
-              totalCost: tc,
-              qualityScore: qs,
-              avgRank,
+              ...prev, selections, totalCost: tc, qualityScore: qs, avgRank,
               availableBlocks: avail.map(b => b.blockId),
-              // Пишем ТОЛЬКО в слот текущего года, остальные годы не трогаем
               selectionsByYear: { ...prevByYear, [globalYear]: selections },
-              metaByYear: {
-                ...prevMeta,
-                [globalYear]: { totalCost: tc, qualityScore: qs, avgRank },
-              },
+              metaByYear: { ...prevMeta, [globalYear]: { totalCost: tc, qualityScore: qs, avgRank } },
             },
           },
         },
@@ -139,48 +127,11 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
     });
   }, [selections, luId, globalYear]);
 
-  const [timer, setTimer] = useState({
-    timeRemaining: YEAR_DURATIONS[globalYear] * 60,
-    year: globalYear,
-    isFinished: false,
-  });
-  const ivRef = useRef(null);
-  const startIv = useCallback(() => {
-    if (ivRef.current) { clearInterval(ivRef.current); ivRef.current = null; }
-    ivRef.current = setInterval(() => {
-      setTimer(prev => {
-        if (prev.isFinished) return prev;
-        const t = prev.timeRemaining - 1;
-        if (t <= 0) {
-          clearInterval(ivRef.current);
-          ivRef.current = null;
-          return { ...prev, timeRemaining: 0, isFinished: true };
-        }
-        return { ...prev, timeRemaining: t };
-      });
-    }, 1000);
-  }, []);
-
-  useEffect(() => {
-    setTimer({ timeRemaining: YEAR_DURATIONS[globalYear] * 60, year: globalYear, isFinished: false });
-    startIv();
-    return () => { if (ivRef.current) clearInterval(ivRef.current); };
-  }, [globalYear]);
-
-  const timerCls = () => {
-    if (timer.isFinished) return styles.timer + ' ' + styles.timerFinished;
-    const t = timer.timeRemaining;
-    if (t <= W30) return styles.timer + ' ' + styles.timerCritical;
-    if (t <= W2) return styles.timer + ' ' + styles.timerWarning;
-    if (t <= W5) return styles.timer + ' ' + styles.timerAlert;
-    return styles.timer;
-  };
+  // ── Расчёты ───────────────────────────────────────────────────────────────
 
   const tc = calculateTotalCost(selections, avail);
   const totCards = avail.reduce((s, b) => s + b.cards.length, 0);
-  const selCards = Object.keys(selections).filter(
-    k => avail.some(b => b.cards.some(c => c.cardId === k))
-  ).length;
+  const selCards = Object.keys(selections).filter(k => avail.some(b => b.cards.some(c => c.cardId === k))).length;
   const canAfford = player.budget >= tc;
   const avgRank = calcAvgRank(selections, avail);
 
@@ -188,14 +139,11 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
 
   const doConfirm = () => {
     if (!canAfford || selCards === 0) return;
-    useGameStore.setState(st => ({
-      player: { ...st.player, budget: st.player.budget - tc },
-    }));
+    useGameStore.setState(st => ({ player: { ...st.player, budget: st.player.budget - tc } }));
     const luStore = fieldWork.selectionsByLU[luId] || {};
     const apiPayload = {
       ...prepareFieldWorkForAPI(player.id, luId, selections, avail),
       year: globalYear,
-      // Передаём ВСЕ годы для истории — backend может использовать
       selectionsByYear: luStore.selectionsByYear || {},
       metaByYear: luStore.metaByYear || {},
     };
@@ -206,7 +154,6 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
   const getStatus = (cellRef) => {
     const p = research.progressByLU[cellRef];
     const sc = events.lineScores?.[cellRef] ?? 0;
-    // Статус — только по выборам текущего года
     const yearSel = fieldWork.selectionsByLU[cellRef]?.selectionsByYear?.[globalYear];
     if (sc < 0) return 'failed';
     if (yearSel && Object.keys(yearSel).length > 0) return 'done';
@@ -219,8 +166,7 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
     else console.warn('onBack callback not provided');
   }, [onBack]);
 
-  // shuffledOptions перемешиваются один раз при монтировании —
-  // порядок кнопок внутри карточки случайный, но стабильный в рамках сессии
+  // Карточки перемешиваются один раз при монтировании
   const [shuffledOptions] = useState(() => {
     const map = {};
     FIELD_WORK_BLOCKS.forEach(block => {
@@ -236,28 +182,42 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
     return map;
   });
 
-  const totalSpent = Object.values(research.progressByLU)
-    .reduce((s, p) => s + (p.totalSpent || 0), 0);
+  const totalSpent = Object.values(research.progressByLU).reduce((s, p) => s + (p.totalSpent || 0), 0);
+
+  // ── CSS класс таймера ─────────────────────────────────────────────────────
+  const timerCls = () => {
+    if (isTimerFinished) return styles.timer + ' ' + styles.timerFinished;
+    const t = timeRemaining;
+    if (t <= 30) return styles.timer + ' ' + styles.timerCritical;
+    if (t <= 120) return styles.timer + ' ' + styles.timerWarning;
+    if (t <= 300) return styles.timer + ' ' + styles.timerAlert;
+    return styles.timer;
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // РЕНДЕР
+  // ─────────────────────────────────────────────────────────────────────────
 
   return (
     <div className={styles.panel}>
+      {/* <FieldWorkPanelTour globalYear={globalYear} onDone={() => { }} /> */}
 
-      {/* ── ТОПБАР ──────────────────────────────────────────────────────── */}
-      <div className={styles.topbar}>
-        <div className={styles.topbarLeft}>
-          <button className={styles.navBtnBack} onClick={handleBack}>← Назад</button>
-          <button className={styles.navBtnBack} onClick={onMenu}>В меню</button>
-          <span className={styles.topbarTitle}>Полевые работы</span>
-        </div>
-        <div className={styles.topbarRight}>
-          <span className={styles.budgetBadge}>Бюджет: {player.budget} млн руб.</span>
-          <button className={styles.navBtn} onClick={onComplete}>Далее</button>
-        </div>
+      {/* ── КНОПКИ НАВИГАЦИИ (фиксированные слева, как в ResearchPanel) ── */}
+      <div className={styles.researchMapControls}>
+        <button className={`${styles.researchControlBtn} ${styles.researchBackBtn}`} onClick={handleBack}>
+          ← Назад
+        </button>
+        <button className={`${styles.researchControlBtn} ${styles.researchBackBtn}`} onClick={onMenu}>
+          В меню
+        </button>
+        <button className={`${styles.researchControlBtn} ${styles.researchNextBtn}`} onClick={onComplete}>
+          Далее — К результатам
+        </button>
       </div>
 
-      {/* ── ТАЙМЕР ──────────────────────────────────────────────────────── */}
+      {/* ── ГЛОБАЛЬНЫЙ ТАЙМЕР (только чтение из store) ──────────────────── */}
       <div className={timerCls()}>
-        {timer.isFinished ? (
+        {isTimerFinished ? (
           <>
             <div className={styles.timerLabel}>Время истекло</div>
             <div className={styles.timerSub}>Полевые работы</div>
@@ -265,8 +225,8 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
         ) : (
           <>
             <div className={styles.timerLabel}>Глобальный таймер</div>
-            <div className={styles.timerValue}>{fmtTime(timer.timeRemaining)}</div>
-            <div className={styles.timerSub}>{yearLabel(timer.year)}</div>
+            <div className={styles.timerValue}>{fmtTime(timeRemaining)}</div>
+            <div className={styles.timerSub}>Год {globalTimer.currentYear}</div>
           </>
         )}
       </div>
@@ -274,7 +234,6 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
       {/* ── ВЫБОР УЧАСТКА ───────────────────────────────────────────────── */}
       <div className={styles.luSection}>
         <div className={styles.luSectionLabel}>Шаг 1. Выберите участок:</div>
-
         <div className={styles.luCardsRow}>
           {ownedCells.map(lu => {
             const status = getStatus(lu.cellRef);
@@ -285,15 +244,8 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
               || (research.progressByLU[lu.cellRef]?.mobilizedColumns || []).length;
             const yearMeta = fw?.metaByYear?.[globalYear];
             return (
-              <div
-                key={lu.cellRef}
-                onClick={() => setActiveLUId(lu.cellRef)}
-                className={[
-                  styles.luCard,
-                  isActive ? styles.luCardActive : '',
-                  styles['luSt_' + status],
-                ].join(' ')}
-              >
+              <div key={lu.cellRef} onClick={() => setActiveLUId(lu.cellRef)}
+                className={[styles.luCard, isActive ? styles.luCardActive : '', styles['luSt_' + status]].join(' ')}>
                 <div className={styles.luCardRef}>{lu.cellRef}</div>
                 <div className={styles.luCardName}>{lu.name}</div>
                 <div className={styles.luCardMeta}>
@@ -303,9 +255,7 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
                       {score >= 0 ? '+' : ''}{score}
                     </span>
                   )}
-                  {yearMeta?.totalCost > 0 && (
-                    <span className={styles.metaCost}>{yearMeta.totalCost} млн</span>
-                  )}
+                  {yearMeta?.totalCost > 0 && <span className={styles.metaCost}>{yearMeta.totalCost} млн</span>}
                 </div>
                 <div className={styles.luCardStatus}>{ST_TXT[status]}</div>
               </div>
@@ -323,9 +273,7 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
             </div>
             <div className={styles.stat}>
               <span className={styles.statLbl}>Стоимость</span>
-              <span className={[styles.statVal, canAfford ? styles.ok : styles.fail].join(' ')}>
-                {tc} млн руб.
-              </span>
+              <span className={[styles.statVal, canAfford ? styles.ok : styles.fail].join(' ')}>{tc} млн руб.</span>
             </div>
             {avgRank !== null && (
               <div className={styles.stat}>
@@ -334,11 +282,7 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
               </div>
             )}
             <div className={styles.statActions}>
-              <button
-                className={styles.confirmBtn}
-                onClick={doConfirm}
-                disabled={!canAfford || selCards === 0}
-              >
+              <button className={styles.confirmBtn} onClick={doConfirm} disabled={!canAfford || selCards === 0}>
                 Подтвердить — {tc} млн руб.
               </button>
               <button className={styles.skipBtn} onClick={onComplete}>Далее</button>
@@ -361,10 +305,7 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
           </div>
         ) : (
           avail.map(block => (
-            <div
-              key={block.blockId}
-              className={[styles.blockCol, styles['grp_' + block.groupColor]].join(' ')}
-            >
+            <div key={block.blockId} className={[styles.blockCol, styles['grp_' + block.groupColor]].join(' ')}>
               <div className={styles.blockHead}>
                 <div className={[styles.blockDot, styles['dotClr_' + block.groupColor]].join(' ')} />
                 <div className={styles.blockHeadText}>
@@ -372,30 +313,18 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
                   <span className={styles.blockGrpLbl}>{GRP_LBL[block.groupColor]}</span>
                 </div>
               </div>
-
               <div className={styles.blockCards}>
                 {block.cards.map(card => {
                   const chosen = selections[card.cardId];
                   return (
-                    <div
-                      key={card.cardId}
-                      className={[
-                        styles.card,
-                        styles['cardGrp_' + block.groupColor],
-                        chosen ? styles.cardHasSel : styles.cardNoSel,
-                      ].join(' ')}
-                    >
+                    <div key={card.cardId}
+                      className={[styles.card, styles['cardGrp_' + block.groupColor], chosen ? styles.cardHasSel : styles.cardNoSel].join(' ')}>
                       <div className={styles.cardTitle}>{card.cardTitle}</div>
                       <div className={styles.cardOpts}>
                         {(shuffledOptions[card.cardId] || card.options).map(opt => (
-                          <button
-                            key={opt.rank}
-                            className={[
-                              styles.optBtn,
-                              chosen === opt.rank ? styles.optSel : '',
-                            ].join(' ')}
-                            onClick={() => doSelect(card.cardId, opt.rank)}
-                          >
+                          <button key={opt.rank}
+                            className={[styles.optBtn, chosen === opt.rank ? styles.optSel : ''].join(' ')}
+                            onClick={() => doSelect(card.cardId, opt.rank)}>
                             <div className={styles.optDescBlock}>
                               <div className={styles.optDesc}>{opt.param}</div>
                             </div>
@@ -422,16 +351,10 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
             {selCards === 0 && canAfford && <span className={styles.warnOrange}>Выберите варианты — </span>}
             Выбрано {selCards} из {totCards} карточек
             {avgRank !== null && (
-              <span className={styles.avgRankBadge}>
-                &nbsp;· Средний ранг: <strong>{avgRank}</strong>
-              </span>
+              <span className={styles.avgRankBadge}>&nbsp;· Средний ранг: <strong>{avgRank}</strong></span>
             )}
           </div>
-          <button
-            className={styles.confirmBtnBottom}
-            onClick={doConfirm}
-            disabled={!canAfford || selCards === 0}
-          >
+          <button className={styles.confirmBtnBottom} onClick={doConfirm} disabled={!canAfford || selCards === 0}>
             Подтвердить выбор — {tc} млн руб.
           </button>
         </div>

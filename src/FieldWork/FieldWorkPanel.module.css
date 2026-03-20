@@ -8,87 +8,57 @@
   overflow: hidden;
 }
 
-.topbar {
+/* ── Кнопки навигации (фиксированные слева, как в ResearchPanel / EventsZone) ── */
+
+.researchMapControls {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 72px;
-  background: #1c140e;
+  top: 20px;
+  left: 35px;
   display: flex;
-  align-items: center;
-  padding: 0 32px;
-  gap: 1.5rem;
-  z-index: 200;
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.55);
-  border-bottom: 1px solid rgba(200, 169, 126, 0.15);
+  gap: 12px;
+  z-index: 9999;
 }
 
-.topbarLeft {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.topbarTitle {
-  color: #c8a97e;
-  font-size: 1.2rem;
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  font-style: italic;
-}
-
-.topbarRight {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.budgetBadge {
-  background: rgba(200, 169, 126, 0.12);
-  color: #c8a97e;
-  padding: 8px 24px;
-  border-radius: 30px;
-  font-weight: 700;
-  font-size: 1rem;
-  border: 1px solid rgba(200, 169, 126, 0.22);
-  font-family: 'Courier New', monospace;
-}
-
-.navBtn {
-  padding: 8px 28px;
-  border-radius: 8px;
-  border: 1px solid rgba(200, 169, 126, 0.3);
-  background: rgba(200, 169, 126, 0.1);
-  color: #c8a97e;
+.researchControlBtn {
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 15px;
   font-weight: 600;
-  font-size: 0.9rem;
   cursor: pointer;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  transition: background 0.15s;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(43, 64, 89, 0.25);
 }
 
-.navBtn:hover { background: rgba(200, 169, 126, 0.22); }
-
-.navBtnBack {
-  padding: 8px 20px;
-  border-radius: 8px;
-  border: 1px solid rgba(200, 169, 126, 0.2);
-  background: transparent;
-  color: rgba(200, 169, 126, 0.6);
-  font-weight: 600;
-  font-size: 0.9rem;
-  cursor: pointer;
-  letter-spacing: 0.08em;
-  transition: all 0.15s;
-}
-
-.navBtnBack:hover {
-  background: rgba(200, 169, 126, 0.1);
+.researchBackBtn {
+  background: #2a1f14;
   color: #c8a97e;
+  border: 2px solid rgba(200, 169, 126, 0.35);
+}
+
+.researchBackBtn:hover {
+  background: #3a2c1e;
+  transform: translateY(-2px);
+  border-color: rgba(200, 169, 126, 0.6);
+}
+
+.researchNextBtn {
+  background: #2a1f14;
+  color: #c8a97e;
+  border: 2px solid rgba(200, 169, 126, 0.35);
+}
+
+.researchNextBtn:hover:not(:disabled) {
+  background: #3a2c1e;
+  transform: translateY(-2px);
+  border-color: rgba(200, 169, 126, 0.6);
+}
+
+.researchNextBtn:disabled {
+  background: rgba(42, 31, 20, 0.5);
+  color: rgba(200, 169, 126, 0.3);
+  border-color: transparent;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 /* ── Таймер ── */
@@ -151,10 +121,9 @@
 /* ── ЛУ секция ── */
 
 .luSection {
-  margin-top: 72px;
   background: #1c140e;
   border-bottom: 1px solid rgba(200, 169, 126, 0.12);
-  padding: 18px 24px 16px;
+  padding: 80px 24px 16px;
   flex-shrink: 0;
   z-index: 100;
 }
@@ -228,9 +197,9 @@
   text-transform: uppercase; font-family: sans-serif; margin-top: 4px;
 }
 
-.luSt_ready     .luCardStatus { color: #c4894a; }
-.luSt_done      .luCardStatus { color: #6a9e72; }
-.luSt_failed    .luCardStatus { color: #8b3a2a; }
+.luSt_ready      .luCardStatus { color: #c4894a; }
+.luSt_done       .luCardStatus { color: #6a9e72; }
+.luSt_failed     .luCardStatus { color: #8b3a2a; }
 .luSt_noResearch .luCardStatus { color: rgba(200, 169, 126, 0.3); }
 
 /* ── Stats row ── */
@@ -451,8 +420,6 @@
   min-width: 52px;
 }
 
-/* optRankBadge / rnkBadge* — удалены */
-
 /* ── Bottom bar ── */
 
 .bottomBar {
@@ -479,7 +446,6 @@
 .warnRed    { color: #c47060; font-weight: 700; }
 .warnOrange { color: #c4894a; font-weight: 700; }
 
-/* Средний ранг в bottomBar */
 .avgRankBadge {
   display: inline-flex;
   align-items: center;

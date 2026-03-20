@@ -1,4 +1,3 @@
-// gameStore.js
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 
@@ -18,10 +17,6 @@ export const PHASE_DURATIONS = {
   FIELD_WORK: 15 * 60,
 };
 
-export const REFUSAL_YEARS = [3, 5];
-
-// Дефолтные длительности в секундах.
-// Перезаписываются через setSessionTimers() когда придёт конфиг с бэка.
 export const YEAR_DURATIONS = {
   1: 25 * 60,
   2: 20 * 60,
@@ -52,6 +47,35 @@ const defaultLUProgress = {
   completedColumns: [],
 };
 
+const defaultSessionConfig = {
+  sessionId: null,
+  gameMode: 'online',
+  playerType: 'students',
+  budget: 99999,
+  timers: {},
+  regionMapTimer: 20,
+  regionMapTimers: {
+    selection: 20,
+    auction: 2,
+    postAuction: 2,
+  },
+  maxLUsPerTeam: 5,
+};
+
+const defaultPlayer = {
+  id: null,
+  name: '',
+  teamId: null,
+  budget: 1000,
+  token: null,
+  sessionId: null,
+  initialBudget: 1000,
+  experienceLevel: 'student',
+  totalScore: 0,
+  teamMembers: [],
+  sessionConfig: { ...defaultSessionConfig },
+};
+
 const useGameStore = create(
   devtools(
     persist(
@@ -65,16 +89,12 @@ const useGameStore = create(
           currentLUProgress: {},
           createdAt: null,
           currentYear: 1,
+          // ── Текущий экран — сохраняется при обновлении страницы ──────────
+          // Значения: null | 'region_map' | 'research' | 'events' | 'field_work' | 'results'
+          // null = пользователь ещё не вошёл в игру (лобби/меню)
+          currentScreen: null,
         },
 
-        // ── Глобальный таймер ────────────────────────────────────────────────
-        // timeRemaining — секунды оставшегося времени текущей фазы/года.
-        // yearDurations — конфигурируемые длительности по годам (сек).
-        //   Дефолт = YEAR_DURATIONS, перезаписывается через setSessionTimers().
-        // regionMapDuration — длительность фазы карты региона (сек).
-        //   Когда придёт конфиг с бэка, заполни через setSessionTimers().
-        // phase — 'REGION_MAP' | 'RESEARCH' | 'EVENTS' | 'FIELD_WORK' | 'RESULTS'
-        //   Компоненты вызывают setGlobalPhase() при монтировании.
         globalTimer: {
           currentYear: 1,
           timeRemaining: YEAR_DURATIONS[1],
@@ -84,21 +104,11 @@ const useGameStore = create(
           refusalYear: null,
           refusalTimeLeft: 0,
           phase: 'RESEARCH',
-          // Конфигурация таймеров — заполняется при старте сессии
           yearDurations: { ...YEAR_DURATIONS },
           regionMapDuration: REGION_MAP_DURATION,
         },
 
-        player: {
-          id: null,
-          name: '',
-          teamId: null,
-          budget: 1000,
-          initialBudget: 1000,
-          experienceLevel: 'student',
-          totalScore: 0,
-          teamMembers: [],
-        },
+        player: { ...defaultPlayer },
 
         licenseUnits: {
           available: [],
@@ -124,6 +134,7 @@ const useGameStore = create(
         research: {
           availableWorks: [],
           progressByLU: {},
+          yearTransitionApplied: false,
         },
 
         events: {
@@ -135,6 +146,7 @@ const useGameStore = create(
           isCompleted: false,
           yearScores: {},
           yearlyStats: {},
+          totalMoneySpent: 0,
         },
 
         statistics: {
@@ -151,7 +163,19 @@ const useGameStore = create(
           finalScore: 0,
         },
 
-        // ── Таймер: методы ───────────────────────────────────────────────────
+        // ── Текущий экран ─────────────────────────────────────────────────
+        // Вызывать при каждом переходе между экранами:
+        //   useGameStore.getState().setCurrentScreen('research')
+        // При монтировании GameBoard:
+        //   const saved = useGameStore.getState().game.currentScreen
+        //   const [screen, setScreen] = useState(saved || 'region_map')
+        setCurrentScreen: (screen) => {
+          set((state) => ({
+            game: { ...state.game, currentScreen: screen },
+          }));
+        },
+
+        // ── Таймер: методы ────────────────────────────────────────────────────
 
         startGlobalTimer: () => {
           set((state) => ({
@@ -212,10 +236,6 @@ const useGameStore = create(
           }));
         },
 
-        // ── Установить конфиг таймеров с бэка ────────────────────────────────
-        // Вызывается после joinSession когда пришёл sessionConfig.
-        // yearTimers — объект { 1: минуты, 2: минуты, ... }
-        // regionMapTimer — минуты
         setSessionTimers: (yearTimers, regionMapTimer) => {
           const yearDurations = {};
           Object.entries(yearTimers || {}).forEach(([y, mins]) => {
@@ -228,8 +248,6 @@ const useGameStore = create(
           const year = get().globalTimer.currentYear;
           const phase = get().globalTimer.phase;
 
-          // Если фаза — карта региона, ставим regionMapDuration
-          // Иначе ставим время текущего года
           const timeRemaining = phase === 'REGION_MAP'
             ? regionMapDuration
             : (yearDurations[year] ?? YEAR_DURATIONS[year]);
@@ -244,22 +262,13 @@ const useGameStore = create(
           }));
         },
 
-        // ── Установить фазу (вызывается при монтировании компонента) ─────────
-        // REGION_MAP  → таймер = regionMapDuration
-        // RESEARCH / EVENTS / FIELD_WORK / RESULTS → таймер = yearDurations[year]
-        // Таймер сбрасывается только если фаза действительно изменилась.
         setGlobalPhase: (phase) => {
           set((state) => {
-            if (state.globalTimer.phase === phase) return state; // нет изменений
-            const year = state.globalTimer.currentYear;
-            const timeRemaining = phase === 'REGION_MAP'
-              ? (state.globalTimer.regionMapDuration ?? REGION_MAP_DURATION)
-              : (state.globalTimer.yearDurations?.[year] ?? YEAR_DURATIONS[year]);
+            if (state.globalTimer.phase === phase) return state;
             return {
               globalTimer: {
                 ...state.globalTimer,
                 phase,
-                timeRemaining,
                 isRunning: true,
                 isPaused: false,
               },
@@ -288,7 +297,6 @@ const useGameStore = create(
               pendingRefusal: false,
               refusalYear: null,
               refusalTimeLeft: 0,
-              // Фаза сбрасывается на RESEARCH в начале нового года
               phase: 'RESEARCH',
             },
           }));
@@ -360,7 +368,6 @@ const useGameStore = create(
           }));
         },
 
-        // setYear используется в ResearchPanel при ручном переходе
         setYear: (year) => {
           const { globalTimer } = get();
           const dur = globalTimer.yearDurations?.[year] ?? YEAR_DURATIONS[year];
@@ -413,6 +420,7 @@ const useGameStore = create(
               revealedCards: { ...currentEvents.revealedCards },
               lineScores: { ...currentEvents.lineScores },
               skippedLines: { ...currentEvents.skippedLines },
+              totalMoneySpent: currentEvents.totalMoneySpent || 0,
             };
             const yearlyStats = { ...state.events.yearlyStats };
             yearlyStats[prevYear] = yearlyStats[prevYear] || {};
@@ -426,11 +434,52 @@ const useGameStore = create(
                 revealedCards: {},
                 skippedLines: {},
                 isCompleted: false,
+                totalMoneySpent: 0,
                 historyByYear: {
                   ...(currentEvents.historyByYear || {}),
                   [prevYear]: historyEntry,
                 },
                 yearlyStats,
+              },
+            };
+          });
+        },
+
+        applyYearTransitionForAllLUs: (prevYear) => {
+          set((state) => {
+            const updProg = { ...state.research.progressByLU };
+
+            Object.keys(updProg).forEach(luId => {
+              const prog = updProg[luId];
+              if (!prog) return;
+
+              const prevCol = prog.columnsByYear?.[prevYear];
+              const skipped = (prog.skippedYears || []).includes(prevYear);
+
+              const evScore =
+                state.events.historyByYear?.[prevYear]?.lineScores?.[luId]
+                ?? state.events.lineScores?.[luId]
+                ?? 0;
+
+              let blocked = [...(prog.blockedColumns || [])];
+
+              if (prevCol && !skipped && evScore >= 0) {
+                if (!blocked.includes(prevCol)) blocked.push(prevCol);
+              }
+
+              updProg[luId] = {
+                ...prog,
+                blockedColumns: blocked,
+                purchasedCells: {},
+                successRates: {},
+              };
+            });
+
+            return {
+              research: {
+                ...state.research,
+                progressByLU: updProg,
+                yearTransitionApplied: true,
               },
             };
           });
@@ -455,6 +504,8 @@ const useGameStore = create(
               ...get().player,
               name: teamData.name,
               teamId: teamData.teamId || teamData.name,
+              token: teamData.token ?? null,
+              sessionId: teamData.sessionId ?? null,
               teamMembers: teamData.members,
               experienceLevel: teamData.experienceLevel,
               budget,
@@ -463,10 +514,33 @@ const useGameStore = create(
           });
         },
 
+        setSessionConfig: (config) => {
+          set((state) => ({
+            player: {
+              ...state.player,
+              sessionConfig: {
+                ...defaultSessionConfig,
+                ...config,
+                regionMapTimers: {
+                  selection: config.regionMapTimers?.selection ?? config.regionMapTimer ?? 20,
+                  auction: config.regionMapTimers?.auction ?? 2,
+                  postAuction: config.regionMapTimers?.postAuction ?? 2,
+                },
+                maxLUsPerTeam: config.maxLUsPerTeam ?? 5,
+              },
+            },
+          }));
+
+          if (config.timers && Object.keys(config.timers).length > 0) {
+            get().setSessionTimers(config.timers, config.regionMapTimer);
+          }
+        },
+
         purchaseGridCell: (cellRef, cellName) => {
           const { gridCells, player, auctions } = get();
+          const maxLUs = player.sessionConfig?.maxLUsPerTeam ?? 5;
           const ownedCount = Object.keys(gridCells.owned).length;
-          if (ownedCount >= 5) return 'limit';
+          if (ownedCount >= maxLUs) return 'limit';
           if (gridCells.owned[cellRef]) return 'already_owned';
           const existing = gridCells.allTeams[cellRef];
           if (existing && existing.ownedByTeamId && existing.ownedByTeamId !== player.teamId) {
@@ -589,7 +663,14 @@ const useGameStore = create(
           const myId = player.teamId || player.name;
           return Object.keys(auctions.active).filter(cellRef => {
             const auction = auctions.active[cellRef];
-            return auction.participants && auction.participants.includes(myId);
+            if (!auction?.participants?.includes(myId)) return false;
+            const weMadeBid = auction.bids?.some(
+              b => b.teamId === myId || b.teamName === player.name
+            );
+            const weAreLeader = auction.currentBidTeamId === myId
+              || auction.currentBidTeamName === player.name;
+            if (weAreLeader && !weMadeBid) return false;
+            return true;
           });
         },
 
@@ -731,17 +812,54 @@ const useGameStore = create(
 
         completeEvents: () => set({ events: { ...get().events, isCompleted: true } }),
 
+        updateEventMoneySpent: (amount) => {
+          if (!amount || amount >= 0) return;
+          set((state) => ({
+            events: {
+              ...state.events,
+              totalMoneySpent: (state.events.totalMoneySpent || 0) + Math.abs(amount),
+            },
+          }));
+        },
+
         selectFieldWork: (luId, d) => {
-          set({ fieldWork: { ...get().fieldWork, selectionsByLU: { ...get().fieldWork.selectionsByLU, [luId]: d } } });
+          const year = get().globalTimer.currentYear;
+          const existing = get().fieldWork.selectionsByLU[luId] || {};
+          set({
+            fieldWork: {
+              ...get().fieldWork,
+              selectionsByLU: {
+                ...get().fieldWork.selectionsByLU,
+                [luId]: {
+                  ...existing,
+                  byYear: { ...(existing.byYear || {}), [year]: d },
+                  ...d,
+                },
+              },
+            },
+          });
           return true;
         },
 
         selectFieldWorkWithBudget: (luId, options, totalCost, qualityScore) => {
           const budget = get().player.budget;
           if (budget < totalCost) return false;
+          const year = get().globalTimer.currentYear;
+          const existing = get().fieldWork.selectionsByLU[luId] || {};
+          const yearData = { selectedOptions: options, totalCost, qualityScore };
           set({
             player: { ...get().player, budget: budget - totalCost },
-            fieldWork: { ...get().fieldWork, selectionsByLU: { ...get().fieldWork.selectionsByLU, [luId]: { selectedOptions: options, totalCost, qualityScore } } },
+            fieldWork: {
+              ...get().fieldWork,
+              selectionsByLU: {
+                ...get().fieldWork.selectionsByLU,
+                [luId]: {
+                  ...existing,
+                  byYear: { ...(existing.byYear || {}), [year]: yearData },
+                  ...yearData,
+                },
+              },
+            },
           });
           return true;
         },
@@ -771,14 +889,18 @@ const useGameStore = create(
         resetGame: () => {
           const { globalTimer } = get();
           set({
-            game: { id: null, status: 'SETUP', currentRound: 1, currentPhase: 'LOBBY', currentLUProgress: {}, createdAt: null, currentYear: 1 },
-            player: { id: null, name: '', teamId: null, budget: 1000, initialBudget: 1000, experienceLevel: 'student', totalScore: 0, teamMembers: [] },
+            game: {
+              id: null, status: 'SETUP', currentRound: 1, currentPhase: 'LOBBY',
+              currentLUProgress: {}, createdAt: null, currentYear: 1,
+              currentScreen: null,  // сбрасываем экран при полном сбросе игры
+            },
+            player: { ...defaultPlayer },
             licenseUnits: { available: [], owned: [], current: null },
             gridCells: { owned: {}, allTeams: {} },
             auctions: { active: {}, completed: {} },
             regionMap: { cells: [], resourceDensityRevealed: false },
-            research: { availableWorks: [], progressByLU: {} },
-            events: { linesByLU: {}, revealedCards: {}, lineScores: {}, skippedLines: {}, historyByYear: {}, isCompleted: false, yearScores: {}, yearlyStats: {} },
+            research: { availableWorks: [], progressByLU: {}, yearTransitionApplied: false },
+            events: { linesByLU: {}, revealedCards: {}, lineScores: {}, skippedLines: {}, historyByYear: {}, isCompleted: false, yearScores: {}, yearlyStats: {}, totalMoneySpent: 0 },
             statistics: { yearlyData: {} },
             fieldWork: { availableOptions: [], selectionsByLU: {} },
             results: { cardsByLU: {}, finalScore: 0 },
@@ -950,7 +1072,7 @@ const useGameStore = create(
       {
         name: 'geology-game-storage',
         partialize: (state) => ({
-          game: state.game,
+          game: state.game,          // ← currentScreen сохраняется здесь автоматически
           player: state.player,
           licenseUnits: state.licenseUnits,
           gridCells: state.gridCells,

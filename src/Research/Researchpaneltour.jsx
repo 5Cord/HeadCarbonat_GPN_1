@@ -22,7 +22,7 @@ const TOUR_KEY = 'researchPanel_tourDone';
 const RESEARCH_TOUR_STEPS = [
   {
     id: 'welcome',
-    icon: '🔬',
+    icon: '',
     title: 'Добро пожаловать в Научные исследования!',
     text: 'Здесь вы будете покупать НИР (научно-исследовательские работы) для ваших участков, чтобы повысить успешность геологоразведки. Каждый год — новые возможности.',
     target: null,
@@ -38,7 +38,7 @@ const RESEARCH_TOUR_STEPS = [
   },
   {
     id: 'nav_buttons',
-    icon: '🧭',
+    icon: '',
     title: 'Кнопки навигации',
     text: '«← Назад» — вернуться на карту региона. «В меню» — выйти в главное меню. «Далее — К зоне событий» — перейти к следующему этапу игры.',
     target: '[class*="researchMapControls"]',
@@ -46,7 +46,7 @@ const RESEARCH_TOUR_STEPS = [
   },
   {
     id: 'research_header',
-    icon: '📋',
+    icon: '',
     title: 'Заголовок и бюджет',
     text: 'Здесь отображается ваш текущий бюджет (в млн руб.) и итоговая успешность выбранного участка. Следите за тратами!',
     target: '[class*="researchHeader"]',
@@ -54,7 +54,7 @@ const RESEARCH_TOUR_STEPS = [
   },
   {
     id: 'lu_cards',
-    icon: '🏗️',
+    icon: '',
     title: 'Шаг 1 — Выберите участок',
     text: 'Нажмите на карточку участка (синяя рамка = выбран). Можно выбрать несколько сразу — тогда НИР будет куплена для всех выбранных участков одним действием.',
     target: '[class*="luCardsContainer"]',
@@ -62,7 +62,7 @@ const RESEARCH_TOUR_STEPS = [
   },
   {
     id: 'year_round',
-    icon: '📅',
+    icon: '',
     title: 'Год и итерация',
     text: 'Эта строка показывает текущий год и тип работ (ГРР, Бурение, Добыча). Кнопка «Завершить год» — ручной досрочный переход, если всё готово.',
     target: '[class*="roundIndicator"]',
@@ -70,7 +70,7 @@ const RESEARCH_TOUR_STEPS = [
   },
   {
     id: 'legend',
-    icon: '🎨',
+    icon: '',
     title: 'Легенда цветовых групп',
     text: 'Столбцы таблицы разбиты на 4 группы: СРР (серый), ГРР (оранжевый), Бурение (бежевый), Добыча (синий). Каждая группа доступна только в определённые годы.',
     target: '[class*="groupLegend"]',
@@ -78,7 +78,7 @@ const RESEARCH_TOUR_STEPS = [
   },
   {
     id: 'table_header',
-    icon: '📊',
+    icon: '',
     title: 'Шаг 2 — Выберите столбец (мобилизацию)',
     text: 'Нажмите на заголовок столбца в таблице — это выбор типа работ на год. Заголовки активных столбцов подсвечены. Заблокированные или недоступные в этом году — затемнены.',
     target: '[class*="researchTableContainer"]',
@@ -86,7 +86,7 @@ const RESEARCH_TOUR_STEPS = [
   },
   {
     id: 'table_cells',
-    icon: '🛒',
+    icon: '',
     title: 'Шаг 3 — Купите НИР в ячейках',
     text: 'После выбора столбца кликайте по ячейкам в нём — каждая ячейка это отдельная НИР. Знак «?» означает скрытый % успешности (откроется после покупки). «✕» — заблокировано, «-» — не в этом году.',
     target: '[class*="researchTableScroll"]',
@@ -94,7 +94,7 @@ const RESEARCH_TOUR_STEPS = [
   },
   {
     id: 'confirm_session',
-    icon: '✅',
+    icon: '',
     title: 'Шаг 4 — Подтвердите выбор',
     text: 'После покупки всех нужных НИР нажмите «Подтвердить НИРы — завершить». Это зафиксирует выбранный столбец для участков на этот год. Без подтверждения год не засчитается!',
     target: '[class*="confirmSessionBtn"]',
@@ -102,7 +102,7 @@ const RESEARCH_TOUR_STEPS = [
   },
   {
     id: 'totals_row',
-    icon: '📈',
+    icon: '',
     title: 'Итоговая строка успешности',
     text: 'Последняя строка таблицы показывает суммарный % успешности по каждому столбцу. Зелёный ≥70%, оранжевый ≥40%, красный <40%. Чем выше — тем лучше результат геологоразведки.',
     target: '[class*="totalsRow"]',
@@ -110,7 +110,7 @@ const RESEARCH_TOUR_STEPS = [
   },
   {
     id: 'finish_year',
-    icon: '🏁',
+    icon: '',
     title: 'Завершение года',
     text: 'Когда завершится таймер (или вы нажмёте «Завершить год») — откроется экран результатов. После этого начнётся следующий год. В годы 3 и 5 появится специальный экран отказа от участков.',
     target: '[class*="skipYearBtn"]',
@@ -118,7 +118,7 @@ const RESEARCH_TOUR_STEPS = [
   },
   {
     id: 'done',
-    icon: '🎉',
+    icon: '',
     title: 'Всё готово — начинайте!',
     text: 'Теперь вы знаете основы. Удачи в исследованиях! Этот тур больше не появится. Для сброса: localStorage.removeItem("researchPanel_tourDone") в консоли.',
     target: null,
@@ -130,7 +130,7 @@ const RESEARCH_TOUR_STEPS = [
 export const REFUSAL_TOUR_STEPS = [
   {
     id: 'refusal_welcome',
-    icon: '⚠️',
+    icon: '',
     title: 'Возможность отказа от участка',
     text: 'В годы 3 и 5 у вас есть возможность отказаться от одного или нескольких участков. Это может быть выгодно, если участок бесперспективен.',
     target: null,
@@ -138,7 +138,7 @@ export const REFUSAL_TOUR_STEPS = [
   },
   {
     id: 'refusal_timer',
-    icon: '⏳',
+    icon: '',
     title: 'Таймер решения',
     text: 'У вас ограниченное время на принятие решения. Если таймер истечёт — год перейдёт автоматически без отказа от участков.',
     target: '.refusal-modal-timer',
@@ -146,7 +146,7 @@ export const REFUSAL_TOUR_STEPS = [
   },
   {
     id: 'refusal_map',
-    icon: '🗺️',
+    icon: '',
     title: 'Мини-карта участков',
     text: 'Синие ячейки — ваши участки. Нажмите на синюю ячейку чтобы выбрать её для отказа (станет красной). Нажмите снова — чтобы отменить выбор.',
     target: '.refusal-map-wrap',
@@ -154,7 +154,7 @@ export const REFUSAL_TOUR_STEPS = [
   },
   {
     id: 'refusal_legend',
-    icon: '🎨',
+    icon: '',
     title: 'Легенда карты',
     text: 'Синий = ваш участок, красный = выбран для отказа, серый = другая команда, цветные с полосками = заблокированные зоны.',
     target: '.refusal-map-legend',
@@ -162,7 +162,7 @@ export const REFUSAL_TOUR_STEPS = [
   },
   {
     id: 'refusal_action',
-    icon: '🔴',
+    icon: '',
     title: 'Кнопки действия',
     text: '«Отказаться от: [участок]» — безвозвратно передаёт участок. «Продолжить с текущими» — ничего не меняет, год переходит дальше. Отказ необратим!',
     target: '.refusal-modal-actions',
@@ -543,12 +543,12 @@ export default function ResearchPanelTour({ globalYear, onDone }) {
             </button>
           )}
           <div style={{ flex: 1 }} />
-          <button className="rpt-btn rpt-btn-skip" onClick={skip}>
+          {/* <button className="rpt-btn rpt-btn-skip" onClick={skip}>
             Пропустить
-          </button>
+          </button> */}
           {isLast ? (
             <button className="rpt-btn rpt-btn-finish" onClick={finish}>
-              Начать работу 🚀
+              Начать работу
             </button>
           ) : (
             <button className="rpt-btn rpt-btn-next" onClick={() => goToStep(step + 1)}>
@@ -668,9 +668,9 @@ export function RefusalTour({ onDone }) {
             </button>
           )}
           <div style={{ flex: 1 }} />
-          <button className="rpt-btn rpt-btn-skip" onClick={skip}>
+          {/* <button className="rpt-btn rpt-btn-skip" onClick={skip}>
             Пропустить
-          </button>
+          </button> */}
           {isLast ? (
             <button className="rpt-btn rpt-btn-finish rpt-btn-finish-refusal" onClick={finish}>
               Понятно, начинаем ✓

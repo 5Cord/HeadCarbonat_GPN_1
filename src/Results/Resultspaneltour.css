@@ -1,0 +1,285 @@
+/* ResultsPanelTour.css */
+/* Стили для пошагового тура ResultsPanel */
+/* Префикс .rpt2- — не конфликтует с другими турами */
+
+/* ══════════════════════════════════════════════════════════════
+   КОРНЕВОЙ КОНТЕЙНЕР
+   ══════════════════════════════════════════════════════════════ */
+
+.rpt2-root {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   МАСКИ ЗАТЕМНЕНИЯ
+   ══════════════════════════════════════════════════════════════ */
+
+.rpt2-mask-full {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  pointer-events: all;
+  animation: rpt2-fade-in 0.25s ease;
+}
+
+.rpt2-mask-svg {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: all;
+  animation: rpt2-fade-in 0.25s ease;
+}
+
+@keyframes rpt2-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Пульсирующая пунктирная рамка — зелёный, под акцент ResultsPanel (#2fa394) */
+.rpt2-highlight-border {
+  animation: rpt2-dash-march 1.8s linear infinite;
+}
+
+@keyframes rpt2-dash-march {
+  to { stroke-dashoffset: -24; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ТУЛТИП
+   ══════════════════════════════════════════════════════════════ */
+
+.rpt2-tooltip {
+  pointer-events: all;
+  /* Светлый фон — под стиль #f0ede8 и белых карточек ResultsPanel */
+  background: #ffffff;
+  color: #1a1a1a;
+  border-radius: 16px;
+  padding: 22px 24px 18px;
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.22),
+    0 2px 8px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(47, 163, 148, 0.2);
+  z-index: 10000;
+  animation: rpt2-appear 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: fixed;
+  border: 1px solid rgba(47, 163, 148, 0.18);
+  outline: none;
+}
+
+.rpt2-tooltip:focus-visible {
+  outline: 2px solid #2fa394;
+  outline-offset: 2px;
+}
+
+.rpt2-tooltip-fade {
+  opacity: 0.7;
+  transform: scale(0.98);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+@keyframes rpt2-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.88) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ── Заголовочная строка ── */
+.rpt2-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.rpt2-step-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #2fa394;
+  background: rgba(47, 163, 148, 0.1);
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+
+/* ── Заголовок шага ── */
+.rpt2-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #1a1a1a;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+}
+
+/* ── Текст шага ── */
+.rpt2-text {
+  margin: 0 0 14px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: #555;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ПРОГРЕСС-ТОЧКИ
+   ══════════════════════════════════════════════════════════════ */
+
+.rpt2-dots {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.rpt2-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #e0e0e0;
+  transition: all 0.25s ease;
+}
+
+.rpt2-dot-done {
+  background: rgba(47, 163, 148, 0.35);
+  width: 8px;
+}
+
+.rpt2-dot-active {
+  background: #2fa394;
+  width: 18px;
+  border-radius: 3px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   КНОПКИ
+   ══════════════════════════════════════════════════════════════ */
+
+.rpt2-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rpt2-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.rpt2-btn-back {
+  background: #f5f5f5;
+  color: #888;
+  border: 1px solid #e0e0e0;
+}
+
+.rpt2-btn-back:hover {
+  background: #eee;
+  color: #444;
+}
+
+.rpt2-btn-next {
+  background: #1565c0;
+  color: #ffffff;
+  padding: 9px 20px;
+  box-shadow: 0 3px 10px rgba(21, 101, 192, 0.3);
+}
+
+.rpt2-btn-next:hover {
+  background: #0d47a1;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px rgba(21, 101, 192, 0.4);
+}
+
+.rpt2-btn-finish {
+  background: linear-gradient(135deg, #2fa394, #1a7a6e);
+  color: #ffffff;
+  padding: 9px 20px;
+  box-shadow: 0 3px 10px rgba(47, 163, 148, 0.4);
+  letter-spacing: 0.03em;
+}
+
+.rpt2-btn-finish:hover {
+  background: linear-gradient(135deg, #1a7a6e, #116058);
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px rgba(47, 163, 148, 0.5);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   СТРЕЛКИ-УКАЗАТЕЛИ
+   ══════════════════════════════════════════════════════════════ */
+
+.rpt2-arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.rpt2-arrow-right {
+  left: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-right: 10px solid #ffffff;
+}
+
+.rpt2-arrow-left {
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-left: 10px solid #ffffff;
+}
+
+.rpt2-arrow-bottom {
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid #ffffff;
+}
+
+.rpt2-arrow-top {
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 10px solid #ffffff;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ИНДИКАТОР ОЖИДАНИЯ СКРОЛЛА
+   ══════════════════════════════════════════════════════════════ */
+
+.rpt2-tooltip-fade::after {
+  content: 'Прокрутка...';
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.3);
+  margin-top: 6px;
+  animation: rpt2-blink 0.8s ease-in-out infinite;
+}
+
+@keyframes rpt2-blink {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 1;   }
+}

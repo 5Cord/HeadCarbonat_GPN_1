@@ -1,16 +1,17 @@
 // BudgetBar.jsx — единый компонент отображения бюджета
-// Используй везде: ResearchPanel, ResultsOverlay, любые модалки
 //
 // Props:
-//   budget  — текущий остаток (число)
-//   spent   — потрачено за сессию / всего (число)
-//   theme   — 'dark' (по умолчанию, для тёмного фона) | 'light' (для белого фона / модалок)
+//   budget      — текущий остаток (число)
+//   spent       — потрачено на НИРы / полевые работы (число)
+//   eventSpent  — потрачено на события (карточки случайности, отрицательные money-эффекты)
+//                 по умолчанию 0; берётся из events.totalMoneySpent
+//   theme       — 'dark' (по умолчанию) | 'light'
 
 import React from 'react';
 
-export default function BudgetBar({ budget = 0, spent = 0, theme = 'dark' }) {
+export default function BudgetBar({ budget = 0, spent = 0, eventSpent = 0, theme = 'dark' }) {
+    const totalSpent = spent + (eventSpent || 0);
     const isLow = budget < 1000;
-
     const dark = theme === 'dark';
 
     const wrap = {
@@ -49,15 +50,11 @@ export default function BudgetBar({ budget = 0, spent = 0, theme = 'dark' }) {
     };
 
     const budgetColor = isLow ? '#ef4444' : dark ? '#4ade80' : '#16a34a';
-    const spentColor = dark ? '#f97316' : '#ea580c';
+    const spentColor  = dark ? '#f97316' : '#ea580c';
 
-    const val = {
-        fontSize: '1.05rem',
-        fontWeight: 800,
-    };
+    const val = { fontSize: '1.05rem', fontWeight: 800 };
 
-    const fmt = (n) =>
-        Number(n).toLocaleString('ru-RU', { maximumFractionDigits: 0 });
+    const fmt = (n) => Number(n).toLocaleString('ru-RU', { maximumFractionDigits: 0 });
 
     return (
         <div style={wrap}>
@@ -65,10 +62,11 @@ export default function BudgetBar({ budget = 0, spent = 0, theme = 'dark' }) {
                 <span style={label}>Бюджет</span>
                 <span style={{ ...val, color: budgetColor }}>{fmt(budget)} млн</span>
             </div>
-            <div style={cell}>
+            <div style={{ ...cell, ...(eventSpent > 0 ? divider : {}) }}>
                 <span style={label}>Потрачено</span>
-                <span style={{ ...val, color: spentColor }}>{fmt(spent)} млн</span>
+                <span style={{ ...val, color: spentColor }}>{fmt(totalSpent)} млн</span>
             </div>
+
         </div>
     );
 }

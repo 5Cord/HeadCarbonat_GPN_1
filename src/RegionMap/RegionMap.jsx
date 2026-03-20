@@ -2,14 +2,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './RegionMap.css';
 import useGameStore, { AUCTION_START_PRICE } from '../../store/gameStore';
-import AuctionDashboard from './AuctionDashboard'; // ← новый компонент
- import RegionMapTour from './RegionMapTour';
-import {
-  saveTeamProgress,
-  getSessionStatus,
-  placeBidOnAuction,
-  finalizeTeamSelection
-} from '../apiHelpers';
+import AuctionDashboard from './AuctionDashboard';
+import RegionMapTour from './RegionMapTour';
+import { getSocket } from '../apiHelpers';
 
 const LICENSE_UNITS = [
   { id: 'well1', name: 'Парам. скважина №1', shortName: '1', cost: 10, cellRef: 'A2', position: 'top-left', customStyle: { top: '-130px', left: '0px' }, description: 'Целевой комплекс: светлые слоистые строматолитовые доломиты с прослоями гипса и ангидрита. Свойства: доломиты слабо пористые, с редкими выпотами густой нефти.', hasImage: false },
@@ -25,46 +20,38 @@ const LICENSE_UNITS = [
 ];
 
 const BLOCKED_CELLS = {
-  reserve: ['C3', 'C4', 'D3', 'D4'],
+  reserve:    ['C3', 'C4', 'D3', 'D4'],
   settlement: ['G6', 'G7', 'H6', 'H7'],
-  company: ['B5', 'C5', 'B6', 'C6'],
+  company:    ['B5', 'C5', 'B6', 'C6'],
 };
 
-const SELECTION_DURATION = 0.3 * 60;
-const AUCTION_DURATION = 0.3 * 60;
-const POST_AUCTION_TIME = 0.3 * 60;
-
-const RM_WARNING_5MIN = 0.3 * 60;
-const RM_WARNING_2MIN = 0.3 * 60;
-const RM_WARNING_30SEC = 0.3;
-
-const TIMER_STORAGE_KEY = 'regionMap_timer';
-const PHASE_STORAGE_KEY = 'regionMap_phase';
+const RM_WARNING_5MIN  = 5 * 60;
+const RM_WARNING_2MIN  = 2 * 60;
+const RM_WARNING_30SEC = 30;
 
 const formatTime = (totalSeconds) => {
-  const s = Math.max(0, Math.floor(totalSeconds));
-  const m = Math.floor(s / 60);
+  const s   = Math.max(0, Math.floor(totalSeconds));
+  const m   = Math.floor(s / 60);
   const sec = s % 60;
   return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 };
 
 const getLUNamePosition = (position) => {
   switch (position) {
-    case 'top-left': return 'translate(60%, 0)';
-    case 'right': return 'translate(60%, 0)';
-    case 'left': return 'translate(-120%, 0%)';
-    case 'corner-bottom-left': return 'translate(60%, 0)';
-    case 'corner-top-right': return 'translate(70%, 20%)';
-    default: return 'translate(50%, -150%)';
+    case 'top-left':          return 'translate(60%, 0)';
+    case 'right':             return 'translate(60%, 0)';
+    case 'left':              return 'translate(-120%, 0%)';
+    case 'corner-bottom-left':return 'translate(60%, 0)';
+    case 'corner-top-right':  return 'translate(70%, 20%)';
+    default:                  return 'translate(50%, -150%)';
   }
 };
 
 const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
 const cols = Array.from({ length: 10 }, (_, i) => i + 1);
 
-// ──────────────────────────────────────────────
-// Универсальное модальное окно подтверждения
-// ──────────────────────────────────────────────
+// ── Модалки ───────────────────────────────────────────────────────────────────
+
 const ConfirmModal = ({ isOpen, onClose, onConfirm, title, children, confirmLabel = 'Подтвердить', cancelLabel = 'Отмена', confirmVariant = 'primary' }) => {
   if (!isOpen) return null;
   return (
@@ -74,24 +61,14 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, children, confirmLabe
         <h2>{title}</h2>
         <div className="confirm-modal-body">{children}</div>
         <div className="modal-actions">
-          <button
-            className={`modal-btn modal-btn-${confirmVariant}`}
-            onClick={onConfirm}
-          >
-            {confirmLabel}
-          </button>
-          <button className="modal-btn modal-btn-secondary" onClick={onClose}>
-            {cancelLabel}
-          </button>
+          <button className={`modal-btn modal-btn-${confirmVariant}`} onClick={onConfirm}>{confirmLabel}</button>
+          <button className="modal-btn modal-btn-secondary" onClick={onClose}>{cancelLabel}</button>
         </div>
       </div>
     </div>
   );
 };
 
-// ──────────────────────────────────────────────
-// Модальное окно «сначала купи карточку»
-// ──────────────────────────────────────────────
 const NoInfoCardModal = ({ isOpen, onClose, onGoToBuyCard }) => {
   if (!isOpen) return null;
   return (
@@ -101,30 +78,18 @@ const NoInfoCardModal = ({ isOpen, onClose, onGoToBuyCard }) => {
         <div className="no-card-modal-icon">🗂️</div>
         <h2>Нужна карточка информации</h2>
         <div className="confirm-modal-body">
-          <p>
-            Прежде чем выбирать лицензионный участок, необходимо приобрести хотя бы одну
-            <strong> карточку информации</strong>.
-          </p>
-          <p className="confirm-modal-hint">
-            Карточки содержат геологические данные о регионе и помогают сделать обоснованный выбор участка.
-          </p>
+          <p>Прежде чем выбирать лицензионный участок, необходимо приобрести хотя бы одну <strong>карточку информации</strong>.</p>
+          <p className="confirm-modal-hint">Карточки содержат геологические данные о регионе и помогают сделать обоснованный выбор участка.</p>
         </div>
         <div className="modal-actions">
-          <button className="modal-btn modal-btn-primary" onClick={onGoToBuyCard}>
-            Купить карточку
-          </button>
-          <button className="modal-btn modal-btn-secondary" onClick={onClose}>
-            Закрыть
-          </button>
+          <button className="modal-btn modal-btn-primary" onClick={onGoToBuyCard}>Купить карточку</button>
+          <button className="modal-btn modal-btn-secondary" onClick={onClose}>Закрыть</button>
         </div>
       </div>
     </div>
   );
 };
 
-// ──────────────────────────────────────────────
-// Модальное окно предупреждения (без confirm)
-// ──────────────────────────────────────────────
 const AlertModal = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
   return (
@@ -134,210 +99,133 @@ const AlertModal = ({ isOpen, onClose, title, children }) => {
         <h2>{title}</h2>
         <div className="confirm-modal-body">{children}</div>
         <div className="modal-actions">
-          <button className="modal-btn modal-btn-secondary" onClick={onClose}>
-            Закрыть
-          </button>
+          <button className="modal-btn modal-btn-secondary" onClick={onClose}>Закрыть</button>
         </div>
       </div>
     </div>
   );
 };
 
+// ── Маппинг серверных фаз ─────────────────────────────────────────────────────
+const serverPhaseToLocal = (serverPhase) => {
+  switch (serverPhase) {
+    case 'REGION_MAP_SELECTION':    return 'selection';
+    case 'REGION_MAP_AUCTION':      return 'auction';
+    case 'REGION_MAP_POST_AUCTION': return 'post_auction';
+    default:                        return null;
+  }
+};
+
+const isRegionMapPhase = (serverPhase) =>
+  ['REGION_MAP_SELECTION', 'REGION_MAP_AUCTION', 'REGION_MAP_POST_AUCTION'].includes(serverPhase);
+
+// ── Главный компонент ─────────────────────────────────────────────────────────
+
 const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const {
     player, licenseUnits, gridCells, auctions,
     purchaseLU, purchaseGridCell, placeBid, finalizeAuction,
     registerForAuction, getMyAuctionParticipation, simulateOtherTeamOwns,
-    unpurchaseGridCell, unregisterFromAuction
+    unpurchaseGridCell, unregisterFromAuction,
   } = useGameStore();
 
-  const budget = player.budget;
-  const selectedLU = licenseUnits.owned;
-  const ownedCells = gridCells.owned;
-  const ownedCount = Object.keys(ownedCells).length;
-  const myAuctionCells = getMyAuctionParticipation();
+  const sessionConfig    = player.sessionConfig ?? {};
+  const MAX_LUS_PER_TEAM = sessionConfig.maxLUsPerTeam ?? 5;
+
+  // Серверный таймер
+  const globalTimer   = useGameStore(s => s.globalTimer);
+  const serverPhase   = globalTimer.phase;
+  const timeRemaining = globalTimer.timeRemaining;
+
+  const currentPhase = serverPhaseToLocal(serverPhase) ?? 'finished';
+  const isOurPhase   = isRegionMapPhase(serverPhase);
+
+  const isOnline = () => {
+    const socket = getSocket();
+    return !!(socket?.connected && player.sessionId);
+  };
+
+  const budget              = player.budget;
+  const selectedLU          = licenseUnits.owned;
+  const ownedCells          = gridCells.owned;
+  const ownedCount          = Object.keys(ownedCells).length;
+  const myAuctionCells      = getMyAuctionParticipation();
   const totalCommittedCells = ownedCount + myAuctionCells.length;
 
-  const [hoveredLU, setHoveredLU] = useState(null);
-  const [showInfoCards, setShowInfoCards] = useState(false);
+  const [hoveredLU, setHoveredLU]               = useState(null);
+  const [showInfoCards, setShowInfoCards]       = useState(false);
   const [selectedInfoCard, setSelectedInfoCard] = useState(null);
-  const [isWideScreen, setIsWideScreen] = useState(window.innerWidth > 1580);
-  const [viewMode, setViewMode] = useState(null);
+  const [isWideScreen, setIsWideScreen]         = useState(window.innerWidth > 1580);
+  const [viewMode, setViewMode]                 = useState(null);
 
-  // ── auctionModal убран — заменён на AuctionDashboard ──
-  // Оставляем его только для legacy-открытия из старых мест (не используется в новом флоу)
-  const [auctionModal, setAuctionModal] = useState(null);
-  const [bidAmount, setBidAmount] = useState('');
-  const [auctionMsg, setAuctionMsg] = useState('');
-
-  const [simulationActive, setSimulationActive] = useState(false);
   const simulationIntervalRef = useRef(null);
+  const [simulationActive, setSimulationActive] = useState(false);
 
   const [showPostAuctionBanner, setShowPostAuctionBanner] = useState(false);
   const bannerTimerRef = useRef(null);
 
-  const [currentPhase, setCurrentPhase] = useState(() => localStorage.getItem(PHASE_STORAGE_KEY) || 'selection');
-  const [timeRemaining, setTimeRemaining] = useState(() => {
-    const saved = localStorage.getItem(TIMER_STORAGE_KEY);
-    if (saved) {
-      const { remaining, timestamp } = JSON.parse(saved);
-      const elapsed = Math.floor((Date.now() - timestamp) / 1000);
-      return Math.max(0, remaining - elapsed);
-    }
-    return SELECTION_DURATION;
-  });
-
-  const [teamFinished, setTeamFinished] = useState(false);
-  const [waitingForOthers, setWaitingForOthers] = useState(false);
-
-  const timerRef = useRef(null);
-  const pollingRef = useRef(null);
-
-  // ── Модальные окна ──────────────
-  const [luConfirmModal, setLuConfirmModal] = useState(null);
+  const [luConfirmModal, setLuConfirmModal]     = useState(null);
   const [gridConfirmModal, setGridConfirmModal] = useState(null);
-  const [noCardModal, setNoCardModal] = useState(false);
-  const [alertModal, setAlertModal] = useState(null);
+  const [noCardModal, setNoCardModal]           = useState(false);
+  const [alertModal, setAlertModal]             = useState(null);
 
   const showAlert = (title, message) => setAlertModal({ title, message });
 
+  // ── Слушаем budget:updated от сервера ────────────────────────────────────
   useEffect(() => {
-    localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify({ remaining: timeRemaining, timestamp: Date.now() }));
-  }, [timeRemaining]);
+    const socket = getSocket();
+    if (!socket) return;
+
+    const onBudgetUpdated = ({ budget: newBudget }) => {
+      // Обновляем бюджет в сторе без лишних запросов
+      useGameStore.setState(st => ({
+        player: { ...st.player, budget: newBudget },
+      }));
+    };
+
+    socket.on('budget:updated', onBudgetUpdated);
+    return () => socket.off('budget:updated', onBudgetUpdated);
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem(PHASE_STORAGE_KEY, currentPhase);
-  }, [currentPhase]);
-
-  useEffect(() => {
+    const handleResize = () => setIsWideScreen(window.innerWidth > 1580);
+    window.addEventListener('resize', handleResize);
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (pollingRef.current) clearInterval(pollingRef.current);
-      if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
+      window.removeEventListener('resize', handleResize);
+      if (bannerTimerRef.current)  clearTimeout(bannerTimerRef.current);
       if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
     };
   }, []);
 
   useEffect(() => {
-    if (teamFinished && !waitingForOthers) {
-      setWaitingForOthers(true);
-      startPolling();
-    }
-  }, [teamFinished]);
-
-  useEffect(() => {
     if (currentPhase === 'post_auction') {
       setShowPostAuctionBanner(true);
-      if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
       bannerTimerRef.current = setTimeout(() => setShowPostAuctionBanner(false), 10000);
     } else {
       setShowPostAuctionBanner(false);
-      if (bannerTimerRef.current) { clearTimeout(bannerTimerRef.current); bannerTimerRef.current = null; }
+      if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
     }
-    return () => { if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current); };
   }, [currentPhase]);
 
   useEffect(() => {
     if (currentPhase !== 'auction' && simulationActive) stopBidSimulation();
   }, [currentPhase]);
 
-  useEffect(() => {
-    if (timeRemaining <= 0 && currentPhase !== 'finished') {
-      handlePhaseTransition();
-      return;
-    }
-    timerRef.current = setInterval(() => {
-      setTimeRemaining(prev => {
-        if (prev <= 1) { clearInterval(timerRef.current); handlePhaseTransition(); return 0; }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [timeRemaining, currentPhase]);
-
-  const startPolling = () => {
-    if (pollingRef.current) return;
-    pollingRef.current = setInterval(async () => {
-      try {
-        const sessionId = player.sessionId;
-        if (!sessionId) return;
-        const status = await getSessionStatus(sessionId);
-        if (status.phase === 'auction') {
-          setCurrentPhase('auction');
-          setTimeRemaining(AUCTION_DURATION);
-          setWaitingForOthers(false);
-          clearInterval(pollingRef.current); pollingRef.current = null;
-        } else if (status.phase === 'finished') {
-          setCurrentPhase('finished');
-          setWaitingForOthers(false);
-          clearInterval(pollingRef.current); pollingRef.current = null;
-        }
-      } catch (error) { console.error('Polling error:', error); }
-    }, 2000);
-  };
-
-  const handlePhaseTransition = () => {
-    if (currentPhase === 'selection') {
-      setCurrentPhase('auction');
-      setTimeRemaining(AUCTION_DURATION);
-      setTeamFinished(false);
-      setWaitingForOthers(false);
-    } else if (currentPhase === 'auction') {
-      Object.keys(auctions.active).forEach(cellRef => finalizeAuction(cellRef));
-      setCurrentPhase('post_auction');
-      setTimeRemaining(POST_AUCTION_TIME);
-    } else if (currentPhase === 'post_auction') {
-      setCurrentPhase('finished');
-    }
-  };
-
-  const handleFinishSelection = async () => {
-    if (ownedCount === 0 && myAuctionCells.length === 0) {
-      showAlert('Нет выбранных участков', 'Выберите хотя бы один лицензионный участок или зарегистрируйтесь на аукцион перед завершением.');
-      return;
-    }
-    try {
-      const sessionId = player.sessionId;
-      const teamId = player.teamId || player.name;
-      await finalizeTeamSelection(sessionId, teamId, {
-        selectedCells: Object.keys(ownedCells),
-        registeredAuctions: myAuctionCells,
-        budget,
-        timestamp: Date.now(),
-      });
-      setTeamFinished(true);
-      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-    } catch (error) {
-      console.error('Error finishing selection:', error);
-      showAlert('Ошибка', 'Ошибка при завершении выбора. Попробуйте снова.');
-    }
-  };
-
-  const resetTimer = () => {
-    setTimeRemaining(SELECTION_DURATION);
-    setCurrentPhase('selection');
-    setTeamFinished(false);
-    setWaitingForOthers(false);
-    localStorage.removeItem(TIMER_STORAGE_KEY);
-    localStorage.removeItem(PHASE_STORAGE_KEY);
-  };
-
+  // ── DEV симуляция ─────────────────────────────────────────────────────────
   const simulateOtherTeamBid = (cellRef) => {
     const auction = auctions.active[cellRef];
     if (!auction) return;
-    const otherTeamId = `team_comp_${Math.floor(Math.random() * 100)}`;
+    const otherTeamId   = `team_comp_${Math.floor(Math.random() * 100)}`;
     const otherTeamName = `Конкурент ${Math.floor(Math.random() * 10)}`;
-    const newBid = auction.currentBid + AUCTION_START_PRICE;
-    const mockBid = { teamId: otherTeamId, teamName: otherTeamName, amount: newBid, timestamp: Date.now() };
+    const newBid        = auction.currentBid + AUCTION_START_PRICE;
     useGameStore.setState(state => {
-      const targetAuction = state.auctions.active[cellRef];
-      if (targetAuction) {
-        targetAuction.currentBid = newBid;
-        targetAuction.currentBidTeamId = otherTeamId;
-        targetAuction.currentBidTeamName = otherTeamName;
-        targetAuction.bids = [...(targetAuction.bids || []), mockBid];
-        if (!targetAuction.participants.includes(otherTeamId))
-          targetAuction.participants = [...targetAuction.participants, otherTeamId];
+      const t = state.auctions.active[cellRef];
+      if (t) {
+        t.currentBid = newBid;
+        t.currentBidTeamId = otherTeamId;
+        t.currentBidTeamName = otherTeamName;
+        t.bids = [...(t.bids || []), { teamId: otherTeamId, teamName: otherTeamName, amount: newBid, timestamp: Date.now() }];
+        if (!t.participants.includes(otherTeamId)) t.participants = [...t.participants, otherTeamId];
       }
       return state;
     });
@@ -347,13 +235,12 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
     if (simulationIntervalRef.current) return;
     simulationIntervalRef.current = setInterval(() => {
       const myId = player.teamId || player.name;
-      const activeAuctions = Object.entries(auctions.active);
-      const myAuctions = activeAuctions.filter(([, auction]) => auction.participants?.includes(myId));
+      const myAuctions = Object.entries(auctions.active).filter(([, a]) => a.participants?.includes(myId));
       if (myAuctions.length > 0) {
         const [cellRef, auction] = myAuctions[Math.floor(Math.random() * myAuctions.length)];
-        const otherTeamId = `team_auto_${Math.floor(Math.random() * 50)}`;
+        const otherTeamId   = `team_auto_${Math.floor(Math.random() * 50)}`;
         const otherTeamName = `Автоконкурент ${Math.floor(Math.random() * 5)}`;
-        const newBid = auction.currentBid + AUCTION_START_PRICE;
+        const newBid        = auction.currentBid + AUCTION_START_PRICE;
         useGameStore.setState(state => {
           const t = state.auctions.active[cellRef];
           if (t) {
@@ -378,270 +265,226 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
     }
   };
 
+  // ── Таймер UI ─────────────────────────────────────────────────────────────
   const getTimerClass = () => {
-    if (currentPhase === 'finished') return 'region-timer region-timer-finished';
-    if (waitingForOthers) return 'region-timer region-timer-waiting';
-    if (timeRemaining <= RM_WARNING_30SEC) return 'region-timer region-timer-critical';
-    if (timeRemaining <= RM_WARNING_2MIN) return 'region-timer region-timer-warning';
-    if (timeRemaining <= RM_WARNING_5MIN) return 'region-timer region-timer-alert';
+    if (!isOurPhase)                               return 'region-timer region-timer-finished';
+    if (timeRemaining <= RM_WARNING_30SEC)         return 'region-timer region-timer-critical';
+    if (timeRemaining <= RM_WARNING_2MIN)          return 'region-timer region-timer-warning';
+    if (timeRemaining <= RM_WARNING_5MIN)          return 'region-timer region-timer-alert';
     return 'region-timer';
   };
 
   const getTimerLabel = () => {
-    if (waitingForOthers) return 'Ожидание других команд';
-    if (currentPhase === 'finished') return 'Время вышло';
-    if (currentPhase === 'auction') return 'Аукцион';
-    if (currentPhase === 'post_auction') return 'Докупка участков';
-    return 'Выбор участков';
-  };
-
-  const getTimerSubtitle = () => {
-    if (waitingForOthers) return 'Вы завершили выбор';
-    if (currentPhase === 'finished') return 'Переход к следующему этапу';
-    if (currentPhase === 'auction') return 'Победит лидер по истечении времени';
-    if (currentPhase === 'post_auction') return 'Только свободные участки (аукционы недоступны)';
-    return 'Покупка лицензионных участков';
-  };
-
-  const getBlockedType = (cellRef) => {
-    if (BLOCKED_CELLS.reserve.includes(cellRef)) return 'reserve';
-    if (BLOCKED_CELLS.settlement.includes(cellRef)) return 'settlement';
-    if (BLOCKED_CELLS.company.includes(cellRef)) return 'company';
-    return null;
-  };
-  const isBlocked = (cellRef) => !!getBlockedType(cellRef);
-  const getBlockedLabel = (type) => {
-    switch (type) {
-      case 'reserve': return 'Природный заказник';
-      case 'settlement': return 'Населённый пункт';
-      case 'company': return 'Занято нефтяной компанией';
-      default: return 'Заблокировано';
+    switch (currentPhase) {
+      case 'selection':   return 'Выбор участков';
+      case 'auction':     return 'Аукцион';
+      case 'post_auction':return 'Допокупка участков';
+      default:            return 'Время вышло';
     }
   };
 
-  const isLUSelected = (luId) => selectedLU.some(lu => lu.id === luId);
-  const canAffordLU = (lu) => {
-    if (isLUSelected(lu.id)) return true;
-    const totalSpent = selectedLU.reduce((sum, item) => sum + item.cost, 0);
-    return (budget - totalSpent) >= lu.cost;
+  const getTimerSubtitle = () => {
+    switch (currentPhase) {
+      case 'selection':   return 'Покупка лицензионных участков';
+      case 'auction':     return 'Победит лидер по истечении времени';
+      case 'post_auction':return 'Только свободные участки (аукционы недоступны)';
+      default:            return 'Переход к следующему этапу';
+    }
   };
 
-  const handleLUClick = (lu) => {
-    const canBuy = (currentPhase === 'selection' && !teamFinished && !waitingForOthers)
-      || (currentPhase === 'post_auction');
+  // ── Вспомогательные ──────────────────────────────────────────────────────
+  const getBlockedType  = (ref) =>
+    BLOCKED_CELLS.reserve.includes(ref)    ? 'reserve'    :
+    BLOCKED_CELLS.settlement.includes(ref) ? 'settlement' :
+    BLOCKED_CELLS.company.includes(ref)    ? 'company'    : null;
 
+  const isBlocked       = (ref) => !!getBlockedType(ref);
+  const getBlockedLabel = (type) => ({
+    reserve:    'Природный заказник',
+    settlement: 'Населённый пункт',
+    company:    'Занято нефтяной компанией',
+  }[type] || 'Заблокировано');
+
+  const isLUSelected    = (luId) => selectedLU.some(lu => lu.id === luId);
+  const canAffordLU     = (lu)   => isLUSelected(lu.id) || budget >= lu.cost;
+  const isOwnedByMe     = (ref)  => !!ownedCells[ref];
+  const isOwnedByOther  = (ref)  => {
+    if (ownedCells[ref]) return false;
+    const cell = gridCells.allTeams[ref];
+    if (!cell?.ownedByTeamId) return false;
+    const myId = player.teamId || player.name;
+    return myId ? cell.ownedByTeamId !== myId : false;
+  };
+  const isRegisteredForAuction = (ref) => myAuctionCells.includes(ref);
+
+  const canBuyCells    = () => currentPhase === 'selection' || currentPhase === 'post_auction';
+  const canJoinAuction = () => currentPhase === 'selection' || currentPhase === 'auction';
+
+  // ── Покупка карточки ЛУ ───────────────────────────────────────────────────
+  const handleLUClick = (lu) => {
+    const canBuy = canBuyCells();
     if (!canBuy) {
       if (isLUSelected(lu.id)) { setViewMode('sidebar'); setSelectedInfoCard(lu); }
       else showAlert('Недоступно', 'Покупка карточек информации сейчас недоступна.');
       return;
     }
-
-    if (isLUSelected(lu.id)) {
-      setViewMode('sidebar');
-      setSelectedInfoCard(lu);
-      return;
-    }
-
-    if (!canAffordLU(lu)) {
-      showAlert('Недостаточно средств', `Не хватает ${lu.cost - (budget - selectedLU.reduce((s, l) => s + l.cost, 0))} млн руб. для покупки карточки «${lu.name}».`);
-      return;
-    }
-
+    if (isLUSelected(lu.id)) { setViewMode('sidebar'); setSelectedInfoCard(lu); return; }
+    if (!canAffordLU(lu)) { showAlert('Недостаточно средств', `Не хватает средств для покупки карточки «${lu.name}».`); return; }
     setLuConfirmModal({ lu });
   };
 
+  // ── ПОКУПКА КАРТОЧКИ — СПИСАНИЕ НА СЕРВЕРЕ ───────────────────────────────
   const confirmBuyLU = () => {
     if (!luConfirmModal) return;
-    purchaseLU(luConfirmModal.lu);
+    const { lu } = luConfirmModal;
     setLuConfirmModal(null);
+
+    const socket = getSocket();
+
+    if (socket?.connected && player.sessionId) {
+      // Онлайн: сервер спишет бюджет и вернёт budget:updated
+      socket.emit('lu:purchase', { luId: lu.id, luName: lu.name, cost: lu.cost }, (res) => {
+        if (res?.ok) {
+          // Добавляем карточку в локальный стор (визуально)
+          purchaseLU(lu);
+          // Бюджет обновится через budget:updated от сервера
+        } else {
+          showAlert('Ошибка', res?.error === 'INSUFFICIENT_FUNDS'
+            ? 'Недостаточно средств на счёте.'
+            : `Ошибка покупки: ${res?.error || 'неизвестная ошибка'}`
+          );
+        }
+      });
+    } else {
+      // Офлайн: покупаем локально (бюджет спишется через purchaseLU в сторе)
+      purchaseLU(lu);
+    }
   };
 
-  const totalSpent = selectedLU.reduce((sum, lu) => sum + lu.cost, 0);
+  const luSpent      = selectedLU.reduce((sum, lu) => sum + (lu.cost || 0), 0);
+  const auctionSpent = Object.values(ownedCells).reduce((sum, c) => sum + (c.auctionPrice || 0), 0);
+  const totalSpent   = luSpent + auctionSpent;
   const getLUPosition = (cellId) => LICENSE_UNITS.find(lu => lu.cellRef === cellId);
-  const isOwnedByMe = (cellRef) => !!ownedCells[cellRef];
-  const isOwnedByOther = (cellRef) => {
-    if (ownedCells[cellRef]) return false;
-    const cellData = gridCells.allTeams[cellRef];
-    if (!cellData || !cellData.ownedByTeamId) return false;
-    const myId = player.teamId || player.name;
-    return myId ? cellData.ownedByTeamId !== myId : false;
-  };
-  const isRegisteredForAuction = (cellRef) => myAuctionCells.includes(cellRef);
-
-  const canInteractWithGrid = () =>
-    (currentPhase === 'selection' && !teamFinished && !waitingForOthers) ||
-    (currentPhase === 'post_auction');
 
   const handleGridCellClick = (cellRef) => {
-    if (!canInteractWithGrid()) {
-      // В фазе аукциона клик по ячейке не открывает старый modal —
-      // всё управление через AuctionDashboard
-      if (currentPhase === 'auction') {
-        // Просто ничего не делаем — дашборд уже видно
-        return;
-      } else if (currentPhase === 'finished') {
-        showAlert('Время истекло', 'Время на выбор участков истекло.');
-      } else if (waitingForOthers) {
-        showAlert('Ожидание', 'Вы завершили выбор. Ожидайте других команд.');
-      }
-      return;
-    }
-
-    if (isBlocked(cellRef)) {
-      showAlert('Участок недоступен', `Причина: ${getBlockedLabel(getBlockedType(cellRef))}`);
-      return;
-    }
-
-    if (selectedLU.length === 0) {
-      setNoCardModal(true);
-      return;
-    }
-
-    if (totalCommittedCells >= 5 && !isOwnedByMe(cellRef) && !isRegisteredForAuction(cellRef)) {
-      showAlert(
-        'Лимит участков',
-        `Лимит 5 участков (включая аукционы).\nУ вас: ${ownedCount} участков + ${myAuctionCells.length} аукционов = ${totalCommittedCells}/5`
-      );
-      return;
-    }
-
-    if (isOwnedByMe(cellRef)) {
-      showAlert('Уже ваш', 'Этот участок уже принадлежит вашей команде.');
-      return;
-    }
+    if (!isOurPhase)     { showAlert('Время истекло', 'Время на выбор участков истекло.'); return; }
+    if (isBlocked(cellRef)) { showAlert('Участок недоступен', `Причина: ${getBlockedLabel(getBlockedType(cellRef))}`); return; }
+    if (selectedLU.length === 0) { setNoCardModal(true); return; }
+    if (isOwnedByMe(cellRef)) { showAlert('Уже ваш', 'Этот участок уже принадлежит вашей команде.'); return; }
 
     if (isOwnedByOther(cellRef)) {
-      const cellData = gridCells.allTeams[cellRef];
-      const ownerTeam = cellData.ownedByTeamName || 'Другая команда';
-
+      const ownerTeam = gridCells.allTeams[cellRef]?.ownedByTeamName || 'Другая команда';
       if (currentPhase === 'post_auction') {
-        showAlert(
-          'Участок занят',
-          `Участок ${cellRef} занят командой «${ownerTeam}».\n\nВо время дополнительного времени нельзя участвовать в аукционах. Доступны только свободные участки.`
-        );
+        showAlert('Участок занят', `Участок ${cellRef} занят командой «${ownerTeam}».\n\nВо время допокупки аукционы недоступны.`);
         return;
       }
-
-      if (isRegisteredForAuction(cellRef)) {
-        showAlert('Уже зарегистрированы', `Вы уже зарегистрированы на аукцион за участок ${cellRef}.`);
+      if (!canJoinAuction()) { showAlert('Недоступно', 'Регистрация на аукцион сейчас недоступна.'); return; }
+      if (isRegisteredForAuction(cellRef)) { showAlert('Уже зарегистрированы', `Вы уже зарегистрированы на аукцион за участок ${cellRef}.`); return; }
+      if (totalCommittedCells >= MAX_LUS_PER_TEAM) {
+        showAlert('Лимит', `Достигнут лимит ${MAX_LUS_PER_TEAM} участков.`);
         return;
       }
-      if (totalCommittedCells >= 5) {
-        showAlert('Лимит', `Нельзя зарегистрироваться на ещё один аукцион.\nЛимит: ${totalCommittedCells}/5`);
-        return;
-      }
-
       setGridConfirmModal({ cellRef, mode: 'auction', ownerTeam });
       return;
     }
 
+    if (currentPhase === 'auction') return;
+
+    if (!canBuyCells()) { showAlert('Недоступно', 'Покупка участков сейчас недоступна.'); return; }
+    if (totalCommittedCells >= MAX_LUS_PER_TEAM && !isRegisteredForAuction(cellRef)) {
+      showAlert('Лимит участков', `Лимит ${MAX_LUS_PER_TEAM} участков. У вас: ${ownedCount} + ${myAuctionCells.length} аукционов = ${totalCommittedCells}/${MAX_LUS_PER_TEAM}`);
+      return;
+    }
     setGridConfirmModal({ cellRef, mode: 'buy' });
   };
 
   const confirmGridAction = () => {
     if (!gridConfirmModal) return;
     const { cellRef, mode } = gridConfirmModal;
+    setGridConfirmModal(null);
 
     if (mode === 'buy') {
-      purchaseGridCell(cellRef, `Участок ${cellRef}`);
+      const socket = getSocket();
+      if (socket?.connected && player.sessionId) {
+        socket.emit('cell:purchase', { cellRef, cellName: `Участок ${cellRef}` }, (res) => {
+          if (!res?.ok) {
+            if (res?.error === 'LIMIT') showAlert('Лимит', `Достигнут лимит ${MAX_LUS_PER_TEAM} участков.`);
+            else if (res?.error === 'ALREADY_OWNED') showAlert('Уже ваш', 'Этот участок уже ваш.');
+            else if (res?.action === 'auction') showAlert('Аукцион', `Участок занят, запущен аукцион за ${cellRef}`);
+          }
+          // Участок в first purchase бесплатный — бюджет не меняется
+        });
+      } else {
+        purchaseGridCell(cellRef, `Участок ${cellRef}`);
+      }
+
     } else if (mode === 'auction') {
-      if (!registerForAuction(cellRef)) {
-        showAlert('Ошибка', 'Не удалось зарегистрироваться на аукцион.');
+      const socket = getSocket();
+      if (socket?.connected && player.sessionId) {
+        socket.emit('cell:purchase', { cellRef, cellName: `Участок ${cellRef}` }, (res) => {
+          if (res?.action === 'auction' || res?.ok) {
+            // auction:created придёт через WS — бюджет спишется при finalizeAuction
+          } else if (res?.error === 'LIMIT') {
+            showAlert('Лимит', `Достигнут лимит ${MAX_LUS_PER_TEAM} участков.`);
+          } else if (res?.error) {
+            socket.emit('auction:register', { cellRef }, (regRes) => {
+              if (!regRes?.ok) showAlert('Ошибка', regRes?.error || 'Не удалось зарегистрироваться на аукцион.');
+            });
+          }
+        });
+      } else {
+        if (!registerForAuction(cellRef)) showAlert('Ошибка', 'Не удалось зарегистрироваться на аукцион.');
       }
     }
-    setGridConfirmModal(null);
   };
 
-  // ── Обработчики для AuctionDashboard ────────────────────────────────
-
-  /**
-   * Ставка из дашборда.
-   * Возвращает true если ставка принята, false если нет.
-   */
   const handleDashboardBid = async (cellRef, amount) => {
-    try {
-      if (player.sessionId && import.meta.env.VITE_USE_BACKEND === 'true') {
-        try {
-          await placeBidOnAuction(player.sessionId, cellRef, {
-            teamId: player.teamId || player.name, amount, timestamp: Date.now()
-          });
-        } catch (e) { console.log('Backend недоступен:', e); }
-      }
-      return placeBid(cellRef, amount);
-    } catch (error) {
-      console.error('Error placing bid:', error);
-      return false;
+    const socket = getSocket();
+    if (socket?.connected && player.sessionId) {
+      return new Promise(resolve => {
+        socket.emit('auction:bid', { cellRef, amount }, (res) => {
+          resolve(res?.ok ?? false);
+        });
+      });
     }
+    return placeBid(cellRef, amount);
   };
 
-  /**
-   * Выход из аукциона из дашборда — открывает confirm-модал.
-   */
   const handleDashboardLeave = (cellRef) => {
-    const auction = auctions.active[cellRef];
-    const myId = player.teamId || player.name;
-    const weAreLeading = auction?.currentBidTeamId === myId;
-
-    const message = weAreLeading
-      ? `Вы сейчас лидируете! Если покинете аукцион, участок достанется другой команде.`
-      : `Если вы выйдете, участок достанется победителю среди других участников.`;
-
-    setGridConfirmModal({ cellRef, mode: 'leave', message, weAreLeading });
+    const auction   = auctions.active[cellRef];
+    const myId      = player.teamId || player.name;
+    const weLeading = auction?.currentBidTeamId === myId;
+    const message   = weLeading
+      ? 'Вы сейчас лидируете! Если покинете аукцион, участок достанется другой команде.'
+      : 'Если вы выйдете, участок достанется победителю среди других участников.';
+    setGridConfirmModal({ cellRef, mode: 'leave', message, weAreLeading: weLeading });
   };
 
   const confirmLeaveAuction = () => {
     const { cellRef } = gridConfirmModal;
-    const myId = player.teamId || player.name;
-    try {
-      if (unregisterFromAuction) {
-        unregisterFromAuction(cellRef);
-      } else {
-        useGameStore.setState(state => {
-          const targetAuction = state.auctions.active[cellRef];
-          if (targetAuction && targetAuction.participants) {
-            targetAuction.participants = targetAuction.participants.filter(id => id !== myId);
-            if (targetAuction.participants.length === 0) {
-              delete state.auctions.active[cellRef];
-            } else if (targetAuction.currentBidTeamId === myId && targetAuction.participants.length > 0) {
-              const nextLeaderId = targetAuction.participants[0];
-              targetAuction.currentBidTeamId = nextLeaderId;
-              targetAuction.currentBidTeamName = `Команда ${nextLeaderId}`;
-              targetAuction.currentBid = targetAuction.startPrice;
-            }
-          }
-          state.auctions.pendingForMe = state.auctions.pendingForMe.filter(ref => ref !== cellRef);
-          return state;
-        });
-      }
-      setGridConfirmModal(null);
-    } catch (error) {
-      console.error('Error leaving auction:', error);
-      showAlert('Ошибка', 'Ошибка при выходе из аукциона');
+    setGridConfirmModal(null);
+    const socket = getSocket();
+    if (socket?.connected && player.sessionId) {
+      socket.emit('auction:leave', { cellRef }, () => {});
+    } else {
+      unregisterFromAuction(cellRef);
     }
   };
 
-  // ── DEV helpers ──────────────────────────────────────────────────────
-
   const DEV_SIMULATED_TEAMS = [
     { cellRef: 'E5', name: 'Участок E5', teamId: 'dev_team_alpha', teamName: 'Команда Альфа' },
-    { cellRef: 'F7', name: 'Участок F7', teamId: 'dev_team_beta', teamName: 'Команда Бета' },
+    { cellRef: 'F7', name: 'Участок F7', teamId: 'dev_team_beta',  teamName: 'Команда Бета'  },
   ];
-
   const shouldShowDevButton = () =>
     DEV_SIMULATED_TEAMS.some(({ cellRef }) => !isOwnedByMe(cellRef) && !isOwnedByOther(cellRef));
 
+  // ── РЕНДЕР ────────────────────────────────────────────────────────────────
   return (
     <div className="region-map-fullscreen">
 
-      {/* ── Таймер ── */}
+      {/* Таймер */}
       <div className={getTimerClass()}>
-        {waitingForOthers ? (
-          <>
-            <div className="region-timer-label">{getTimerLabel()}</div>
-            <div className="region-timer-waiting-icon">WAIT</div>
-            <div className="region-timer-subtitle">{getTimerSubtitle()}</div>
-          </>
-        ) : currentPhase === 'finished' ? (
+        {!isOurPhase ? (
           <>
             <div className="region-timer-label">{getTimerLabel()}</div>
             <div className="region-timer-value">00:00</div>
@@ -658,28 +501,68 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
       {currentPhase === 'post_auction' && showPostAuctionBanner && (
         <div className="post-auction-banner">
-          Аукцион завершён! У вас есть 2 минуты, чтобы докупить свободные участки (аукционы недоступны)
+          Аукцион завершён! Есть время докупить свободные участки (аукционы недоступны)
         </div>
       )}
 
-      {/* ── Управляющие кнопки ── */}
-      {/* ── Управляющие кнопки ── */}
+      {/* Кнопки управления */}
       <div className="map-controls">
-        <button className="control-btn back-control-btn" onClick={onBack}>← Назад</button>
-        <button className="control-btn back-control-btn" onClick={onMenu}>В меню</button>
-        {!teamFinished && !waitingForOthers && currentPhase === 'selection' && (ownedCount > 0 || myAuctionCells.length > 0) && (
-          <button className="control-btn finish-selection-btn" onClick={handleFinishSelection}>
-            Завершить выбор
-          </button>
-        )}
-        {currentPhase === 'finished' && ownedCount > 0 && onNext && (
-          <button className="control-btn next-control-btn" onClick={onNext}>
-            Далее — Научные исследования
-          </button>
-        )}
+        {/* "Назад" и "В меню" заблокированы пока идут фазы карты региона */}
+        <button
+          className={`control-btn back-control-btn ${isOurPhase ? 'control-btn-locked' : ''}`}
+          onClick={isOurPhase ? undefined : onBack}
+          disabled={isOurPhase}
+          title={isOurPhase ? 'Дождитесь завершения всех этапов карты региона' : ''}
+        >
+          ← Назад
+        </button>
+        <button
+          className={`control-btn back-control-btn ${isOurPhase ? 'control-btn-locked' : ''}`}
+          onClick={isOurPhase ? undefined : onMenu}
+          disabled={isOurPhase}
+          title={isOurPhase ? 'Дождитесь завершения всех этапов карты региона' : ''}
+        >
+          В меню
+        </button>
+        {onNext && (() => {
+          const mapDone = !isOurPhase && serverPhase !== 'LOBBY' && serverPhase !== 'REGION_MAP_SELECTION' && serverPhase !== 'REGION_MAP_AUCTION' && serverPhase !== 'REGION_MAP_POST_AUCTION';
+          const hasLUs  = ownedCount > 0;
+
+          if (mapDone && hasLUs) {
+            return (
+              <button className="control-btn next-control-btn" onClick={onNext}>
+                Далее — Научные исследования
+              </button>
+            );
+          }
+
+          const hint = isOurPhase
+            ? `Дождитесь завершения всех этапов карты (${
+                currentPhase === 'selection'    ? 'Выбор → Аукцион → Допокупка' :
+                currentPhase === 'auction'      ? 'Аукцион → Допокупка' :
+                currentPhase === 'post_auction' ? 'Допокупка…' : '…'
+              })`
+            : !hasLUs
+              ? 'Сначала выберите хотя бы один участок'
+              : 'Ожидайте завершения всех этапов карты';
+
+          return (
+            <button
+              className="control-btn next-control-btn next-control-btn-disabled"
+              disabled
+              title={hint}
+            >
+              {isOurPhase ? `⏳ ${
+                currentPhase === 'selection'    ? 'Идёт выбор участков…' :
+                currentPhase === 'auction'      ? 'Идёт аукцион…' :
+                currentPhase === 'post_auction' ? 'Идёт допокупка…' : 'Карта региона…'
+              }` : 'Далее — Научные исследования'}
+            </button>
+          );
+        })()}
       </div>
 
-      {/* ── DEV: симуляция ставок ── */}
+      {/* DEV симуляция */}
       {import.meta.env.DEV && currentPhase === 'auction' && (
         <div style={{ position: 'fixed', bottom: '20px', left: '380px', zIndex: 1000, display: 'flex', gap: '8px' }}>
           <button
@@ -689,15 +572,13 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
           >
             {simulationActive ? 'STOP симуляция' : 'START симуляция ставок'}
           </button>
-          {/* DEV: перебить случайную ставку вручную */}
           {Object.keys(auctions.active).length > 0 && (
             <button
               className="dev-sim-btn"
               style={{ backgroundColor: '#ff9800', color: 'white', fontWeight: 700 }}
               onClick={() => {
                 const keys = Object.keys(auctions.active);
-                const cellRef = keys[Math.floor(Math.random() * keys.length)];
-                simulateOtherTeamBid(cellRef);
+                simulateOtherTeamBid(keys[Math.floor(Math.random() * keys.length)]);
               }}
             >
               DEV: перебить ставку
@@ -706,33 +587,31 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         </div>
       )}
 
-      {/* ── Информационная панель ── */}
+      {/* Информационная панель */}
       <div className={`game-info-panel ${!isWideScreen ? 'ultra-compact' : ''}`}>
         {!isWideScreen ? (
           <>
             <div className="info-row"><span className="info-label">Карточки:</span><span className="info-value">{selectedLU.length}</span></div>
-            <div className="info-row"><span className="info-label">Участки:</span><span className="info-value">{ownedCount}/5</span></div>
+            <div className="info-row"><span className="info-label">Участки:</span><span className="info-value">{ownedCount}/{MAX_LUS_PER_TEAM}</span></div>
             {myAuctionCells.length > 0 && (
               <div className="info-row"><span className="info-label">Аукционы:</span><span className="info-value auction-count">{myAuctionCells.length}</span></div>
             )}
             <div className="info-row">
               <span className="info-label">Всего:</span>
-              <span className={`info-value ${totalCommittedCells >= 5 ? 'limit-reached' : ''}`}>{totalCommittedCells}/5</span>
+              <span className={`info-value ${totalCommittedCells >= MAX_LUS_PER_TEAM ? 'limit-reached' : ''}`}>{totalCommittedCells}/{MAX_LUS_PER_TEAM}</span>
             </div>
             <div className="info-row icons-only">
-              <span className="info-value budget-value">{budget} млн</span>
+              <span className="info-value budget-value">{budget.toLocaleString('ru-RU')} млн</span>
               <span className="info-value spent-value">{totalSpent} млн</span>
             </div>
-            {currentPhase !== 'selection' && (
-              <div className="phase-indicator-compact"><span className="phase-label">{getTimerLabel()}</span></div>
-            )}
             {selectedLU.length > 0 && (
               <div className="compact-cards-mini-list">
-                {selectedLU.map((lu) => (
-                  <div key={lu.id} className="compact-card-mini-item" onClick={() => { setViewMode('button'); setSelectedInfoCard(lu); setShowInfoCards(true); }}>
+                {selectedLU.map(lu => (
+                  <div key={lu.id} className="compact-card-mini-item"
+                    onClick={() => { setViewMode('button'); setSelectedInfoCard(lu); setShowInfoCards(true); }}>
                     <span className="compact-card-mini-title">{lu.name}</span>
                     <span className="compact-card-mini-cost">{lu.cost} млн</span>
-                    <span className="compact-card-mini-hint">-&gt;</span>
+                    <span className="compact-card-mini-hint">→</span>
                   </div>
                 ))}
               </div>
@@ -741,39 +620,40 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         ) : (
           <>
             <div className="info-row"><span className="info-label">Карточки информации:</span><span className="info-value">{selectedLU.length}</span></div>
-            <div className="info-row"><span className="info-label">Выбрано участков:</span><span className="info-value">{ownedCount} / 5</span></div>
+            <div className="info-row">
+              <span className="info-label">Выбрано участков:</span>
+              <span className="info-value">{ownedCount} / {MAX_LUS_PER_TEAM}</span>
+            </div>
             {myAuctionCells.length > 0 && (
               <div className="info-row"><span className="info-label">Зарегистрировано на аукционы:</span><span className="info-value auction-count">{myAuctionCells.length}</span></div>
             )}
             <div className="info-row"><span className="info-label">Бюджет:</span><span className="info-value budget-value">{budget.toLocaleString('ru-RU')} млн руб.</span></div>
             <div className="info-row"><span className="info-label">Потрачено:</span><span className="info-value spent-value">{totalSpent.toLocaleString('ru-RU')} млн руб.</span></div>
-            {currentPhase !== 'selection' && (
-              <div className="phase-indicator">
-                <div className="phase-indicator-label">Текущий этап:</div>
-                <div className="phase-indicator-value">{getTimerLabel()}</div>
-              </div>
+            {isOnline() && (
+              <div className="info-row"><span className="info-label">🔌 Онлайн</span><span className="info-value" style={{ color: '#4caf50' }}>синхронизировано</span></div>
             )}
             {myAuctionCells.length > 0 && currentPhase === 'selection' && (
               <div className="pending-auctions-list">
                 <div className="pending-auctions-title">Ожидание аукционов:</div>
-                {myAuctionCells.map(cellRef => (
-                  <div key={cellRef} className="pending-auction-item">
-                    <span className="pending-auction-cell">WAIT {cellRef}</span>
+                {myAuctionCells.map(ref => (
+                  <div key={ref} className="pending-auction-item">
+                    <span className="pending-auction-cell">WAIT {ref}</span>
                   </div>
                 ))}
               </div>
             )}
             {selectedLU.length > 0 && (
               <div className="info-panel-section">
-                <h4 className="info-panel-section-title">Карточки информации<span className="section-title-count">{selectedLU.length}</span></h4>
+                <h4 className="info-panel-section-title">Карточки информации <span className="section-title-count">{selectedLU.length}</span></h4>
                 <div className="info-panel-cards-list">
-                  {selectedLU.map((lu) => (
-                    <div key={lu.id} className="info-panel-card-item" onClick={() => { setViewMode('sidebar'); setSelectedInfoCard(lu); }}>
+                  {selectedLU.map(lu => (
+                    <div key={lu.id} className="info-panel-card-item"
+                      onClick={() => { setViewMode('sidebar'); setSelectedInfoCard(lu); }}>
                       <div className="info-panel-card-header">
                         <span className="info-panel-card-title">{lu.name}</span>
                         <span className="info-panel-card-cost">{lu.cost} млн руб.</span>
                       </div>
-                      <div className="info-panel-card-footer"><span className="info-panel-card-hint">Подробнее -&gt;</span></div>
+                      <div className="info-panel-card-footer"><span className="info-panel-card-hint">Подробнее →</span></div>
                     </div>
                   ))}
                 </div>
@@ -786,27 +666,19 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                   <div key={cell.cellRef} className="owned-cell-item owned-cell-item-static">
                     <span className="owned-cell-ref">{cell.cellRef}</span>
                     <span className="owned-cell-name">{cell.name}</span>
-                    {cell.auctionPrice ? <span className="owned-cell-price">{cell.auctionPrice} млн</span> : <span className="owned-cell-free">бесплатно</span>}
+                    {cell.auctionPrice
+                      ? <span className="owned-cell-price">{cell.auctionPrice} млн</span>
+                      : <span className="owned-cell-free">бесплатно</span>}
                   </div>
                 ))}
               </div>
             )}
             {import.meta.env.DEV && shouldShowDevButton() && (
-              <button
-                className="dev-sim-btn"
-                onClick={() => {
-                  DEV_SIMULATED_TEAMS.forEach(({ cellRef, name, teamId, teamName }) => {
-                    if (!isOwnedByMe(cellRef) && !isOwnedByOther(cellRef)) {
-                      simulateOtherTeamOwns(cellRef, name, teamId, teamName);
-                    }
-                  });
-                }}
-              >
-                DEV: Симулировать 2 команды (E5 + F7)
-              </button>
-            )}
-            {import.meta.env.DEV && (
-              <button className="dev-sim-btn" onClick={resetTimer} style={{ marginTop: '8px' }}>DEV: Сброс таймера</button>
+              <button className="dev-sim-btn" onClick={() => {
+                DEV_SIMULATED_TEAMS.forEach(({ cellRef, name }) => {
+                  if (!isOwnedByMe(cellRef) && !isOwnedByOther(cellRef)) simulateOtherTeamOwns(cellRef, name);
+                });
+              }}>DEV: Симулировать 2 команды</button>
             )}
           </>
         )}
@@ -816,13 +688,14 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         <div className="info-cards-sidebar">
           <h3>Карточки информации</h3>
           <div className="compact-cards-list">
-            {selectedLU.map((lu) => (
-              <div key={lu.id} className="compact-info-card" onClick={() => { setViewMode('sidebar'); setSelectedInfoCard(lu); }}>
+            {selectedLU.map(lu => (
+              <div key={lu.id} className="compact-info-card"
+                onClick={() => { setViewMode('sidebar'); setSelectedInfoCard(lu); }}>
                 <div className="compact-card-header">
                   <span className="compact-card-title">{lu.name}</span>
                   <span className="compact-card-cost">{lu.cost} млн руб.</span>
                 </div>
-                <div className="compact-card-hint">Подробнее -&gt;</div>
+                <div className="compact-card-hint">Подробнее →</div>
               </div>
             ))}
           </div>
@@ -831,7 +704,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
       <div className="vertical-title"><div className="vertical-title-text">Карта региона</div></div>
 
-      {/* ── Основная карта ── */}
+      {/* Основная карта */}
       <div className="map-main-area">
         <div className="grid-with-lu-wrapper">
           <div className="grid-column-headers">
@@ -843,51 +716,48 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
               {rows.map(row => <div key={row} className="grid-row-header">{row}</div>)}
             </div>
             <div className="grid-with-lu">
-              {rows.map((row) => (
+              {rows.map(row => (
                 <div key={row} className="grid-row">
-                  {cols.map((col) => {
-                    const cellId = `${row}${col}`;
-                    const lu = getLUPosition(cellId);
-                    const ownedByMe = isOwnedByMe(cellId);
-                    const ownedByOther = isOwnedByOther(cellId);
+                  {cols.map(col => {
+                    const cellId           = `${row}${col}`;
+                    const lu               = getLUPosition(cellId);
+                    const ownedByMe        = isOwnedByMe(cellId);
+                    const ownedByOther     = isOwnedByOther(cellId);
                     const hasActiveAuction = !!auctions.active[cellId];
-                    const blockedType = getBlockedType(cellId);
+                    const blockedType      = getBlockedType(cellId);
                     const isPendingAuction = isRegisteredForAuction(cellId);
-                    const isDisabled =
-                      currentPhase === 'finished' ||
-                      waitingForOthers ||
-                      (currentPhase === 'auction' && !hasActiveAuction);
+                    const isDisabled       = !isOurPhase || (currentPhase === 'auction' && !hasActiveAuction);
 
                     return (
                       <div key={cellId} className="cell-with-lu-wrapper">
                         <div
                           className={[
                             'grid-cell',
-                            ownedByMe ? 'grid-cell-owned' : '',
-                            ownedByOther ? 'grid-cell-other' : '',
-                            hasActiveAuction ? 'grid-cell-auction' : '',
+                            ownedByMe        ? 'grid-cell-owned'           : '',
+                            ownedByOther     ? 'grid-cell-other'           : '',
+                            hasActiveAuction ? 'grid-cell-auction'         : '',
                             isPendingAuction ? 'grid-cell-pending-auction' : '',
-                            blockedType ? `grid-cell-blocked grid-cell-blocked-${blockedType}` : '',
-                            isDisabled ? 'grid-cell-disabled' : '',
+                            blockedType      ? `grid-cell-blocked grid-cell-blocked-${blockedType}` : '',
+                            isDisabled       ? 'grid-cell-disabled'        : '',
                           ].filter(Boolean).join(' ')}
                           onClick={() => handleGridCellClick(cellId)}
                           title={
-                            isDisabled && !hasActiveAuction ? 'Выбор участков недоступен'
-                              : blockedType ? `${cellId} - ${getBlockedLabel(blockedType)}`
-                                : ownedByMe ? `${cellId} - ваш участок`
-                                  : ownedByOther ? `${cellId} - занят другой командой${currentPhase === 'post_auction' ? ' (аукционы недоступны)' : ''}`
-                                    : hasActiveAuction ? `${cellId} - аукцион (смотрите панель справа)`
-                                      : isPendingAuction ? `${cellId} - вы в очереди на аукцион`
-                                        : totalCommittedCells >= 5 ? `${cellId} - лимит 5 участков`
-                                          : `${cellId} - нажмите чтобы выбрать`
+                            !isOurPhase             ? 'Выбор участков недоступен'
+                            : blockedType           ? `${cellId} - ${getBlockedLabel(blockedType)}`
+                            : ownedByMe             ? `${cellId} - ваш участок`
+                            : ownedByOther          ? `${cellId} - занят другой командой`
+                            : hasActiveAuction      ? `${cellId} - аукцион`
+                            : isPendingAuction      ? `${cellId} - вы в очереди`
+                            : totalCommittedCells >= MAX_LUS_PER_TEAM ? `${cellId} - лимит ${MAX_LUS_PER_TEAM}`
+                            : `${cellId} - нажмите чтобы выбрать`
                           }
                         >
                           <span className="cell-label">{cellId}</span>
-                          {ownedByMe && <span className="cell-mark cell-mark-own">OK</span>}
-                          {ownedByOther && <span className="cell-mark cell-mark-other">!</span>}
+                          {ownedByMe        && <span className="cell-mark cell-mark-own">OK</span>}
+                          {ownedByOther     && <span className="cell-mark cell-mark-other">!</span>}
                           {hasActiveAuction && !ownedByMe && !ownedByOther && <span className="cell-mark cell-mark-auction">LIVE</span>}
                           {isPendingAuction && <span className="cell-mark cell-mark-pending">WAIT</span>}
-                          {blockedType && <span className="cell-mark cell-mark-blocked">X</span>}
+                          {blockedType      && <span className="cell-mark cell-mark-blocked">X</span>}
                           {isDisabled && !blockedType && !hasActiveAuction && <span className="cell-mark cell-mark-timer">X</span>}
                         </div>
 
@@ -898,9 +768,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                                 'lu-marker',
                                 isLUSelected(lu.id) ? 'selected' : '',
                                 !canAffordLU(lu) && !isLUSelected(lu.id) ? 'disabled' : '',
-                                currentPhase === 'auction' && !isLUSelected(lu.id) ? 'timer-disabled' : '',
-                                currentPhase === 'selection' && (teamFinished || waitingForOthers) && !isLUSelected(lu.id) ? 'timer-disabled' : '',
-                                currentPhase === 'finished' && !isLUSelected(lu.id) ? 'timer-disabled' : '',
+                                !canBuyCells() && !isLUSelected(lu.id) ? 'timer-disabled' : '',
                               ].filter(Boolean).join(' ')}
                               style={lu.customStyle}
                               onClick={() => handleLUClick(lu)}
@@ -911,10 +779,16 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                               <span className="lu-marker-number">{lu.shortName}</span>
                               {isLUSelected(lu.id) && <span className="lu-marker-check">OK</span>}
                             </div>
-                            <div className="lu-name-label" style={{
-                              position: 'absolute', top: lu.customStyle?.top || '0', left: lu.customStyle?.left || '0',
-                              transform: getLUNamePosition(lu.position), whiteSpace: 'nowrap',
-                            }}>
+                            <div
+                              className="lu-name-label"
+                              style={{
+                                position: 'absolute',
+                                top:  lu.customStyle?.top  || '0',
+                                left: lu.customStyle?.left || '0',
+                                transform: getLUNamePosition(lu.position),
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
                               <div className="lu-name-text">{lu.name}</div>
                               <div className="lu-cost-text">{lu.cost} млн руб.</div>
                             </div>
@@ -930,7 +804,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         </div>
       </div>
 
-      {/* ── Легенда ── */}
+      {/* Легенда */}
       <div className="map-legend">
         <div className="legend-item"><div className="legend-color legend-color-own"></div><span>Ваш участок</span></div>
         <div className="legend-item"><div className="legend-color legend-color-other"></div><span>Занят другой командой</span></div>
@@ -940,9 +814,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         <div className="legend-item"><div className="legend-color legend-color-blocked-company"></div><span>Нефтяная компания</span></div>
       </div>
 
-      {/* ══════════════════════════════════════════════════════
-          ЕДИНАЯ ПАНЕЛЬ АУКЦИОНОВ (новая)
-      ══════════════════════════════════════════════════════ */}
+      {/* Панель аукционов */}
       <AuctionDashboard
         auctions={auctions}
         player={player}
@@ -952,31 +824,28 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         currentPhase={currentPhase}
       />
 
-      {/* ══════════════════════════════════════════════════════
-          МОДАЛЬНЫЕ ОКНА
-      ══════════════════════════════════════════════════════ */}
-
-      {/* 1. Просмотр карточки информации */}
+      {/* Модалки */}
       {selectedInfoCard && viewMode === 'sidebar' && (
         <div className="modal-overlay" onClick={() => { setSelectedInfoCard(null); setViewMode(null); }}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
             <button className="modal-close" onClick={() => { setSelectedInfoCard(null); setViewMode(null); }}>✕</button>
             <h2>{selectedInfoCard.name}</h2>
-            {selectedInfoCard.hasImage && <div className="card-image-wrap"><img src={selectedInfoCard.imagePath} alt={selectedInfoCard.name} /></div>}
+            {selectedInfoCard.hasImage && (
+              <div className="card-image-wrap"><img src={selectedInfoCard.imagePath} alt={selectedInfoCard.name} /></div>
+            )}
             <div className="card-description">{selectedInfoCard.description}</div>
             <div className="card-meta"><span>Стоимость: <strong>{selectedInfoCard.cost} млн руб.</strong></span></div>
           </div>
         </div>
       )}
 
-      {/* 2. Список карточек информации */}
       {showInfoCards && viewMode === 'button' && (
         <div className="modal-overlay" onClick={() => { setShowInfoCards(false); setSelectedInfoCard(null); setViewMode(null); }}>
-          <div className="modal-content modal-list" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content modal-list" onClick={e => e.stopPropagation()}>
             <button className="modal-close" onClick={() => { setShowInfoCards(false); setSelectedInfoCard(null); setViewMode(null); }}>✕</button>
             <h2>Информация о карточках</h2>
             <div className="cards-grid">
-              {selectedLU.map((lu) => (
+              {selectedLU.map(lu => (
                 <div key={lu.id} className="info-card">
                   <div className="info-card-header">
                     <div className="info-card-icon">{lu.shortName}</div>
@@ -992,7 +861,6 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         </div>
       )}
 
-      {/* 3. Подтверждение покупки карточки информации */}
       <ConfirmModal
         isOpen={!!luConfirmModal}
         onClose={() => setLuConfirmModal(null)}
@@ -1000,7 +868,6 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         title="Купить карточку информации?"
         confirmLabel={`Купить за ${luConfirmModal?.lu.cost} млн руб.`}
         cancelLabel="Отмена"
-        confirmVariant="primary"
       >
         {luConfirmModal && (
           <div className="confirm-purchase-details">
@@ -1008,21 +875,17 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
               <div className="confirm-card-icon">{luConfirmModal.lu.shortName}</div>
               <div className="confirm-card-name">{luConfirmModal.lu.name}</div>
             </div>
-            <div className="confirm-budget-row">
-              <span>Стоимость:</span>
-              <strong>{luConfirmModal.lu.cost.toLocaleString('ru-RU')} млн руб.</strong>
-            </div>
+            <div className="confirm-budget-row"><span>Стоимость:</span><strong>{luConfirmModal.lu.cost.toLocaleString('ru-RU')} млн руб.</strong></div>
             <div className="confirm-budget-row">
               <span>Бюджет после покупки:</span>
-              <strong className={budget - totalSpent - luConfirmModal.lu.cost < 0 ? 'text-danger' : 'text-success'}>
-                {(budget - totalSpent - luConfirmModal.lu.cost).toLocaleString('ru-RU')} млн руб.
+              <strong className={budget - luConfirmModal.lu.cost < 0 ? 'text-danger' : 'text-success'}>
+                {(budget - luConfirmModal.lu.cost).toLocaleString('ru-RU')} млн руб.
               </strong>
             </div>
           </div>
         )}
       </ConfirmModal>
 
-      {/* 4. Подтверждение покупки / регистрации на аукцион ЛУ */}
       <ConfirmModal
         isOpen={!!gridConfirmModal && gridConfirmModal.mode !== 'leave'}
         onClose={() => setGridConfirmModal(null)}
@@ -1032,60 +895,31 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
             ? `Приобрести участок ${gridConfirmModal?.cellRef}?`
             : `Зарегистрироваться на аукцион за участок ${gridConfirmModal?.cellRef}?`
         }
-        confirmLabel={
-          gridConfirmModal?.mode === 'buy'
-            ? 'Приобрести участок'
-            : 'Зарегистрироваться на аукцион'
-        }
+        confirmLabel={gridConfirmModal?.mode === 'buy' ? 'Приобрести участок' : 'Зарегистрироваться на аукцион'}
         cancelLabel="Отмена"
-        confirmVariant="primary"
       >
-        {gridConfirmModal && gridConfirmModal.mode === 'buy' && (
+        {gridConfirmModal?.mode === 'buy' && (
           <div className="confirm-purchase-details">
             <div className="confirm-cell-ref">{gridConfirmModal.cellRef}</div>
             <p>Вы выбираете лицензионный участок <strong>{gridConfirmModal.cellRef}</strong></p>
             <div className="confirm-stats-row">
-              <div className="confirm-stat">
-                <span className="confirm-stat-label">Участков:</span>
-                <span className="confirm-stat-value">{ownedCount + 1} / 5</span>
-              </div>
+              <div className="confirm-stat"><span className="confirm-stat-label">Участков:</span><span className="confirm-stat-value">{ownedCount + 1} / {MAX_LUS_PER_TEAM}</span></div>
             </div>
           </div>
         )}
-        {gridConfirmModal && gridConfirmModal.mode === 'auction' && (
+        {gridConfirmModal?.mode === 'auction' && (
           <div className="confirm-purchase-details">
             <div className="confirm-cell-ref">{gridConfirmModal.cellRef}</div>
-            <p>
-              Участок <strong>{gridConfirmModal.cellRef}</strong> занят командой <strong>«{gridConfirmModal.ownerTeam}»</strong>.
-            </p>
+            <p>Участок <strong>{gridConfirmModal.cellRef}</strong> занят командой <strong>«{gridConfirmModal.ownerTeam}»</strong>.</p>
             <p>Вы будете участвовать в аукционе на этот участок после завершения фазы выбора.</p>
             <div className="confirm-auction-info">
-              <div className="confirm-auction-row">
-                <span>Начальная цена аукциона:</span>
-                <strong>{AUCTION_START_PRICE} млн руб.</strong>
-              </div>
-              <div className="confirm-auction-row">
-                <span>Шаг ставки:</span>
-                <strong>{AUCTION_START_PRICE} млн руб.</strong>
-              </div>
-            </div>
-            <div className="confirm-stats-row">
-              <div className="confirm-stat">
-                <span className="confirm-stat-label">Аукционов будет</span>
-                <span className="confirm-stat-value">{myAuctionCells.length + 1}</span>
-              </div>
-              <div className="confirm-stat">
-                <span className="confirm-stat-label">Всего обязательств</span>
-                <span className={`confirm-stat-value ${totalCommittedCells + 1 >= 5 ? 'text-warning' : ''}`}>
-                  {totalCommittedCells + 1} / 5
-                </span>
-              </div>
+              <div className="confirm-auction-row"><span>Начальная цена:</span><strong>{AUCTION_START_PRICE} млн руб.</strong></div>
+              <div className="confirm-auction-row"><span>Шаг ставки:</span><strong>{AUCTION_START_PRICE} млн руб.</strong></div>
             </div>
           </div>
         )}
       </ConfirmModal>
 
-      {/* 5. Подтверждение выхода из аукциона */}
       <ConfirmModal
         isOpen={!!gridConfirmModal && gridConfirmModal.mode === 'leave'}
         onClose={() => setGridConfirmModal(null)}
@@ -1098,31 +932,23 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         {gridConfirmModal?.mode === 'leave' && (
           <div className="confirm-purchase-details">
             {gridConfirmModal.weAreLeading && (
-              <div className="confirm-warning-box">
-                ⚠️ Вы сейчас <strong>лидируете</strong> в этом аукционе!
-              </div>
+              <div className="confirm-warning-box">⚠️ Вы сейчас <strong>лидируете</strong> в этом аукционе!</div>
             )}
             <p>{gridConfirmModal.message}</p>
           </div>
         )}
       </ConfirmModal>
 
-      {/* 6. Предупреждение «нет карточек» */}
       <NoInfoCardModal
         isOpen={noCardModal}
         onClose={() => setNoCardModal(false)}
         onGoToBuyCard={() => setNoCardModal(false)}
       />
-
-      {/* 7. Универсальное предупреждение */}
-      <AlertModal
-        isOpen={!!alertModal}
-        onClose={() => setAlertModal(null)}
-        title={alertModal?.title || 'Внимание'}
-      >
+      <AlertModal isOpen={!!alertModal} onClose={() => setAlertModal(null)} title={alertModal?.title || 'Внимание'}>
         <p>{alertModal?.message}</p>
       </AlertModal>
-<RegionMapTour onDone={() => {}} />
+
+      {/* <RegionMapTour onDone={() => {}} /> */}
     </div>
   );
 };

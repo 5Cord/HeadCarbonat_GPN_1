@@ -163,7 +163,7 @@ const LUSelectionMap = () => {
           onClick={handleStartGame}
           disabled={licenseUnits.owned.length === 0}
         >
-          🚀 Начать игру с {licenseUnits.owned.length} ЛУ
+          Начать игру с {licenseUnits.owned.length} ЛУ
         </button>
       </div>
 

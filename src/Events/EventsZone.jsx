@@ -4,6 +4,7 @@ import { generateEventLine, CARD_TYPES } from './Eventsdata.js';
 import useGameStore from '../../store/gameStore';
 import styles from './EventsZone.module.css';
 import BudgetBar from '../BudgetBar.jsx';
+import EventsZoneTour from './EventsZoneTour';
 
 const formatTime = (totalSeconds) => {
   const s = Math.max(0, Math.floor(totalSeconds));
@@ -36,7 +37,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
   const {
     gridCells, research, events, player,
     saveEventLine, revealEventCard, updateEventLineScore,
-    skipEventLine, completeEvents,
+    skipEventLine, completeEvents, updateEventMoneySpent,
     pauseGlobalTimer, resumeGlobalTimer, setGlobalPhase,
   } = useGameStore();
 
@@ -103,7 +104,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
             const effect = c.data.effect;
             if (!effect) return;
             if (effect.type === 'points') riskPointsTotal += effect.value;
-            if (effect.type === 'money')  riskMoneyTotal  += effect.value;
+            if (effect.type === 'money') riskMoneyTotal += effect.value;
           }
         });
 
@@ -116,6 +117,12 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
             };
           }
           if (riskMoneyTotal !== 0) {
+            if (riskMoneyTotal < 0) {
+              newState.events = {
+                ...newState.events,
+                totalMoneySpent: (state.events.totalMoneySpent || 0) + Math.abs(riskMoneyTotal),
+              };
+            }
             return { ...newState, player: { ...state.player, budget: state.player.budget + riskMoneyTotal } };
           }
           return newState;
@@ -151,14 +158,14 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     const rev = events.revealedCards[line.luId] || {};
     return line.cards.every((card, ci) => {
       const key = `${lineIndex}-${ci}`;
-      if (card.type === CARD_TYPES.RISK)   return true;
+      if (card.type === CARD_TYPES.RISK) return true;
       if (card.type === CARD_TYPES.RANDOM) return true;
       return rev[key]?.revealed;
     });
   };
 
   const isLineSkipped = (li) => (events.skippedLines[playableLines[li]?.luId] || []).length > 0;
-  const getLineScore  = (li) => events.lineScores[playableLines[li]?.luId] || 0;
+  const getLineScore = (li) => events.lineScores[playableLines[li]?.luId] || 0;
 
   const getLUStatus = (luId) => {
     const line = eventLines.find(l => l.luId === luId);
@@ -225,6 +232,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     if (effect.type === 'money') {
       revealEventCard(luId, cardKey, { revealed: true, played: true, money: effect.value });
       useGameStore.setState(st => ({ player: { ...st.player, budget: st.player.budget + effect.value } }));
+      updateEventMoneySpent(effect.value); // записывает в счётчик только отрицательные суммы
     }
     setSelectedCard(null);
   };
@@ -332,7 +340,6 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
         </div>
       );
     }
-
     const effect = normalizeEffect(card.data);
     const isPos = effectIsPositive(effect);
     const effLabel = fmtEffect(effect);
@@ -370,7 +377,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
 
   return (
     <div className={styles.eventsZone}>
-
+      {/* <EventsZoneTour globalYear={globalYear} onDone={() => { }} /> */}
       {/* ── ГЛОБАЛЬНЫЙ ТАЙМЕР (только чтение из store) ─────────────────── */}
       <div className={styles.timer}>
         <div className={styles.timerLabel}>Время на события</div>
@@ -416,17 +423,22 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
             );
           })}
         </div>
-        <BudgetBar budget={player.budget} spent={totalSpent} theme="light" />
+        <BudgetBar
+          budget={player.budget}
+          spent={totalSpent}
+          eventSpent={events.totalMoneySpent || 0}
+          theme="light"
+        />
       </div>
 
-      {cancelPickMode && (
+      {/* {cancelPickMode && (
         <div className={styles.cancelBanner}>
           <span>🎯 Выберите карточку риска, которую хотите отменить</span>
           <button className={styles.cancelBannerAbort} onClick={() => { setCancelPickMode(false); setCancelSource(null); }}>
             Отказаться
           </button>
         </div>
-      )}
+      )} */}
 
       <div className={styles.activeLineArea}>
         {!activeLU ? (

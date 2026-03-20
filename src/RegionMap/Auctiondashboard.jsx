@@ -1,28 +1,38 @@
-// AuctionDashboard.jsx — модальное окно всех аукционов
-
+// С Бэкендом
+// AuctionDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import './AuctionDashboard.css';
 import { AUCTION_START_PRICE } from '../../store/gameStore';
 
 const AuctionDashboard = ({ auctions, player, budget, onPlaceBid, onLeaveAuction, currentPhase }) => {
-  const myId = player.teamId || player.name;
+  const myId         = player.teamId || player.name;
   const activeEntries = Object.entries(auctions.active || {});
 
-  // bidAmounts: { [cellRef]: number } — всегда числа, не строки
   const [bidAmounts, setBidAmounts] = useState({});
   const [messages, setMessages]     = useState({});
+  const [pending, setPending]       = useState({}); // { [cellRef]: true } — идёт запрос
 
-  // Каждый раз когда обновились аукционы — синхронизируем поля ввода.
-  // Правило: если текущее значение поля МЕНЬШЕ нового минимума — поднимаем до минимума.
-  // Если поля ещё нет вообще — ставим минимум.
+  // Синхронизируем поля ввода при обновлении аукционов
   useEffect(() => {
     setBidAmounts(prev => {
       const next = { ...prev };
       activeEntries.forEach(([cellRef, auction]) => {
         const minBid = auction.currentBid + AUCTION_START_PRICE;
-        const cur = next[cellRef];
+        const cur    = next[cellRef];
         if (cur === undefined || cur === null || cur < minBid) {
           next[cellRef] = minBid;
+        }
+      });
+      return next;
+    });
+    // Сбрасываем сообщения для аукционов где нас перебили
+    setMessages(prev => {
+      const next = { ...prev };
+      activeEntries.forEach(([cellRef, auction]) => {
+        const weLeading = auction.currentBidTeamId === myId || auction.currentBidTeamName === player.name;
+        // Если нас перебили — убираем старое сообщение об успехе
+        if (!weLeading && next[cellRef]?.startsWith('✓')) {
+          delete next[cellRef];
         }
       });
       return next;
@@ -40,13 +50,15 @@ const AuctionDashboard = ({ auctions, player, budget, onPlaceBid, onLeaveAuction
     a.currentBidTeamId === myId || a.currentBidTeamName === player.name
   ).length;
 
-  const handleBid = (cellRef) => {
+  // ── Ставка — поддерживает и sync и async onPlaceBid ──────────────────────
+  const handleBid = async (cellRef) => {
     const auction = auctions.active[cellRef];
     if (!auction) return;
 
     const amount  = Number(bidAmounts[cellRef]);
     const minBid  = auction.currentBid + AUCTION_START_PRICE;
 
+    // Валидация
     if (!Number.isFinite(amount) || amount % AUCTION_START_PRICE !== 0) {
       setMessages(m => ({ ...m, [cellRef]: `Ставка должна быть кратна ${AUCTION_START_PRICE} млн` }));
       return;
@@ -60,13 +72,25 @@ const AuctionDashboard = ({ auctions, player, budget, onPlaceBid, onLeaveAuction
       return;
     }
 
-    const ok = onPlaceBid(cellRef, amount);
-    if (ok) {
-      setMessages(m => ({ ...m, [cellRef]: `✓ Ставка ${amount} млн принята!` }));
-      // После успешной ставки — следующий шаг
-      setBidAmounts(b => ({ ...b, [cellRef]: amount + AUCTION_START_PRICE }));
-    } else {
-      setMessages(m => ({ ...m, [cellRef]: 'Ошибка при размещении ставки' }));
+    // Блокируем кнопку на время запроса
+    setPending(p => ({ ...p, [cellRef]: true }));
+    setMessages(m => ({ ...m, [cellRef]: undefined }));
+
+    try {
+      const result = await Promise.resolve(onPlaceBid(cellRef, amount));
+      const ok     = result === true || result?.ok === true;
+
+      if (ok) {
+        setMessages(m => ({ ...m, [cellRef]: `✓ Ставка ${amount} млн принята!` }));
+        setBidAmounts(b => ({ ...b, [cellRef]: amount + AUCTION_START_PRICE }));
+      } else {
+        const errMsg = typeof result === 'object' ? (result?.error || 'Ошибка при размещении ставки') : 'Ошибка при размещении ставки';
+        setMessages(m => ({ ...m, [cellRef]: errMsg }));
+      }
+    } catch (err) {
+      setMessages(m => ({ ...m, [cellRef]: err.message || 'Ошибка при размещении ставки' }));
+    } finally {
+      setPending(p => ({ ...p, [cellRef]: false }));
     }
   };
 
@@ -97,19 +121,18 @@ const AuctionDashboard = ({ auctions, player, budget, onPlaceBid, onLeaveAuction
           </div>
         </div>
 
-        {/* Карточки */}
+        {/* Карточки аукционов */}
         <div className="auction-dashboard-cards">
           {myAuctions.map(([cellRef, auction]) => {
             const weLeading  = auction.currentBidTeamId === myId || auction.currentBidTeamName === player.name;
             const minNextBid = auction.currentBid + AUCTION_START_PRICE;
+            const bidVal     = bidAmounts[cellRef] !== undefined ? bidAmounts[cellRef] : minNextBid;
+            const msg        = messages[cellRef];
+            const isSuccess  = msg?.startsWith('✓');
+            const isBusy     = pending[cellRef] === true;
 
-            // Берём значение из state (число), или минимум если не задано
-            const bidVal = bidAmounts[cellRef] !== undefined ? bidAmounts[cellRef] : minNextBid;
-
-            const msg       = messages[cellRef];
-            const isSuccess = msg?.startsWith('✓');
-
-            const isDisabled = !Number.isFinite(Number(bidVal))
+            const isDisabled = isBusy
+              || !Number.isFinite(Number(bidVal))
               || Number(bidVal) < minNextBid
               || Number(bidVal) > budget;
 
@@ -137,7 +160,7 @@ const AuctionDashboard = ({ auctions, player, budget, onPlaceBid, onLeaveAuction
                     <div className="auction-bid-leader">
                       <span className="auction-bid-label">Лидирует</span>
                       <span className={`auction-bid-team ${weLeading ? 'bid-team-me' : 'bid-team-other'}`}>
-                        {weLeading ? 'Вы' : auction.currentBidTeamName}
+                        {weLeading ? 'Вы' : (auction.currentBidTeamName || 'Другая команда')}
                       </span>
                     </div>
                     <div className="auction-bid-participants">
@@ -170,14 +193,13 @@ const AuctionDashboard = ({ auctions, player, budget, onPlaceBid, onLeaveAuction
                             min={minNextBid}
                             step={AUCTION_START_PRICE}
                             max={budget}
+                            disabled={isBusy}
                             onChange={e => {
                               const raw = e.target.value;
-                              // Храним как число; если поле пустое — 0 (покажет ошибку при попытке поставить)
                               setBidAmounts(b => ({ ...b, [cellRef]: raw === '' ? '' : Number(raw) }));
-                              // Сбрасываем сообщение при изменении
                               setMessages(m => ({ ...m, [cellRef]: undefined }));
                             }}
-                            onKeyDown={e => e.key === 'Enter' && handleBid(cellRef)}
+                            onKeyDown={e => e.key === 'Enter' && !isDisabled && handleBid(cellRef)}
                           />
                           <span className="auction-bid-currency">млн</span>
                         </div>
@@ -186,9 +208,13 @@ const AuctionDashboard = ({ auctions, player, budget, onPlaceBid, onLeaveAuction
                           onClick={() => handleBid(cellRef)}
                           disabled={isDisabled}
                         >
-                          Поставить
+                          {isBusy ? '...' : 'Поставить'}
                         </button>
-                        <button className="auction-leave-btn" onClick={() => onLeaveAuction(cellRef)}>
+                        <button
+                          className="auction-leave-btn"
+                          onClick={() => onLeaveAuction(cellRef)}
+                          disabled={isBusy}
+                        >
                           Выйти
                         </button>
                       </div>
@@ -198,14 +224,14 @@ const AuctionDashboard = ({ auctions, player, budget, onPlaceBid, onLeaveAuction
                     </div>
                   )}
 
-                  {/* Сообщение */}
+                  {/* Сообщение об успехе/ошибке */}
                   {msg && (
                     <div className={`auction-card-message ${isSuccess ? 'auction-msg-success' : 'auction-msg-error'}`}>
                       {msg}
                     </div>
                   )}
 
-                  {/* Последние ставки */}
+                  {/* История последних ставок */}
                   {auction.bids?.length > 0 && (
                     <div className="auction-bids-mini">
                       {[...auction.bids].reverse().slice(0, 3).map((bid, i) => {

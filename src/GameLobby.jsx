@@ -4,19 +4,19 @@ import { getSessionByCode, joinSession } from './apiHelpers';
 import './GameLobby.css';
 
 const ROLES = [
-    { value: 'Геолог',               icon: '' },
-    { value: 'Геофизик',             icon: '📡' },
-    { value: 'Инженер по бурению',   icon: '⚙️' },
-    { value: 'Экономист',            icon: '📊' },
-    { value: 'Менеджер проекта',     icon: '🗂️' },
+    { value: 'Геолог',                icon: '' },
+    { value: 'Геофизик',              icon: '📡' },
+    { value: 'Инженер по бурению',    icon: '⚙️' },
+    { value: 'Экономист',             icon: '📊' },
+    { value: 'Менеджер проекта',      icon: '🗂️' },
 ];
 
 // ── Шаг 1: ввод кода сессии ───────────────────────────────────────────────────
 
 const StepCode = ({ onNext }) => {
-    const [code, setCode] = useState('');
+    const [code, setCode]       = useState('');
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [error, setError]     = useState('');
 
     const handleSubmit = async () => {
         const trimmed = code.trim().toUpperCase();
@@ -69,9 +69,9 @@ const StepCode = ({ onNext }) => {
 const StepTeam = ({ sessionCode, sessionConfig, onJoin }) => {
     const [teamName, setTeamName] = useState('');
     const [teamSize, setTeamSize] = useState(1);
-    const [members, setMembers] = useState([{ name: '', role: 'Геолог' }]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [members, setMembers]   = useState([{ name: '', role: 'Геолог' }]);
+    const [loading, setLoading]   = useState(false);
+    const [error, setError]       = useState('');
 
     const handleSizeChange = (size) => {
         const n = Math.max(1, Math.min(5, size));
@@ -98,7 +98,7 @@ const StepTeam = ({ sessionCode, sessionConfig, onJoin }) => {
         try {
             const result = await joinSession(sessionCode, {
                 teamName: teamName.trim(),
-                members: members.map(m => ({ name: m.name.trim(), role: m.role })),
+                members:  members.map(m => ({ name: m.name.trim(), role: m.role })),
             });
             onJoin(result);
         } catch (e) {
@@ -133,6 +133,11 @@ const StepTeam = ({ sessionCode, sessionConfig, onJoin }) => {
                     <span className="sbc-value sbc-budget">
                         {sessionConfig.budget?.toLocaleString('ru-RU') ?? '—'} <span className="sbc-unit">млн ₽</span>
                     </span>
+                </div>
+                <div className="session-banner-divider" />
+                <div className="session-banner-chip">
+                    <span className="sbc-label">Макс. ЛУ</span>
+                    <span className="sbc-value">{sessionConfig.maxLUsPerTeam ?? 5}</span>
                 </div>
             </div>
 
@@ -208,19 +213,17 @@ const StepTeam = ({ sessionCode, sessionConfig, onJoin }) => {
                 ))}
             </div>
 
-            {/* ── Ошибки / предупреждения ── */}
             {error && <div className="lobby-error">{error}</div>}
             {!canProceed && teamName.trim() !== '' && (
                 <div className="lobby-warn">Заполните имена всех участников</div>
             )}
 
-            {/* ── Кнопка ── */}
             <button
                 className="lobby-btn-primary"
                 onClick={handleJoin}
                 disabled={!canProceed || loading}
             >
-                {loading ? 'Подключение...' : '🚀 Начать игру'}
+                {loading ? 'Подключение...' : 'Начать игру'}
             </button>
         </div>
     );
@@ -229,28 +232,39 @@ const StepTeam = ({ sessionCode, sessionConfig, onJoin }) => {
 // ── Главный компонент ─────────────────────────────────────────────────────────
 
 const GameLobby = () => {
-    const { setTeam } = useGameStore();
-    const [step, setStep] = useState('code');
+    const { setTeam, setSessionConfig } = useGameStore();
+    const [step, setStep]               = useState('code');
     const [sessionCode, setSessionCode] = useState('');
-    const [sessionConfig, setSessionConfig] = useState(null);
+    const [sessionConfig, setLocalSessionConfig] = useState(null);
 
     const handleCodeSuccess = (code, config) => {
         setSessionCode(code);
-        setSessionConfig(config);
+        setLocalSessionConfig(config);
         setStep('team');
     };
 
     const handleJoin = (result) => {
+        // 1. Сохраняем данные команды
         setTeam({
-            name: result.teamName,
-            teamId: result.teamId,
-            members: result.members,
-            experienceLevel: result.sessionConfig?.playerType ?? 'students',
+            name:             result.teamName,
+            teamId:           result.teamId,
+            members:          result.members,
+            experienceLevel:  result.sessionConfig?.playerType ?? 'students',
             sessionCode,
-            isMultiplayer: result.sessionConfig?.gameMode === 'online',
-            token: result.token,
-            budget: result.sessionConfig?.budget,
+            isMultiplayer:    result.sessionConfig?.gameMode === 'online',
+            token:            result.token,
+            sessionId:        result.sessionConfig?.sessionId,
+            budget:           result.sessionConfig?.budget,
         });
+
+        // ── 2. Сохраняем конфиг сессии — таймеры, лимит ЛУ и т.д. ──────────
+        // Без этого RegionMap будет использовать хардкод вместо настроек из админки
+        if (result.sessionConfig) {
+            setSessionConfig(result.sessionConfig);
+        }
+
+        // 3. Сохраняем токен для REST-запросов
+        localStorage.setItem('auth_token', result.token);
     };
 
     return (

@@ -2007,3 +2007,39 @@
   background: #ff9800;
   color: white;
 }
+
+/* ── Добавить в RegionMap.css, заменив существующий блок .next-control-btn ── */
+
+.next-control-btn {
+  background: linear-gradient(135deg, #2fa394, #1e8074);
+  color: white;
+}
+
+.next-control-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1e8074, #146b5f);
+  transform: translateX(4px);
+  box-shadow: 0 6px 16px rgba(47, 163, 148, 0.4);
+}
+
+/* Кнопка "Далее" пока карта не завершена — видна, но заблокирована */
+.next-control-btn-disabled,
+.next-control-btn:disabled {
+  background: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.6);
+  border: 2px dashed rgba(255, 255, 255, 0.4);
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+  font-size: 13px;
+}
+
+/* Кнопки Назад/В меню заблокированы во время фаз карты */
+.control-btn-locked,
+.back-control-btn:disabled {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}

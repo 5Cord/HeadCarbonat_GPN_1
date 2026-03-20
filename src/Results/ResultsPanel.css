@@ -220,9 +220,11 @@
   text-transform: uppercase;
   letter-spacing: .06em;
   margin-bottom: 8px;
+  padding-top: 80px;
 }
 
 .rp-lu-switcher-row {
+
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -685,4 +687,50 @@
 
 .rp-btn-secondary:hover {
   background: #e0e0e0;
+}
+
+/* ── Кнопки навигации (фиксированные слева, как в ResearchPanel) ── */
+
+.rp-nav-controls {
+  position: fixed;
+  top: 20px;
+  left: 35px;
+  display: flex;
+  gap: 12px;
+  z-index: 9999;
+}
+
+.rp-nav-btn {
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(43, 64, 89, 0.25);
+}
+
+.rp-nav-btn-back {
+  background: #eef2f7;
+  color: #4a5568;
+  border: 2px solid #cbd5e0;
+}
+
+.rp-nav-btn-back:hover {
+  background: #e2e8f0;
+  transform: translateY(-2px);
+  border-color: #a0aec0;
+}
+
+.rp-nav-btn-finish {
+  background: #eef2f7;
+  color: #4a5568;
+  border: 2px solid #cbd5e0;
+}
+
+.rp-nav-btn-finish:hover {
+  background: #2fa394;
+  color: #fff;
+  border-color: #2fa394;
+  transform: translateY(-2px);
 }
