@@ -7,27 +7,53 @@ import ResultsPanel from './Results/ResultsPanel';
 import useGameStore from '../store/gameStore';
 import styles from './GameBoard.module.css';
 
+// ── Хелперы sessionStorage ────────────────────────────────────────────────────
+const FIELD_KEY = 'gameboard_expanded_field';
+
+const saveField = (val) => {
+    if (val === null) {
+        sessionStorage.removeItem(FIELD_KEY);
+    } else {
+        sessionStorage.setItem(FIELD_KEY, String(val));
+    }
+};
+
+const loadField = () => {
+    const raw = sessionStorage.getItem(FIELD_KEY);
+    if (raw === null || raw === undefined) return null;
+    const n = parseInt(raw, 10);
+    return isNaN(n) ? null : n;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const GameBoard = () => {
-    const [expandedField, setExpandedField]     = useState(null);
-    const [showInfoCards, setShowInfoCards]     = useState(false);
+    // Восстанавливаем expandedField из sessionStorage при монтировании
+    const [expandedField, setExpandedFieldRaw] = useState(() => loadField());
+    const [showInfoCards, setShowInfoCards] = useState(false);
     const [selectedInfoCard, setSelectedInfoCard] = useState(null);
-    const [isWideScreen, setIsWideScreen]       = useState(window.innerWidth > 1580);
-    const [viewMode, setViewMode]               = useState(null);
+    const [isWideScreen, setIsWideScreen] = useState(window.innerWidth > 1580);
+    const [viewMode, setViewMode] = useState(null);
+
+    // Обёртка: при каждом изменении сохраняем в sessionStorage
+    const setExpandedField = (val) => {
+        saveField(val);
+        setExpandedFieldRaw(val);
+    };
 
     const {
         game, player, licenseUnits, gridCells,
         purchaseLU, getCurrentLU, globalTimer,
     } = useGameStore();
 
-    // ── Читаем лимит ЛУ из sessionConfig ─────────────────────────────────────
     const MAX_LUS_PER_TEAM = player.sessionConfig?.maxLUsPerTeam ?? 5;
 
-    const currentLU           = getCurrentLU();
-    const set                 = useGameStore.setState;
-    const ownedGridCells      = Object.values(gridCells.owned);
+    const currentLU = getCurrentLU();
+    const set = useGameStore.setState;
+    const ownedGridCells = Object.values(gridCells.owned);
     const ownedGridCellsCount = ownedGridCells.length;
-    const infoCards           = licenseUnits.owned;
-    const currentYear         = globalTimer?.currentYear ?? game.currentYear ?? 1;
+    const infoCards = licenseUnits.owned;
+    const currentYear = globalTimer?.currentYear ?? game.currentYear ?? 1;
 
     useEffect(() => {
         const handleResize = () => setIsWideScreen(window.innerWidth > 1580);
@@ -76,10 +102,10 @@ const GameBoard = () => {
         if (infoCards.length === 0 && ownedGridCellsCount === 0) return 0;
         if (!currentLU) return 0;
         const luResearch = game.currentLUProgress?.[currentLU.id] || {};
-        if (!luResearch.researchCompleted)  return 1;
-        if (!luResearch.eventsCompleted)    return 2;
+        if (!luResearch.researchCompleted) return 1;
+        if (!luResearch.eventsCompleted) return 2;
         if (!luResearch.fieldWorkCompleted) return 3;
-        if (!luResearch.resultsCompleted)   return 4;
+        if (!luResearch.resultsCompleted) return 4;
         return 1;
     };
 
@@ -108,10 +134,10 @@ const GameBoard = () => {
         if (!currentLU) return false;
         const progress = getCurrentLUProgress();
         switch (fieldIndex) {
-            case 1: return progress.researchCompleted  || false;
-            case 2: return progress.eventsCompleted    || false;
+            case 1: return progress.researchCompleted || false;
+            case 2: return progress.eventsCompleted || false;
             case 3: return progress.fieldWorkCompleted || false;
-            case 4: return progress.resultsCompleted   || false;
+            case 4: return progress.resultsCompleted || false;
             default: return false;
         }
     };
@@ -125,10 +151,10 @@ const GameBoard = () => {
     };
 
     const goToField = (nextFieldIndex) => setExpandedField(nextFieldIndex);
-    const goToMenu  = () => setExpandedField(null);
+    const goToMenu = () => setExpandedField(null);
 
     const handleResultsComplete = () => {
-        const newYear    = useGameStore.getState().globalTimer.currentYear;
+        const newYear = useGameStore.getState().globalTimer.currentYear;
         const isGameOver = newYear > 10;
         if (isGameOver) { goToMenu(); return; }
         if (currentLU) {
@@ -138,10 +164,10 @@ const GameBoard = () => {
                     currentLUProgress: {
                         ...game.currentLUProgress,
                         [currentLU.id]: {
-                            researchCompleted:  false,
-                            eventsCompleted:    false,
+                            researchCompleted: false,
+                            eventsCompleted: false,
                             fieldWorkCompleted: false,
-                            resultsCompleted:   false,
+                            resultsCompleted: false,
                         },
                     },
                 },
@@ -151,11 +177,11 @@ const GameBoard = () => {
     };
 
     const fields = [
-        { id: 0, title: 'Карта региона',        number: '0' },
+        { id: 0, title: 'Карта региона', number: '0' },
         { id: 1, title: 'Научные исследования', number: '1' },
-        { id: 2, title: 'Зона событий',         number: '2' },
-        { id: 3, title: 'Полевые работы',       number: '3' },
-        { id: 4, title: 'Результаты работ',     number: '4' },
+        { id: 2, title: 'Зона событий', number: '2' },
+        { id: 3, title: 'Полевые работы', number: '3' },
+        { id: 4, title: 'Результаты работ', number: '4' },
     ];
 
     // ── Expanded-режим ───────────────────────────────────────────────────────
@@ -259,7 +285,6 @@ const GameBoard = () => {
                 </div>
             </div>
 
-            {/* Информационная панель */}
             <div className={`${styles.gameInfoPanel} ${!isWideScreen ? styles.ultraCompact : ''}`}>
                 {!isWideScreen ? (
                     <>
@@ -304,7 +329,6 @@ const GameBoard = () => {
                         </div>
                         <div className={styles.infoRow}>
                             <span className={styles.infoLabel}>ЛУ куплено:</span>
-                            {/* ← было /5, теперь из sessionConfig */}
                             <span className={styles.infoValue}>{ownedGridCellsCount} / {MAX_LUS_PER_TEAM}</span>
                         </div>
                         {ownedGridCellsCount > 0 && (
@@ -324,7 +348,6 @@ const GameBoard = () => {
                 )}
             </div>
 
-            {/* Сайдбар карточек */}
             {infoCards.length > 0 && isWideScreen && (
                 <div className={styles.infoCardsSidebar}>
                     <h3>Карточки информации</h3>
@@ -346,7 +369,6 @@ const GameBoard = () => {
                 </div>
             )}
 
-            {/* Плитки этапов */}
             <div className={styles.gameBoardGridNew}>
                 {fields.map((field) => {
                     const status = getFieldStatus(field.id);
@@ -361,7 +383,7 @@ const GameBoard = () => {
                                 <div className={styles.fieldTitleNew}>{field.title}</div>
                             </div>
                             {status === 'completed' && <div className={styles.fieldCompletedBadge}>✓</div>}
-                            {status === 'locked'    && <div className={styles.fieldLockedBadge}>🔒</div>}
+                            {status === 'locked' && <div className={styles.fieldLockedBadge}>🔒</div>}
                         </div>
                     );
                 })}
@@ -373,7 +395,6 @@ const GameBoard = () => {
                 </div>
             )}
 
-            {/* Модалка — просмотр карточки из сайдбара */}
             {selectedInfoCard && viewMode === 'sidebar' && (
                 <div
                     className={styles.infoModalOverlay}
@@ -395,7 +416,6 @@ const GameBoard = () => {
                 </div>
             )}
 
-            {/* Модалка — список карточек (мобильная кнопка) */}
             {showInfoCards && viewMode === 'button' && (
                 <div
                     className={styles.infoModalOverlay}
@@ -429,7 +449,6 @@ const GameBoard = () => {
                     </div>
                 </div>
             )}
-
         </div>
     );
 };

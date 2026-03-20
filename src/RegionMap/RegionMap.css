@@ -2043,3 +2043,188 @@
   transform: none !important;
   box-shadow: none !important;
 }
+/* ══════════════════════════════════════════════════════════════
+   ОСПАРИВАЕМЫЕ ЯЧЕЙКИ — добавить в конец RegionMap.css
+   ══════════════════════════════════════════════════════════════ */
+
+/* Ячейка: ваша, но другая команда зарегистрировалась на аукцион */
+.grid-cell-contested {
+  background: linear-gradient(135deg, #fff8e1, #ffe082) !important;
+  border: 2px solid #f9a825 !important;
+  animation: contestedPulse 1.8s ease-in-out infinite;
+  cursor: pointer;
+}
+
+.grid-cell-contested:hover {
+  background: linear-gradient(135deg, #fff3cd, #ffd54f) !important;
+  border-color: #e65100 !important;
+}
+
+@keyframes contestedPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(249, 168, 37, 0); }
+  50%       { box-shadow: 0 0 0 4px rgba(249, 168, 37, 0.35); }
+}
+
+/* Метка ⚔ внутри оспариваемой ячейки */
+.cell-mark-contested {
+  font-size: 14px;
+  color: #e65100;
+  line-height: 1;
+  margin-top: 1px;
+  animation: swordPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes swordPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.6; transform: scale(1.2); }
+}
+
+/* Метка cell-label внутри оспариваемой ячейки */
+.grid-cell-contested .cell-label {
+  color: #bf360c;
+  font-size: 11px;
+}
+
+/* Легенда — цвет для оспариваемых */
+.legend-color-contested {
+  background: linear-gradient(135deg, #fff8e1, #ffe082);
+  border: 2px solid #f9a825;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── Баннер «Ваши участки оспариваются» (вверху, под таймером) ── */
+.contested-banner {
+  position: fixed;
+  top: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #e65100, #f57c00);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  z-index: 200;
+  box-shadow: 0 4px 18px rgba(230, 81, 0, 0.45);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 560px;
+  animation: slideDown 0.3s ease, contestedBannerPulse 2s ease-in-out 0.3s infinite;
+  pointer-events: none;
+}
+
+@keyframes contestedBannerPulse {
+  0%, 100% { box-shadow: 0 4px 18px rgba(230, 81, 0, 0.45); }
+  50%       { box-shadow: 0 4px 28px rgba(230, 81, 0, 0.7); }
+}
+
+.contested-banner-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.contested-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.contested-banner-text strong {
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.contested-banner-text span {
+  font-size: 0.78rem;
+  opacity: 0.9;
+}
+
+/* ── Блок в боковой панели ── */
+.contested-cells-block {
+  background: linear-gradient(135deg, #fff8e1, #fff3cd);
+  border: 1.5px solid #f9a825;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 4px 0 8px;
+}
+
+.contested-cells-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  color: #bf360c;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.contested-cells-count {
+  background: #e65100;
+  color: #fff;
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 12px;
+  font-weight: 800;
+}
+
+.contested-cells-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.contested-cell-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 4px 6px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 5px;
+  border-left: 3px solid #f9a825;
+}
+
+.contested-cell-ref {
+  font-weight: 800;
+  color: #e65100;
+  min-width: 28px;
+  font-size: 13px;
+}
+
+.contested-cell-info {
+  flex: 1;
+  color: #555;
+  font-size: 11px;
+}
+
+.contested-cell-hint {
+  font-size: 10px;
+  color: #999;
+  font-style: italic;
+}
+
+/* ── В списке «Ваши участки» — иконка ⚔️ рядом с оспариваемым ── */
+.owned-cell-item-contested {
+  border-left-color: #f9a825 !important;
+  background: linear-gradient(135deg, #fff8e1, #fff3cd) !important;
+}
+
+.owned-cell-contested-icon {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+/* Компакт-вид боковой панели */
+.contested-info-row .info-label {
+  color: #e65100;
+  font-weight: 700;
+}
+
+.contested-value {
+  color: #e65100 !important;
+  font-weight: 800 !important;
+  animation: swordPulse 1.2s ease-in-out infinite;
+}

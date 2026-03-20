@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
     getAdminSessions, getAdminTeams, getAdminStats,
     deleteSession, resetTeam, exportData, createSession,
@@ -18,21 +18,21 @@ const DEFAULT_TIMERS = {
 
 const BUDGET_DEFAULTS = { students: 99999999, professionals: 99999999 };
 
+// Только фазы которые реально нужны администратору для переключения
 const ALL_PHASES = [
     'LOBBY',
-    'REGION_MAP_SELECTION', 'REGION_MAP_AUCTION', 'REGION_MAP_POST_AUCTION',
-    'RESEARCH', 'EVENTS', 'FIELD_WORK', 'RESULTS',
+    'REGION_MAP_SELECTION',
+    'REGION_MAP_AUCTION',
+    'REGION_MAP_POST_AUCTION',
+    'RESEARCH',
 ];
 
 const PHASE_LABELS = {
     LOBBY: 'Лобби',
-    REGION_MAP_SELECTION: 'Карта — выбор участков',
+    REGION_MAP_SELECTION: 'Карта — выбор ЛУ',
     REGION_MAP_AUCTION: 'Карта — аукцион',
     REGION_MAP_POST_AUCTION: 'Карта — допокупка',
-    RESEARCH: 'НИР',
-    EVENTS: 'События',
-    FIELD_WORK: 'Полевые работы',
-    RESULTS: 'Результаты',
+    RESEARCH: 'Основная игра (НИР / события / полевые / результаты)',
 };
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3001';
@@ -43,10 +43,14 @@ const fmt = (sec) => {
     return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 };
 
+// ─── Проверка токена в localStorage ──────────────────────────────────────────
+// Возвращает токен если он есть, иначе null
+const getSavedToken = () => localStorage.getItem('auth_token') || null;
+
 // ─── API ──────────────────────────────────────────────────────────────────────
 
 const apiAction = async (path, method = 'POST', body) => {
-    const token = localStorage.getItem('auth_token');
+    const token = getSavedToken();
     const res = await fetch(`${API_URL}${path}`, {
         method,
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -56,7 +60,7 @@ const apiAction = async (path, method = 'POST', body) => {
     return res.json();
 };
 
-// ─── MinuteInput — поддержка дробных минут (0.1, 0.5 ...) ───────────────────
+// ─── MinuteInput ──────────────────────────────────────────────────────────────
 
 const MinuteInput = ({ value, onChange, disabled }) => {
     const [raw, setRaw] = useState(String(value ?? ''));
@@ -93,11 +97,20 @@ const LoginScreen = ({ onLogin }) => {
         setLoad(true); setError('');
         try {
             let token;
-            try { token = (await adminLogin('admin', pw)).token; } catch { token = pw; }
+            try {
+                const res = await adminLogin('admin', pw);
+                token = res.token;
+            } catch {
+                // Fallback: используем пароль напрямую как токен
+                token = pw;
+            }
             localStorage.setItem('auth_token', token);
             onLogin(token);
-        } catch { setError('Неверный пароль'); }
-        finally { setLoad(false); }
+        } catch {
+            setError('Неверный пароль');
+        } finally {
+            setLoad(false);
+        }
     };
 
     return (
@@ -123,7 +136,7 @@ const LoginScreen = ({ onLogin }) => {
     );
 };
 
-// ─── TimersForm — единая форма таймеров ──────────────────────────────────────
+// ─── TimersForm ───────────────────────────────────────────────────────────────
 
 const TimersForm = ({ timers, onChange }) => {
     const set = (path, val) => {
@@ -172,7 +185,7 @@ const TimersForm = ({ timers, onChange }) => {
     );
 };
 
-// ─── LiveTimersEditor — редактор таймеров живой сессии ───────────────────────
+// ─── LiveTimersEditor ─────────────────────────────────────────────────────────
 
 const LiveTimersEditor = ({ sessionId, adminSocket }) => {
     const [timers, setTimers] = useState(JSON.parse(JSON.stringify(DEFAULT_TIMERS)));
@@ -220,8 +233,11 @@ const LiveTimersEditor = ({ sessionId, adminSocket }) => {
             });
             setSaved(true);
             setTimeout(() => setSaved(false), 2500);
-        } catch (e) { alert('Ошибка: ' + e.message); }
-        finally { setSaving(false); }
+        } catch (e) {
+            alert('Ошибка: ' + e.message);
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
@@ -241,21 +257,6 @@ const LiveTimersEditor = ({ sessionId, adminSocket }) => {
             >
                 {saving ? '⏳ Применяю…' : saved ? '✅ Применено!' : '💾 Применить к сессии'}
             </button>
-            <button
-  className="ab ab-orange"
-  title="Сбросить все купленные участки"
-  onClick={async () => {
-    if (!confirm(`Сбросить все ЛУ сессии ${s.code}?`)) return;
-    try {
-      await apiAction(`/api/admin/sessions/${s.id}/reset-cells`);
-      alert('Участки сброшены');
-    } catch (e) {
-      alert('Ошибка: ' + e.message);
-    }
-  }}
->
-  🗺️
-</button>
             <p className="apply-hint">Новое время вступит в силу при следующей смене фазы или года.</p>
         </div>
     );
@@ -314,21 +315,12 @@ const TimerControl = ({ sessionId, sessions, adminSocket, onRefresh }) => {
         catch (e) { alert('Ошибка: ' + e.message); }
     };
 
-    // Фазы карты и основная игровая фаза
-    const MAP_PHASES = [
-        'REGION_MAP_SELECTION',
-        'REGION_MAP_AUCTION',
-        'REGION_MAP_POST_AUCTION',
-    ];
-    const GAME_PHASES = ['RESEARCH', 'EVENTS', 'FIELD_WORK', 'RESULTS'];
-    const isMapPhase = timer && MAP_PHASES.includes(timer.phase);
-    const isGamePhase = timer && GAME_PHASES.includes(timer.phase);
-
-    if (!sessionId) return <div className="tc-empty">Выберите сессию</div>;
+    if (!sessionId) return (
+        <div className="tc-empty">Выберите сессию из списка выше</div>
+    );
 
     return (
         <div className="tc-panel">
-
             {/* Статус */}
             <div className="tc-status">
                 <span className={`dot ${connected ? 'dot-on' : 'dot-off'}`} />
@@ -365,77 +357,37 @@ const TimerControl = ({ sessionId, sessions, adminSocket, onRefresh }) => {
                         </span>
                     </div>
                 )}
+                {timer?.pendingRefusal && (
+                    <div className="tc-refusal">Отказной период — {fmt(timer.refusalTimeLeft)}</div>
+                )}
             </div>
 
-            {/* Управление таймером */}
+            {/* Управление */}
             <div className="tc-group-label">Управление</div>
             <div className="tc-btns">
-                <button className="tb tb-green"
-                    onClick={() => emit('admin:startTimer')}
-                    disabled={!connected || (timer?.isRunning && !timer?.isPaused)}>
-                    ▶ Старт
+                <button className="tb tb-green" onClick={() => emit('admin:startTimer')} disabled={!connected || (timer?.isRunning && !timer?.isPaused)}>▶ Старт</button>
+                <button className="tb tb-yellow" onClick={() => emit(timer?.isPaused ? 'admin:resumeTimer' : 'admin:pauseTimer')} disabled={!connected || !timer?.isRunning}>
+                    {timer?.isPaused ? '▶ Продолжить' : '⏸ Пауза'}
                 </button>
-                <button className="tb tb-yellow"
-                    onClick={() => emit(timer?.isPaused ? 'admin:resumeTimer' : 'admin:pauseTimer')}
-                    disabled={!connected || !timer?.isRunning}>
-                    {timer?.isPaused ? '▶ Прод.' : '⏸ Пауза'}
-                </button>
-                <button className="tb tb-red"
-                    onClick={() => emit('admin:stopTimer')}
-                    disabled={!connected || !timer?.isRunning}>
-                    ⏹ Стоп
-                </button>
+                <button className="tb tb-red" onClick={() => emit('admin:stopTimer')} disabled={!connected || !timer?.isRunning}>⏹ Стоп</button>
             </div>
 
-            {/* Навигация по годам — только в игровой фазе */}
-            {isGamePhase && (
-                <>
-                    <div className="tc-group-label">Год</div>
-                    <div className="tc-btns">
-                        <button className="tb tb-gray"
-                            onClick={() => emit('admin:advanceYear')}
-                            disabled={!connected}>
-                            След. год → (сейчас {timer?.currentYear}/10)
-                        </button>
-                    </div>
-                </>
-            )}
+            {/* Навигация */}
+            <div className="tc-group-label">Навигация</div>
+            <div className="tc-btns">
+                <button className="tb tb-gray" onClick={() => emit('admin:advanceYear')} disabled={!connected}>След. год →</button>
+                <button className="tb tb-gray tb-danger" onClick={() => confirm('Сбросить к году 1?') && emit('admin:resetTimer')} disabled={!connected}>↺ Сброс</button>
+            </div>
 
             {/* Смена фазы */}
             <div className="tc-group-label">Сменить фазу</div>
             <div className="tc-phase-row">
                 <select className="tc-select" value={phase} onChange={e => setPhase_(e.target.value)}>
-                    <optgroup label="Карта региона">
-                        <option value="REGION_MAP_SELECTION">Выбор участков</option>
-                        <option value="REGION_MAP_AUCTION">Аукцион</option>
-                        <option value="REGION_MAP_POST_AUCTION">Допокупка</option>
-                    </optgroup>
-                    <optgroup label="Основная игра (год {timer?.currentYear ?? 1})">
-                        <option value="RESEARCH">НИР</option>
-                        <option value="EVENTS">События</option>
-                        <option value="FIELD_WORK">Полевые работы</option>
-                        <option value="RESULTS">Результаты</option>
-                    </optgroup>
+                    {ALL_PHASES.map(p => <option key={p} value={p}>{PHASE_LABELS[p] ?? p}</option>)}
                 </select>
-                <button className="tb tb-gray"
-                    onClick={() => emit('admin:setPhase', { phase })}
-                    disabled={!connected}>
-                    Применить
-                </button>
+                <button className="tb tb-gray" onClick={() => emit('admin:setPhase', { phase })} disabled={!connected}>Применить</button>
             </div>
 
-            {/* Сброс */}
-            <div className="tc-group-label">Сброс</div>
-            <div className="tc-btns">
-                <button className="tb tb-gray tb-danger"
-                    onClick={() => confirm('Сбросить к началу (год 1, карта)?') && emit('admin:resetTimer')}
-                    disabled={!connected}>
-                    ↺ Сброс к началу
-                </button>
-            </div>
-
-            {/* Редактор таймеров */}
-            <LiveTimersEditor sessionId={sessionId} adminSocket={adminSocket} />
         </div>
     );
 };
@@ -462,6 +414,7 @@ const CreateSessionTab = () => {
     const handleCreate = async () => {
         setError(''); setLoad(true);
         try {
+            const token = getSavedToken();
             const payload = {
                 gameMode: form.gameMode,
                 playerType: form.playerType,
@@ -471,20 +424,20 @@ const CreateSessionTab = () => {
                 regionMapTimers: form.timers.regionMap,
                 timers: form.timers.years,
             };
-            const res = await (async () => {
-                const token = localStorage.getItem('auth_token');
-                const r = await fetch(`${API_URL}/api/admin/sessions`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                    body: JSON.stringify(payload),
-                });
-                if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                return r.json();
-            })();
+            const r = await fetch(`${API_URL}/api/admin/sessions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify(payload),
+            });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const res = await r.json();
             setCreated(res);
             setStep('done');
-        } catch (e) { setError(e.message); }
-        finally { setLoad(false); }
+        } catch (e) {
+            setError(e.message);
+        } finally {
+            setLoad(false);
+        }
     };
 
     if (step === 'done' && created) {
@@ -495,7 +448,11 @@ const CreateSessionTab = () => {
                 <div className="code-box">
                     <div className="code-label">Код для команд</div>
                     <div className="code-value">{created.sessionCode}</div>
-                    <button className="copy-btn" onClick={() => { navigator.clipboard.writeText(created.sessionCode); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
+                    <button className="copy-btn" onClick={() => {
+                        navigator.clipboard.writeText(created.sessionCode);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                    }}>
                         {copied ? '✅ Скопировано' : '📋 Копировать'}
                     </button>
                 </div>
@@ -507,70 +464,227 @@ const CreateSessionTab = () => {
 
     return (
         <div className="create-form">
-            <h2>Создать сессию</h2>
+            <div className="create-form-left">
+                {/* Режим */}
+                <div className="fs">
+                    <div className="fs-title">Режим игры</div>
+                    <div className="toggle-row">
+                        {[['online', '🌐 Онлайн'], ['solo', '👤 Одиночная']].map(([v, l]) => (
+                            <button key={v} className={`tog ${form.gameMode === v ? 'tog-on' : ''}`} onClick={() => sf('gameMode', v)}>{l}</button>
+                        ))}
+                    </div>
+                </div>
 
-            {/* Режим */}
-            <div className="fs">
-                <div className="fs-title">Режим игры</div>
-                <div className="toggle-row">
-                    {[['online', '🌐 Онлайн'], ['solo', '👤 Одиночная']].map(([v, l]) => (
-                        <button key={v} className={`tog ${form.gameMode === v ? 'tog-on' : ''}`} onClick={() => sf('gameMode', v)}>{l}</button>
-                    ))}
+                {/* Игроки */}
+                <div className="fs">
+                    <div className="fs-title">Тип игроков</div>
+                    <div className="toggle-row">
+                        {[['students', '🎓 Студенты'], ['professionals', '💼 Профессионалы']].map(([v, l]) => (
+                            <button key={v} className={`tog ${form.playerType === v ? 'tog-on' : ''}`} onClick={() => sf('playerType', v)}>{l}</button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Бюджет */}
+                <div className="fs">
+                    <div className="fs-title">Бюджеты (млн ₽)</div>
+                    <div className="tf-row">
+                        <label>🎓 Студенты</label>
+                        <input className="num-input" type="number" min={1} value={form.budgets.students}
+                            onChange={e => setForm(f => ({ ...f, budgets: { ...f.budgets, students: Number(e.target.value) } }))} />
+                        <span>млн</span>
+                    </div>
+                    <div className="tf-row">
+                        <label>💼 Профессионалы</label>
+                        <input className="num-input" type="number" min={1} value={form.budgets.professionals}
+                            onChange={e => setForm(f => ({ ...f, budgets: { ...f.budgets, professionals: Number(e.target.value) } }))} />
+                        <span>млн</span>
+                    </div>
+                </div>
+
+                {/* Лимит ЛУ */}
+                <div className="fs">
+                    <div className="fs-title">Лицензионные участки</div>
+                    <div className="tf-row">
+                        <label>Макс. ЛУ на команду</label>
+                        <input className="num-input" type="number" min={3} max={5} value={form.maxLUs}
+                            onChange={e => sf('maxLUs', Math.max(3, Math.min(5, Number(e.target.value))))} />
+                        <span>(3–5)</span>
+                    </div>
                 </div>
             </div>
 
-            {/* Игроки */}
-            <div className="fs">
-                <div className="fs-title">Тип игроков</div>
-                <div className="toggle-row">
-                    {[['students', '🎓 Студенты'], ['professionals', '💼 Профессионалы']].map(([v, l]) => (
-                        <button key={v} className={`tog ${form.playerType === v ? 'tog-on' : ''}`} onClick={() => sf('playerType', v)}>{l}</button>
-                    ))}
+            <div className="create-form-right">
+                {/* Таймеры */}
+                <div className="fs">
+                    <div className="fs-title-row">
+                        <span className="fs-title">Таймеры</span>
+                        <button className="ghost-btn" onClick={() => sf('timers', JSON.parse(JSON.stringify(DEFAULT_TIMERS)))}>↺ Сброс</button>
+                    </div>
+                    <TimersForm timers={form.timers} onChange={v => sf('timers', v)} />
                 </div>
+
+                {error && <div className="form-error">{error}</div>}
+
+                <button className="create-btn" onClick={handleCreate} disabled={loading}>
+                    {loading ? 'Создание…' : '🚀 Создать сессию'}
+                </button>
+            </div>
+        </div>
+    );
+};
+
+// ─── TeamsMonitor — детальная информация по командам сессии ──────────────────
+
+const TeamsMonitor = ({ sessionId, sessions }) => {
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [expanded, setExpanded] = useState(null); // teamId раскрытой карточки
+
+    const load = async (sid) => {
+        if (!sid) return;
+        setLoading(true);
+        try {
+            const token = getSavedToken();
+            const r = await fetch(`${API_URL}/api/admin/sessions/${sid}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const json = await r.json();
+            setData(json);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        setData(null);
+        setExpanded(null);
+        load(sessionId);
+    }, [sessionId]);
+
+    if (!sessionId) return (
+        <div className="tm-empty">Выберите сессию для просмотра команд</div>
+    );
+
+    if (loading) return <div className="tm-loading">Загрузка данных…</div>;
+
+    if (!data) return <div className="tm-empty">Нет данных</div>;
+
+    const teams = data.teams ?? [];
+    const cells = data.cells ?? [];
+
+    // Собираем карту: teamId → список ЛУ (cellRef)
+    const teamCells = {};
+    cells.forEach(cell => {
+        if (!cell.team_id) return;
+        if (!teamCells[cell.team_id]) teamCells[cell.team_id] = [];
+        teamCells[cell.team_id].push(cell.cell_ref);
+    });
+
+    const initialBudgetRef = teams.reduce((acc, t) => {
+        acc[t.id] = t.initial_budget ?? t.budget;
+        return acc;
+    }, {});
+
+    // Сортируем по убыванию бюджета
+    const sorted = [...teams].sort((a, b) => b.budget - a.budget);
+
+    const maxBudget = Math.max(...teams.map(t => t.initial_budget ?? t.budget ?? 0), 1);
+
+    return (
+        <div className="tm-wrap">
+            <div className="tm-refresh-row">
+                <button className="tb tb-gray" onClick={() => load(sessionId)}>↻ Обновить</button>
+                <span className="tm-hint">{teams.length} команд · сессия {data.code}</span>
             </div>
 
-            {/* Бюджет */}
-            <div className="fs">
-                <div className="fs-title">Бюджеты (млн ₽)</div>
-                <div className="tf-row">
-                    <label>🎓 Студенты</label>
-                    <input className="num-input" type="number" min={1} value={form.budgets.students}
-                        onChange={e => setForm(f => ({ ...f, budgets: { ...f.budgets, students: Number(e.target.value) } }))} />
-                    <span>млн</span>
-                </div>
-                <div className="tf-row">
-                    <label>💼 Профессионалы</label>
-                    <input className="num-input" type="number" min={1} value={form.budgets.professionals}
-                        onChange={e => setForm(f => ({ ...f, budgets: { ...f.budgets, professionals: Number(e.target.value) } }))} />
-                    <span>млн</span>
-                </div>
+            <div className="tm-cards">
+                {sorted.map(team => {
+                    const lu = teamCells[team.id] ?? [];
+                    const members = team.members_json ?? team.members ?? [];
+                    const initial = team.initial_budget ?? team.budget ?? 0;
+                    const spent = initial - (team.budget ?? 0);
+                    const pct = Math.max(0, Math.min(100, ((team.budget ?? 0) / maxBudget) * 100));
+                    const isOnline = team.is_online;
+                    const open = expanded === team.id;
+
+                    return (
+                        <div key={team.id} className={`tm-card ${isOnline ? 'tm-card-online' : 'tm-card-offline'}`}>
+                            {/* Заголовок карточки */}
+                            <div className="tm-card-header" onClick={() => setExpanded(open ? null : team.id)}>
+                                <div className="tm-card-left">
+                                    <span className={`tm-online-dot ${isOnline ? 'tm-dot-on' : 'tm-dot-off'}`} />
+                                    <strong className="tm-team-name">{team.name}</strong>
+                                    <span className="tm-session-badge">{team.session_code || data.code}</span>
+                                </div>
+                                <div className="tm-card-right">
+                                    <span className="tm-budget-val">{(team.budget ?? 0).toLocaleString('ru-RU')} млн ₽</span>
+                                    <span className="tm-lu-count">{lu.length} ЛУ</span>
+                                    <span className="tm-chevron">{open ? '▲' : '▼'}</span>
+                                </div>
+                            </div>
+
+                            {/* Прогресс-бар бюджета */}
+                            <div className="tm-budget-bar-wrap">
+                                <div className="tm-budget-bar" style={{ width: `${pct}%` }} />
+                            </div>
+                            <div className="tm-budget-sub">
+                                <span>Начало: {initial.toLocaleString('ru-RU')} млн</span>
+                                <span className={spent > 0 ? 'tm-spent' : ''}>Потрачено: {spent.toLocaleString('ru-RU')} млн</span>
+                            </div>
+
+                            {/* Раскрытые детали */}
+                            {open && (
+                                <div className="tm-card-details">
+                                    {/* Лицензионные участки */}
+                                    <div className="tm-detail-section">
+                                        <div className="tm-detail-title">🗺️ Лицензионные участки ({lu.length})</div>
+                                        {lu.length === 0
+                                            ? <div className="tm-detail-empty">Нет участков</div>
+                                            : (
+                                                <div className="tm-lu-list">
+                                                    {lu.map(ref => (
+                                                        <span key={ref} className="tm-lu-badge">{ref}</span>
+                                                    ))}
+                                                </div>
+                                            )
+                                        }
+                                    </div>
+
+                                    {/* Состав команды */}
+                                    <div className="tm-detail-section">
+                                        <div className="tm-detail-title">👥 Состав ({members.length} чел.)</div>
+                                        {members.length === 0
+                                            ? <div className="tm-detail-empty">Нет данных</div>
+                                            : (
+                                                <div className="tm-members-list">
+                                                    {members.map((m, i) => (
+                                                        <div key={i} className="tm-member-row">
+                                                            <span className="tm-member-icon">👤</span>
+                                                            <span className="tm-member-name">{typeof m === 'string' ? m : (m.name || m.fullName || JSON.stringify(m))}</span>
+                                                            {m.role && <span className="tm-member-role">{m.role}</span>}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )
+                                        }
+                                    </div>
+
+                                    {/* Доп. инфо */}
+                                    <div className="tm-detail-section tm-detail-meta">
+                                        <div><span className="tm-meta-label">Тип:</span> {team.experience === 'students' ? '🎓 Студенты' : '💼 Профессионалы'}</div>
+                                        <div><span className="tm-meta-label">Статус:</span> {isOnline ? '🟢 Онлайн' : '🔴 Офлайн'}</div>
+                                        <div><span className="tm-meta-label">ID:</span> <code className="tm-id">{team.id?.slice(0, 12)}…</code></div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
             </div>
-
-            {/* Лимит ЛУ */}
-            <div className="fs">
-                <div className="fs-title">Лицензионные участки</div>
-                <div className="tf-row">
-                    <label>Макс. ЛУ на команду</label>
-                    <input className="num-input" type="number" min={3} max={5} value={form.maxLUs}
-                        onChange={e => sf('maxLUs', Math.max(1, Math.min(10, Number(e.target.value))))} />
-                    <span>(3–5)</span>
-                </div>
-            </div>
-
-            {/* Таймеры */}
-            <div className="fs">
-                <div className="fs-title-row">
-                    <span className="fs-title">Таймеры</span>
-                    <button className="ghost-btn" onClick={() => sf('timers', JSON.parse(JSON.stringify(DEFAULT_TIMERS)))}>↺ Сброс</button>
-                </div>
-                <TimersForm timers={form.timers} onChange={v => sf('timers', v)} />
-            </div>
-
-            {error && <div className="form-error">{error}</div>}
-
-            <button className="create-btn" onClick={handleCreate} disabled={loading}>
-                {loading ? 'Создание…' : '🚀 Создать сессию'}
-            </button>
         </div>
     );
 };
@@ -578,35 +692,88 @@ const CreateSessionTab = () => {
 // ─── AdminPanel ───────────────────────────────────────────────────────────────
 
 const AdminPanel = () => {
-    const [loggedIn, setLoggedIn] = useState(false);
+    // Инициализируем из localStorage — авторизация сохраняется при обновлении/смене вкладок
+    const [loggedIn, setLoggedIn] = useState(() => !!getSavedToken());
+
     const [tab, setTab] = useState('create');
     const [stats, setStats] = useState(null);
     const [sessions, setSessions] = useState([]);
     const [teams, setTeams] = useState([]);
     const [loading, setLoading] = useState(false);
     const [timerSess, setTimerSess] = useState(null);
+    const [monitorSess, setMonitorSess] = useState(null);
     const adminSocketRef = useRef(null);
 
-    useEffect(() => { if (localStorage.getItem('auth_token')) setLoggedIn(true); }, []);
-
+    // ── WS — создаём один раз при логине ──────────────────────────────────────
     useEffect(() => {
-        if (!loggedIn) { adminSocketRef.current?.disconnect(); adminSocketRef.current = null; return; }
-        const sock = socketIO(WS_URL, { auth: { role: 'admin' }, transports: ['websocket'], reconnection: true });
+        if (!loggedIn) {
+            adminSocketRef.current?.disconnect();
+            adminSocketRef.current = null;
+            return;
+        }
+        // Не пересоздаём если уже есть подключение
+        if (adminSocketRef.current) return;
+
+        const sock = socketIO(WS_URL, {
+            auth: { role: 'admin' },
+            transports: ['websocket'],
+            reconnection: true,
+            reconnectionAttempts: Infinity,
+            reconnectionDelay: 1000,
+        });
         adminSocketRef.current = sock;
         sock.on('connect', () => console.log('🔧 admin ws connected'));
         sock.on('disconnect', () => console.log('🔧 admin ws disconnected'));
-        return () => { sock.disconnect(); adminSocketRef.current = null; };
+
+        // Cleanup только при реальном logout (loggedIn = false)
+        // Намеренно не возвращаем cleanup — сокет должен жить между рендерами
     }, [loggedIn]);
 
-    if (!loggedIn) return <LoginScreen onLogin={t => { localStorage.setItem('auth_token', t); setLoggedIn(true); }} />;
+    // ── Восстанавливаем сессию при монтировании ────────────────────────────────
+    useEffect(() => {
+        if (loggedIn) {
+            // Подгружаем начальные данные если вкладка была открыта
+            const savedTab = sessionStorage.getItem('admin_tab') || 'create';
+            setTab(savedTab);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-    const logout = () => { localStorage.removeItem('auth_token'); setLoggedIn(false); };
+    if (!loggedIn) {
+        return <LoginScreen onLogin={token => {
+            localStorage.setItem('auth_token', token);
+            setLoggedIn(true);
+        }} />;
+    }
+
+    const logout = () => {
+        adminSocketRef.current?.disconnect();
+        adminSocketRef.current = null;
+        localStorage.removeItem('auth_token');
+        sessionStorage.removeItem('admin_tab');
+        setLoggedIn(false);
+    };
+
+    const apiFetch = async (url) => {
+        const token = getSavedToken();
+        const r = await fetch(`${API_URL}${url}`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        if (r.status === 401) { logout(); throw new Error('Unauthorized'); }
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+    };
 
     const loadSessions = async () => {
         setLoading(true);
-        try { setSessions(await (async () => { const token = localStorage.getItem('auth_token'); const r = await fetch(`${API_URL}/api/admin/sessions`, { headers: { Authorization: `Bearer ${token}` } }); if (!r.ok) throw new Error(r.status); return r.json(); })()); }
-        catch (e) { if (String(e).includes('401')) logout(); }
-        finally { setLoading(false); }
+        try {
+            const data = await apiFetch('/api/admin/sessions');
+            setSessions(data);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const loadTeams = async () => {
@@ -621,7 +788,8 @@ const AdminPanel = () => {
 
     const changeTab = t => {
         setTab(t);
-        if (t === 'sessions' || t === 'timer') loadSessions();
+        sessionStorage.setItem('admin_tab', t);
+        if (t === 'sessions' || t === 'timer' || t === 'monitor') loadSessions();
         if (t === 'teams') loadTeams();
         if (t === 'dashboard') loadDash();
     };
@@ -638,6 +806,7 @@ const AdminPanel = () => {
     const TABS = [
         { id: 'create', label: '＋ Создать' },
         { id: 'timer', label: '⏱ Таймер' },
+        { id: 'monitor', label: '👁 Мониторинг' },
         { id: 'sessions', label: '🎮 Сессии' },
         { id: 'teams', label: '👥 Команды' },
         { id: 'dashboard', label: '📊 Статистика' },
@@ -652,7 +821,11 @@ const AdminPanel = () => {
 
             <nav className="ap-nav">
                 {TABS.map(t => (
-                    <button key={t.id} className={`ap-tab ${tab === t.id ? 'ap-tab-on' : ''}`} onClick={() => changeTab(t.id)}>
+                    <button
+                        key={t.id}
+                        className={`ap-tab ${tab === t.id ? 'ap-tab-on' : ''}`}
+                        onClick={() => changeTab(t.id)}
+                    >
                         {t.label}
                     </button>
                 ))}
@@ -661,8 +834,10 @@ const AdminPanel = () => {
             <main className="ap-main">
                 {loading && <div className="ap-loading">Загрузка…</div>}
 
+                {/* ── Создать ── */}
                 {tab === 'create' && <CreateSessionTab />}
 
+                {/* ── Таймер ── */}
                 {tab === 'timer' && (
                     <div className="timer-tab-wrap">
                         <h2>Управление таймером</h2>
@@ -675,74 +850,127 @@ const AdminPanel = () => {
                             </select>
                             <button className="tb tb-gray" onClick={loadSessions}>↻ Обновить</button>
                         </div>
-                        <TimerControl sessionId={timerSess} sessions={sessions} adminSocket={adminSocketRef} onRefresh={loadSessions} />
+                        <div className="timer-columns">
+                            <TimerControl sessionId={timerSess} sessions={sessions} adminSocket={adminSocketRef} onRefresh={loadSessions} />
+                            {timerSess && (
+                                <div className="live-editor-card">
+                                    <div className="live-editor-card-title">📅 Таймеры сессии</div>
+                                    <LiveTimersEditor sessionId={timerSess} adminSocket={adminSocketRef} />
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 
+                {/* ── Мониторинг команд ── */}
+                {tab === 'monitor' && (
+                    <div className="monitor-tab-wrap">
+                        <h2>Мониторинг команд</h2>
+                        <div className="tc-select-row">
+                            <select className="tc-select" value={monitorSess || ''} onChange={e => setMonitorSess(e.target.value || null)}>
+                                <option value="">— выберите сессию —</option>
+                                {sessions.map(s => (
+                                    <option key={s.id} value={s.id}>{s.code} · {s.status} · {s.teamsCount ?? 0} команд</option>
+                                ))}
+                            </select>
+                            <button className="tb tb-gray" onClick={loadSessions}>↻ Обновить список</button>
+                        </div>
+                        <TeamsMonitor sessionId={monitorSess} sessions={sessions} />
+                    </div>
+                )}
+
+                {/* ── Сессии ── */}
                 {tab === 'sessions' && (
                     <div>
                         <h2>Сессии</h2>
                         {sessions.length === 0
                             ? <p className="ap-empty">Нет сессий. Создайте во вкладке «Создать».</p>
                             : (
-                                <table className="ap-table">
-                                    <thead><tr><th>Код</th><th>Статус</th><th>Режим</th><th>ЛУ</th><th>Команды</th><th>Действия</th></tr></thead>
-                                    <tbody>
-                                        {sessions.map(s => (
-                                            <tr key={s.id}>
-                                                <td><strong className="code-cell">{s.code}</strong></td>
-                                                <td><span className={`badge badge-${s.status}`}>{s.status}</span></td>
-                                                <td>{s.game_mode === 'online' ? '🌐' : '👤'}</td>
-                                                <td>{s.max_lus ?? s.maxLUsPerTeam ?? '—'}</td>
-                                                <td>{s.teamsCount || 0}</td>
-                                                <td className="ap-actions">
-                                                    {s.status === 'waiting' && (
-                                                        <button className="ab ab-green" onClick={async () => { try { await apiAction(`/api/admin/sessions/${s.id}/start`); loadSessions(); } catch (e) { alert(e.message); } }}>▶</button>
-                                                    )}
-                                                    <button className="ab" onClick={() => { setTimerSess(s.id); changeTab('timer'); }}>⏱</button>
-                                                    <button className="ab ab-red" onClick={async () => { if (!confirm('Удалить?')) return; try { await deleteSession(s.id); loadSessions(); } catch (e) { alert(e.message); } }}>🗑</button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                <div className="ap-table-wrap">
+                                    <table className="ap-table">
+                                        <thead>
+                                            <tr><th>Код</th><th>Статус</th><th>Режим</th><th>ЛУ</th><th>Команды</th><th>Действия</th></tr>
+                                        </thead>
+                                        <tbody>
+                                            {sessions.map(s => (
+                                                <tr key={s.id}>
+                                                    <td><strong className="code-cell">{s.code}</strong></td>
+                                                    <td><span className={`badge badge-${s.status}`}>{s.status}</span></td>
+                                                    <td>{s.game_mode === 'online' ? '🌐 Онлайн' : '👤 Одиночная'}</td>
+                                                    <td>{s.max_lus ?? s.maxLUsPerTeam ?? '—'}</td>
+                                                    <td>{s.teamsCount || 0}</td>
+                                                    <td className="ap-actions">
+                                                        {s.status === 'waiting' && (
+                                                            <button className="ab ab-green" onClick={async () => {
+                                                                try { await apiAction(`/api/admin/sessions/${s.id}/start`); loadSessions(); }
+                                                                catch (e) { alert(e.message); }
+                                                            }}>▶ Старт</button>
+                                                        )}
+                                                        <button className="ab" onClick={() => { setTimerSess(s.id); changeTab('timer'); }}>⏱ Таймер</button>
+                                                        <button className="ab ab-red" onClick={async () => {
+                                                            if (!confirm('Удалить сессию?')) return;
+                                                            try { await deleteSession(s.id); loadSessions(); }
+                                                            catch (e) { alert(e.message); }
+                                                        }}>🗑 Удалить</button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             )
                         }
                     </div>
                 )}
 
+                {/* ── Команды ── */}
                 {tab === 'teams' && (
                     <div>
                         <h2>Команды</h2>
                         {teams.length === 0
                             ? <p className="ap-empty">Нет команд.</p>
                             : (
-                                <table className="ap-table">
-                                    <thead><tr><th>Название</th><th>Опыт</th><th>Участники</th><th>Сессия</th><th>Действия</th></tr></thead>
-                                    <tbody>
-                                        {teams.map(t => (
-                                            <tr key={t.id}>
-                                                <td><strong>{t.name}</strong></td>
-                                                <td>{t.experience === 'students' ? '🎓' : '💼'}</td>
-                                                <td>{t.members_json?.length || 0}</td>
-                                                <td>{t.session_code || '—'}</td>
-                                                <td><button className="ab" onClick={async () => { if (!confirm('Сбросить?')) return; try { await resetTeam(t.id); loadTeams(); } catch (e) { alert(e.message); } }}>🔄</button></td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                <div className="ap-table-wrap">
+                                    <table className="ap-table">
+                                        <thead>
+                                            <tr><th>Название</th><th>Опыт</th><th>Участники</th><th>Сессия</th><th>Действия</th></tr>
+                                        </thead>
+                                        <tbody>
+                                            {teams.map(t => (
+                                                <tr key={t.id}>
+                                                    <td><strong>{t.name}</strong></td>
+                                                    <td>{t.experience === 'students' ? '🎓 Студенты' : '💼 Профессионалы'}</td>
+                                                    <td>{t.members_json?.length || 0}</td>
+                                                    <td>{t.session_code || '—'}</td>
+                                                    <td>
+                                                        <button className="ab" onClick={async () => {
+                                                            if (!confirm('Сбросить команду?')) return;
+                                                            try { await resetTeam(t.id); loadTeams(); }
+                                                            catch (e) { alert(e.message); }
+                                                        }}>🔄 Сброс</button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             )
                         }
                     </div>
                 )}
 
+                {/* ── Статистика ── */}
                 {tab === 'dashboard' && (
                     <div>
                         <h2>Статистика</h2>
                         {stats ? (
                             <>
                                 <div className="stats-row">
-                                    {[['🎮', stats.totalSessions || 0, 'Сессий'], ['👥', stats.totalTeams || 0, 'Команд'], ['🟢', stats.activeSessions || 0, 'Активных']].map(([icon, val, label]) => (
+                                    {[
+                                        ['🎮', stats.totalSessions || 0, 'Сессий'],
+                                        ['👥', stats.totalTeams || 0, 'Команд'],
+                                        ['🟢', stats.activeSessions || 0, 'Активных'],
+                                    ].map(([icon, val, label]) => (
                                         <div key={label} className="stat-card">
                                             <div className="stat-icon">{icon}</div>
                                             <div className="stat-val">{val}</div>
