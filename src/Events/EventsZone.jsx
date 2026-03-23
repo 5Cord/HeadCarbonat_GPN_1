@@ -1,4 +1,4 @@
-// EventsZone.jsx — таймер читается из globalTimer store, локального setInterval нет
+// lol EventsZone.jsx — таймер читается из globalTimer store, локального setInterval нет
 import React, { useState, useEffect } from 'react';
 import { generateEventLine, CARD_TYPES } from './Eventsdata.js';
 import useGameStore from '../../store/gameStore';
