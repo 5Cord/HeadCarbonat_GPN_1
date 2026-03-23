@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './RegionMap.css';
 import useGameStore, { AUCTION_START_PRICE } from '../../store/gameStore';
-import AuctionDashboard from './AuctionDashboard';
-import RegionMapTour from './RegionMapTour';
+import AuctionDashboard from './Auctiondashboard';
+import RegionMapTour from './Regionmaptour';
 import { getSocket } from '../apiHelpers';
 
 const LICENSE_UNITS = [

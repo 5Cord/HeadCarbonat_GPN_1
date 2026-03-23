@@ -1,9 +1,9 @@
 // FieldWorkPanel.jsx — локальный таймер убран, читаем globalTimer из store
 import React, { useState, useEffect, useCallback } from 'react';
-import { FIELD_WORK_BLOCKS, calculateTotalCost, calculateQualityScore, prepareFieldWorkForAPI } from './fieldWorkData';
+import { FIELD_WORK_BLOCKS, calculateTotalCost, calculateQualityScore, prepareFieldWorkForAPI } from './Fieldworkdata';
 import useGameStore from '../../store/gameStore';
 import styles from './FieldWorkPanel.module.css';
-import BudgetBar from '../BudgetBar.jsx';
+import BudgetBar from '../Budgetbar.jsx';
 import FieldWorkPanelTour from './Fieldworkpaneltour';
 
 // ─── Утилиты ─────────────────────────────────────────────────────────────────

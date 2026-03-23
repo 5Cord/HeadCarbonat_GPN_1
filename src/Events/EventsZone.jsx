@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { generateEventLine, CARD_TYPES } from './Eventsdata.js';
 import useGameStore from '../../store/gameStore';
 import styles from './EventsZone.module.css';
-import BudgetBar from '../BudgetBar.jsx';
-import EventsZoneTour from './EventsZoneTour';
+import BudgetBar from '../Budgetbar.jsx';
+import EventsZoneTour from './Eventszonetour';
 
 const formatTime = (totalSeconds) => {
   const s = Math.max(0, Math.floor(totalSeconds));

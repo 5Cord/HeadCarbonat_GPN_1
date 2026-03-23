@@ -20,8 +20,8 @@ import { RESEARCH_WORKS, MOBILIZATION_WORKS } from './researchData';
 import useGameStore from '../../store/gameStore';
 import styles from './ResearchPanel.module.css';
 import RefusalMap from './RefusalMap';
-import ResearchPanelTour, { RefusalTour } from './ResearchPanelTour';
-import BudgetBar from '../BudgetBar.jsx';
+import ResearchPanelTour, { RefusalTour } from './Researchpaneltour';
+import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
 
 // ─── Константы ────────────────────────────────────────────────────────────────

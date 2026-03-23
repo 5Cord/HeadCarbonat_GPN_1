@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './ResultsPanel.css';
 import useGameStore from '../../store/gameStore';
-import { FIELD_WORK_BLOCKS } from '../FieldWork/fieldWorkData';
-import BudgetBar from '../BudgetBar.jsx';
+import { FIELD_WORK_BLOCKS } from '../FieldWork/Fieldworkdata';
+import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
 import ResultsPanelTour from './ResultsPanelTour';
 
