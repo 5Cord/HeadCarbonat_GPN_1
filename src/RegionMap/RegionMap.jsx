@@ -154,11 +154,8 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
   const myId = player.teamId || player.name;
 
-  // ── Вычисляем оспариваемые ячейки (мои ячейки, на которые кто-то зарег. аукцион) ──
-  // Аукцион создаётся когда команда Б пытается купить ячейку команды А.
-  // В auctions.active ключ = cellRef, auction.originalOwnerId / ownedByTeamId = команда А.
+  // ── Вычисляем оспариваемые ячейки ────────────────────────────────────────
   const myContestedCells = Object.entries(auctions.active || {}).reduce((acc, [cellRef, auction]) => {
-    // Если ячейка принадлежит нам (мы — оригинальный владелец) и есть другие участники
     const isMyCell = ownedCells[cellRef] !== undefined;
     const hasOtherParticipants = (auction.participants || []).some(pid => pid !== myId);
     if (isMyCell && hasOtherParticipants) {
@@ -179,16 +176,18 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const [showPostAuctionBanner, setShowPostAuctionBanner] = useState(false);
   const bannerTimerRef = useRef(null);
 
-  // Баннер «оспаривается» — показываем при появлении новых, скрываем через 7 сек
+  // Баннер «оспаривается»
   const [showContestedBanner, setShowContestedBanner] = useState(false);
   const contestedBannerTimerRef = useRef(null);
   const prevContestedKeysRef = useRef('');
 
-  // Следим за изменением набора оспариваемых ячеек
+  // ── НОВОЕ: баннер авто-выдачи участков ───────────────────────────────────
+  const [autoAssignBanner, setAutoAssignBanner] = useState(null);
+  const autoAssignTimerRef = useRef(null);
+
   const contestedKeys = Object.keys(myContestedCells).sort().join(',');
   useEffect(() => {
     if (contestedKeys && contestedKeys !== prevContestedKeysRef.current) {
-      // Появились новые оспариваемые ячейки — показываем баннер
       prevContestedKeysRef.current = contestedKeys;
       setShowContestedBanner(true);
       if (contestedBannerTimerRef.current) clearTimeout(contestedBannerTimerRef.current);
@@ -223,6 +222,31 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
     return () => socket.off('budget:updated', onBudgetUpdated);
   }, []);
 
+  // ── НОВОЕ: слушаем cells:auto_assigned — показываем баннер нашей команде ──
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const onAutoAssigned = ({ teamId, cells }) => {
+      // Показываем только нашей команде
+      if (teamId !== myId) return;
+
+      setAutoAssignBanner({ cells });
+
+      // Скрываем через 12 секунд
+      if (autoAssignTimerRef.current) clearTimeout(autoAssignTimerRef.current);
+      autoAssignTimerRef.current = setTimeout(() => {
+        setAutoAssignBanner(null);
+      }, 12000);
+    };
+
+    socket.on('cells:auto_assigned', onAutoAssigned);
+    return () => {
+      socket.off('cells:auto_assigned', onAutoAssigned);
+      if (autoAssignTimerRef.current) clearTimeout(autoAssignTimerRef.current);
+    };
+  }, [myId]);
+
   useEffect(() => {
     const handleResize = () => setIsWideScreen(window.innerWidth > 1580);
     window.addEventListener('resize', handleResize);
@@ -230,6 +254,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
       window.removeEventListener('resize', handleResize);
       if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
       if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
+      if (autoAssignTimerRef.current) clearTimeout(autoAssignTimerRef.current);
     };
   }, []);
 
@@ -350,10 +375,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
     return myId ? cell.ownedByTeamId !== myId : false;
   };
   const isRegisteredForAuction = (ref) => myAuctionCells.includes(ref);
-
-  // Моя ячейка оспаривается другой командой
   const isMyContestedCell = (ref) => !!myContestedCells[ref];
-
   const canBuyCells = () => currentPhase === 'selection' || currentPhase === 'post_auction';
   const canJoinAuction = () => currentPhase === 'selection' || currentPhase === 'auction';
 
@@ -401,7 +423,6 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
     if (isBlocked(cellRef)) { showAlert('Участок недоступен', `Причина: ${getBlockedLabel(getBlockedType(cellRef))}`); return; }
     if (selectedLU.length === 0) { setNoCardModal(true); return; }
     if (isOwnedByMe(cellRef)) {
-      // Если нажали на свою оспариваемую ячейку — показываем инфо
       if (isMyContestedCell(cellRef)) {
         const auction = myContestedCells[cellRef];
         const competitorCount = (auction.participants || []).filter(p => p !== myId).length;
@@ -548,7 +569,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         </div>
       )}
 
-      {/* ── Баннер «Ваши участки оспариваются» — исчезает через 7 сек ── */}
+      {/* Баннер «Ваши участки оспариваются» */}
       {showContestedBanner && contestedCount > 0 && (currentPhase === 'selection' || currentPhase === 'auction') && (
         <div className="contested-banner">
           <span className="contested-banner-icon">⚔️</span>
@@ -562,6 +583,26 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
               {Object.keys(myContestedCells).join(', ')} — другие команды зарегистрировались на аукцион за {contestedCount === 1 ? 'него' : 'них'}
             </span>
           </div>
+        </div>
+      )}
+
+      {/* ── НОВЫЙ БАННЕР: авто-выдача участков ── */}
+      {autoAssignBanner && (
+        <div className="auto-assign-banner">
+          <span className="auto-assign-banner-icon"></span>
+          <div className="auto-assign-banner-text">
+            <strong>Участки назначены автоматически</strong>
+            <span>
+              Время допокупки истекло. Вам выданы свободные участки:{' '}
+              <strong>{autoAssignBanner.cells.join(', ')}</strong>
+            </span>
+          </div>
+          <button
+            className="auto-assign-banner-close"
+            onClick={() => setAutoAssignBanner(null)}
+          >
+            ✕
+          </button>
         </div>
       )}
 
@@ -611,8 +652,8 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
               title={hint}
             >
               {isOurPhase ? `⏳ ${currentPhase === 'selection' ? 'Идёт выбор участков…' :
-                  currentPhase === 'auction' ? 'Идёт аукцион…' :
-                    currentPhase === 'post_auction' ? 'Идёт допокупка…' : 'Карта региона…'
+                currentPhase === 'auction' ? 'Идёт аукцион…' :
+                  currentPhase === 'post_auction' ? 'Идёт допокупка…' : 'Карта региона…'
                 }` : 'Далее — Научные исследования'}
             </button>
           );
@@ -653,7 +694,6 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
             {myAuctionCells.length > 0 && (
               <div className="info-row"><span className="info-label">Аукционы:</span><span className="info-value auction-count">{myAuctionCells.length}</span></div>
             )}
-            {/* Компакт: оспариваемые */}
             {contestedCount > 0 && (
               <div className="info-row contested-info-row">
                 <span className="info-label">⚔️ Оспор.:</span>
@@ -691,7 +731,6 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
             {myAuctionCells.length > 0 && (
               <div className="info-row"><span className="info-label">Зарегистрировано на аукционы:</span><span className="info-value auction-count">{myAuctionCells.length}</span></div>
             )}
-            {/* Оспариваемые ячейки — блок в боковой панели */}
             {contestedCount > 0 && (
               <div className="contested-cells-block">
                 <div className="contested-cells-title">
@@ -717,7 +756,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
             <div className="info-row"><span className="info-label">Бюджет:</span><span className="info-value budget-value">{budget.toLocaleString('ru-RU')} млн руб.</span></div>
             <div className="info-row"><span className="info-label">Потрачено:</span><span className="info-value spent-value">{totalSpent.toLocaleString('ru-RU')} млн руб.</span></div>
             {isOnline() && (
-              <div className="info-row"><span className="info-label">🔌 Онлайн</span><span className="info-value" style={{ color: '#4caf50' }}>синхронизировано</span></div>
+              <div className="info-row"><span className="info-label">Онлайн</span><span className="info-value" style={{ color: '#4caf50' }}>синхронизировано</span></div>
             )}
             {myAuctionCells.length > 0 && currentPhase === 'selection' && (
               <div className="pending-auctions-list">
@@ -752,26 +791,22 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                 {Object.values(ownedCells).map(cell => (
                   <div
                     key={cell.cellRef}
-                    className={`owned-cell-item owned-cell-item-static ${myContestedCells[cell.cellRef] ? 'owned-cell-item-contested' : ''}`}
+                    className={`owned-cell-item owned-cell-item-static ${myContestedCells[cell.cellRef] ? 'owned-cell-item-contested' : ''} ${cell.isAutoAssigned ? 'owned-cell-item-auto' : ''}`}
                   >
                     <span className="owned-cell-ref">{cell.cellRef}</span>
                     {myContestedCells[cell.cellRef] && (
                       <span className="owned-cell-contested-icon" title="Другая команда претендует на этот участок">⚔️</span>
                     )}
+                    {cell.isAutoAssigned && (
+                      <span className="owned-cell-auto-icon" title="Участок выдан автоматически">🎲</span>
+                    )}
                     <span className="owned-cell-name">{cell.name}</span>
                     {cell.auctionPrice
                       ? <span className="owned-cell-price">{cell.auctionPrice} млн</span>
-                      : <span className="owned-cell-free">бесплатно</span>}
+                      : <span className="owned-cell-free">{cell.isAutoAssigned ? 'авто' : 'бесплатно'}</span>}
                   </div>
                 ))}
               </div>
-            )}
-            {import.meta.env.DEV && shouldShowDevButton() && (
-              <button className="dev-sim-btn" onClick={() => {
-                DEV_SIMULATED_TEAMS.forEach(({ cellRef, name }) => {
-                  if (!isOwnedByMe(cellRef) && !isOwnedByOther(cellRef)) simulateOtherTeamOwns(cellRef, name);
-                });
-              }}>DEV: Симулировать 2 команды</button>
             )}
           </>
         )}
@@ -819,7 +854,8 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                     const hasActiveAuction = !!auctions.active[cellId];
                     const blockedType = getBlockedType(cellId);
                     const isPendingAuction = isRegisteredForAuction(cellId);
-                    const isContested = isMyContestedCell(cellId); // моя ячейка, кто-то ещё хочет
+                    const isContested = isMyContestedCell(cellId);
+                    const isAutoAssigned = ownedCells[cellId]?.isAutoAssigned;
                     const isDisabled = !isOurPhase || (currentPhase === 'auction' && !hasActiveAuction);
 
                     return (
@@ -828,7 +864,8 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                           className={[
                             'grid-cell',
                             ownedByMe && isContested ? 'grid-cell-contested' : '',
-                            ownedByMe && !isContested ? 'grid-cell-owned' : '',
+                            ownedByMe && !isContested && isAutoAssigned ? 'grid-cell-auto' : '',
+                            ownedByMe && !isContested && !isAutoAssigned ? 'grid-cell-owned' : '',
                             ownedByOther ? 'grid-cell-other' : '',
                             hasActiveAuction ? 'grid-cell-auction' : '',
                             isPendingAuction ? 'grid-cell-pending-auction' : '',
@@ -839,20 +876,21 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                           title={
                             isContested
                               ? `${cellId} — ваш участок, но на него претендует другая команда!`
-                              : !isOurPhase ? 'Выбор участков недоступен'
-                                : blockedType ? `${cellId} - ${getBlockedLabel(blockedType)}`
-                                  : ownedByMe ? `${cellId} - ваш участок`
-                                    : ownedByOther ? `${cellId} - занят другой командой`
-                                      : hasActiveAuction ? `${cellId} - аукцион`
-                                        : isPendingAuction ? `${cellId} - вы в очереди`
-                                          : totalCommittedCells >= MAX_LUS_PER_TEAM ? `${cellId} - лимит ${MAX_LUS_PER_TEAM}`
-                                            : `${cellId} - нажмите чтобы выбрать`
+                              : isAutoAssigned ? `${cellId} — выдан автоматически`
+                                : !isOurPhase ? 'Выбор участков недоступен'
+                                  : blockedType ? `${cellId} - ${getBlockedLabel(blockedType)}`
+                                    : ownedByMe ? `${cellId} - ваш участок`
+                                      : ownedByOther ? `${cellId} - занят другой командой`
+                                        : hasActiveAuction ? `${cellId} - аукцион`
+                                          : isPendingAuction ? `${cellId} - вы в очереди`
+                                            : totalCommittedCells >= MAX_LUS_PER_TEAM ? `${cellId} - лимит ${MAX_LUS_PER_TEAM}`
+                                              : `${cellId} - нажмите чтобы выбрать`
                           }
                         >
                           <span className="cell-label">{cellId}</span>
-                          {/* Метки — приоритет: contested > owned > other */}
                           {ownedByMe && isContested && <span className="cell-mark cell-mark-contested">⚔</span>}
-                          {ownedByMe && !isContested && <span className="cell-mark cell-mark-own">OK</span>}
+                          {ownedByMe && !isContested && isAutoAssigned && <span className="cell-mark cell-mark-auto">🎲</span>}
+                          {ownedByMe && !isContested && !isAutoAssigned && <span className="cell-mark cell-mark-own">OK</span>}
                           {ownedByOther && <span className="cell-mark cell-mark-other">!</span>}
                           {hasActiveAuction && !ownedByMe && !ownedByOther && <span className="cell-mark cell-mark-auction">LIVE</span>}
                           {isPendingAuction && <span className="cell-mark cell-mark-pending">WAIT</span>}
@@ -906,6 +944,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
       {/* Легенда */}
       <div className="map-legend">
         <div className="legend-item"><div className="legend-color legend-color-own"></div><span>Ваш участок</span></div>
+        <div className="legend-item"><div className="legend-color legend-color-auto"></div><span>Назначен авто</span></div>
         <div className="legend-item"><div className="legend-color legend-color-contested"></div><span>Ваш — оспаривается</span></div>
         <div className="legend-item"><div className="legend-color legend-color-other"></div><span>Занят другой командой</span></div>
         <div className="legend-item"><div className="legend-color legend-color-free"></div><span>Свободный участок</span></div>

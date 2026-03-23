@@ -1,4 +1,20 @@
 // ResearchPanel.jsx — улучшенная версия с бэкендом
+// CSS additions needed in ResearchPanel.module.css:
+//
+// .colYearInactive {
+//   background: #bdbdbd !important;
+//   color: #888 !important;
+//   opacity: 0.4;
+//   cursor: not-allowed;
+//   filter: grayscale(1);
+// }
+//
+// .cellYearInactive {
+//   background: #e8e8e8 !important;
+//   opacity: 0.25;
+//   cursor: not-allowed;
+//   filter: grayscale(1);
+// }
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { RESEARCH_WORKS, MOBILIZATION_WORKS } from './researchData';
 import useGameStore from '../../store/gameStore';
@@ -10,21 +26,21 @@ import { getSocket } from '../apiHelpers';
 
 // ─── Константы ────────────────────────────────────────────────────────────────
 
-const REFUSAL_YEARS     = [3, 5];
-const REFUSAL_DURATION  = 10 * 60;
+const REFUSAL_YEARS = [3, 5];
+const REFUSAL_DURATION = 10 * 60;
 const MAX_REFUSAL_COUNT = 2;
-const RESULTS_DURATION  = 2 * 60;
+const RESULTS_DURATION = 2 * 60;
 
 const COLS_BY_YEAR = {
-  1:  ['srr_2d', 'srr_3d', '1pr'],
-  2:  ['srr_2d', 'srr_3d', '1pr'],
-  3:  ['srr_2d', 'srr_3d', '1pr'],
-  4:  ['srr_2d', 'srr_3d', '1pr', '3r'],
-  5:  ['3r', '4r'],
-  6:  ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'],
-  7:  ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'],
-  8:  ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'],
-  9:  ['depression', 'bsko', 'ppd', '3bs'],
+  1: ['srr_2d', 'srr_3d', '1pr'],
+  2: ['srr_2d', 'srr_3d', '1pr'],
+  3: ['srr_2d', 'srr_3d', '1pr'],
+  4: ['srr_2d', 'srr_3d', '1pr', '3r'],
+  5: ['3r'],
+  6: ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'],
+  7: ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'],
+  8: ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'],
+  9: ['depression', 'bsko', 'ppd', '3bs'],
   10: ['depression', 'bsko', 'ppd', '3bs'],
 };
 
@@ -47,17 +63,17 @@ const iterLabel = (year) => {
 // ─── Дефолтный прогресс ──────────────────────────────────────────────────────
 
 const defaultProgress = () => ({
-  blockedColumns:       [],
-  mobilizedColumns:     [],
-  columnsByYear:        {},
-  skippedYears:         [],
-  purchasedWorks:       [],
+  blockedColumns: [],
+  mobilizedColumns: [],
+  columnsByYear: {},
+  skippedYears: [],
+  purchasedWorks: [],
   purchasedWorksByYear: {},
   purchasedCellsByYear: {},
-  successRatesByYear:   {},
-  totalSpent:           0,
-  purchasedCells:       {},
-  successRates:         {},
+  successRatesByYear: {},
+  totalSpent: 0,
+  purchasedCells: {},
+  successRates: {},
 });
 
 // ─── Переход года ─────────────────────────────────────────────────────────────
@@ -65,7 +81,7 @@ const defaultProgress = () => ({
 function applyYearTransition(prog, prevYear, eventsScore) {
   const prevCol = prog.columnsByYear?.[prevYear];
   const skipped = (prog.skippedYears || []).includes(prevYear);
-  let blocked   = [...(prog.blockedColumns || [])];
+  let blocked = [...(prog.blockedColumns || [])];
   if (prevCol && !skipped && eventsScore >= 0) {
     if (!blocked.includes(prevCol)) blocked.push(prevCol);
   }
@@ -75,10 +91,10 @@ function applyYearTransition(prog, prevYear, eventsScore) {
 // ─── Цветовые группы столбцов ────────────────────────────────────────────────
 
 const MOB_GROUPS = [
-  { ids: ['srr_2d', 'srr_3d'],                                        label: 'СРР',     cls: 'colGroupGray'   },
-  { ids: ['1pr', '3r', '4r'],                                         label: 'ГРР',     cls: 'colGroupOrange' },
-  { ids: ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'], label: 'Бурение', cls: 'colGroupBeige'  },
-  { ids: ['depression', 'bsko', 'ppd', '3bs'],                        label: 'Добыча',  cls: 'colGroupBlue'   },
+  { ids: ['srr_2d', 'srr_3d'], label: 'СРР', cls: 'colGroupGray' },
+  { ids: ['1pr', '3r'], label: 'ГРР', cls: 'colGroupOrange' },
+  { ids: ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'], label: 'Бурение', cls: 'colGroupBeige' },
+  { ids: ['depression', 'bsko', 'ppd', '3bs'], label: 'Добыча', cls: 'colGroupBlue' },
 ];
 
 const getColGroup = (colId) => MOB_GROUPS.find(g => g.ids.includes(colId)) || MOB_GROUPS[0];
@@ -95,12 +111,12 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     advanceToNextYear,
   } = useGameStore();
 
-  const globalTimer    = useGameStore(s => s.globalTimer);
-  const globalYear     = useGameStore(s => s.game.currentYear);
-  const timeRemaining  = globalTimer.timeRemaining;
+  const globalTimer = useGameStore(s => s.globalTimer);
+  const globalYear = useGameStore(s => s.game.currentYear);
+  const timeRemaining = globalTimer.timeRemaining;
 
   // ── Онлайн-режим ─────────────────────────────────────────────────────────
-  const socket   = getSocket();
+  const socket = getSocket();
   const isOnline = !!(socket?.connected && player.sessionId);
 
   // ── Локальный UI-стейт ────────────────────────────────────────────────────
@@ -108,27 +124,27 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   const [resultsTimeRemaining, setResultsTimeRemaining] = useState(RESULTS_DURATION);
   const resultsTimerRef = useRef(null);
 
-  const [showFinalModal,    setShowFinalModal]    = useState(false);
-  const [showRefusalModal,  setShowRefusalModal]  = useState(false);
-  const [showYearConfirm,   setShowYearConfirm]   = useState(false);
-  const [refusalRefs,       setRefusalRefs]       = useState([]);
-  const [purchaseModal,     setPurchaseModal]     = useState(null);
+  const [showFinalModal, setShowFinalModal] = useState(false);
+  const [showRefusalModal, setShowRefusalModal] = useState(false);
+  const [showYearConfirm, setShowYearConfirm] = useState(false);
+  const [refusalRefs, setRefusalRefs] = useState([]);
+  const [purchaseModal, setPurchaseModal] = useState(null);
 
   // Отказной таймер
   const [refusalLeft, setRefusalLeft] = useState(0);
-  const [inRefusal,   setInRefusal]   = useState(false);
+  const [inRefusal, setInRefusal] = useState(false);
   const refusalIntervalRef = useRef(null);
 
-  const [selectedLUs,   setSelectedLUs]   = useState([]);
-  const [selectedCol,   setSelectedCol]   = useState(null);
-  const [activeLU,      setActiveLU]      = useState(null);
-  const [sessionCount,  setSessionCount]  = useState(0);
+  const [selectedLUs, setSelectedLUs] = useState([]);
+  const [selectedCol, setSelectedCol] = useState(null);
+  const [activeLU, setActiveLU] = useState(null);
+  const [sessionCount, setSessionCount] = useState(0);
 
   // ── Ожидание других команд (онлайн) ──────────────────────────────────────
-  const [waiting,       setWaiting]       = useState(false);
-  const [readyCount,    setReadyCount]    = useState(0);
-  const [totalCount,    setTotalCount]    = useState(0);
-  const [readyTeamIds,  setReadyTeamIds]  = useState([]);
+  const [waiting, setWaiting] = useState(false);
+  const [readyCount, setReadyCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [readyTeamIds, setReadyTeamIds] = useState([]);
 
   // ── Объявить фазу при монтировании ────────────────────────────────────────
   useEffect(() => {
@@ -185,7 +201,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       resetEventCardsForNewYear(nextYear);
       applyYearTransitionForAllLUs(nextYear - 1);
       advanceToNextYear();
-      // Остаёмся на ResearchPanel — компонент перерисуется с новым globalYear
     };
 
     const onGameOver = () => {
@@ -194,13 +209,13 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     };
 
     socket.on('year:ready_status', onReadyStatus);
-    socket.on('year:advanced',     onYearAdvanced);
-    socket.on('game:over',         onGameOver);
+    socket.on('year:advanced', onYearAdvanced);
+    socket.on('game:over', onGameOver);
 
     return () => {
       socket.off('year:ready_status', onReadyStatus);
-      socket.off('year:advanced',     onYearAdvanced);
-      socket.off('game:over',         onGameOver);
+      socket.off('year:advanced', onYearAdvanced);
+      socket.off('game:over', onGameOver);
     };
   }, [socket]);
 
@@ -225,7 +240,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   useEffect(() => {
     return () => {
       if (refusalIntervalRef.current) clearInterval(refusalIntervalRef.current);
-      if (resultsTimerRef.current)    clearInterval(resultsTimerRef.current);
+      if (resultsTimerRef.current) clearInterval(resultsTimerRef.current);
     };
   }, []);
 
@@ -237,7 +252,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     prevYearRef.current = globalYear;
 
     const currentResearch = useGameStore.getState().research;
-    const currentEvents   = useGameStore.getState().events;
+    const currentEvents = useGameStore.getState().events;
 
     if (currentResearch.yearTransitionApplied) {
       useGameStore.setState(st => ({ research: { ...st.research, yearTransitionApplied: false } }));
@@ -281,7 +296,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     setRefusalRefs([]);
   }, [stopRefusalTimer]);
 
-  // confirmNextYear — остаёмся на ResearchPanel, advanceToNextYear() обновит год
   const confirmNextYear = useCallback(() => {
     clearInterval(resultsTimerRef.current);
     setShowYearResultsModal(false);
@@ -315,21 +329,15 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
 
     if (refsToRemove.length > 0) {
       if (isOnline && socket?.connected) {
-        // ── Онлайн: отправляем на сервер ──────────────────────────────────
-        // Сервер удалит из БД и разошлёт cells:updated всем командам в сессии.
-        // useSocket.js → onCellsUpdated обновит gridCells в сторе автоматически.
         socket.emit('cell:refusal_release', { cellRefs: refsToRemove }, (res) => {
           if (!res?.ok) {
             console.error('Refusal release failed:', res);
           } else {
             console.log('Refusal released on server:', res.released);
-            // Локально убираем участки сразу, не дожидаясь cells:updated
-            // (cells:updated придёт и перезапишет, но UX не должен лагать)
             _applyRefusalLocally(refsToRemove);
           }
         });
       } else {
-        // ── Офлайн: мутируем только локальный стор ────────────────────────
         _applyRefusalLocally(refsToRemove);
       }
     }
@@ -339,14 +347,13 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     setTimeout(() => setShowYearResultsModal(true), 200);
   }, [isOnline, socket, goToNextYear, stopRefusalTimer]);
 
-  // Локальное удаление участков из стора (применяется сразу для UX)
   const _applyRefusalLocally = (refsToRemove) => {
-    const st       = useGameStore.getState();
+    const st = useGameStore.getState();
     const newOwned = { ...st.gridCells.owned };
-    const newAll   = { ...st.gridCells.allTeams };
+    const newAll = { ...st.gridCells.allTeams };
     refsToRemove.forEach(ref => { delete newOwned[ref]; delete newAll[ref]; });
     useGameStore.setState({
-      gridCells:    { owned: newOwned, allTeams: newAll },
+      gridCells: { owned: newOwned, allTeams: newAll },
       licenseUnits: { ...st.licenseUnits, current: Object.values(newOwned)[0] || null },
     });
     if (refsToRemove.includes(activeLU?.cellRef)) setActiveLU(null);
@@ -373,7 +380,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     })),
     [gridCells.owned]);
 
-  const getProgress   = useCallback((luId) => research.progressByLU[luId] || defaultProgress(), [research.progressByLU]);
+  const getProgress = useCallback((luId) => research.progressByLU[luId] || defaultProgress(), [research.progressByLU]);
 
   const allMobilized = useMemo(() => {
     const s = new Set();
@@ -432,20 +439,16 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     });
   };
 
+  // ── handleColClick — без алертов, тихо фильтруем недоступные ЛУ ──────────
   const handleColClick = (mob) => {
-    if (selectedLUs.length === 0) { alert('Сначала выберите хотя бы один участок!'); return; }
-    const valid = [], invalid = [];
-    selectedLUs.forEach(luId => {
-      const s    = colStatus(mob.id, luId);
-      const name = ownedLUs.find(l => l.cellRef === luId)?.name || luId;
-      s.ok ? valid.push(luId) : invalid.push(`${name}: ${s.reason}`);
-    });
-    if (valid.length === 0) { alert(`Столбец «${mob.name}» недоступен:\n\n${invalid.join('\n')}`); return; }
-    if (invalid.length > 0) {
-      const names = valid.map(id => ownedLUs.find(l => l.cellRef === id)?.name || id).join(', ');
-      if (!window.confirm(`Недоступно для части участков:\n${invalid.join('\n')}\n\nДоступно для: ${names}\n\nПродолжить?`)) return;
-      setSelectedLUs(valid);
-    }
+    if (selectedLUs.length === 0) return;
+    // Столбец недоступен в этом году — игнорируем
+    if (!isColActiveThisYear(mob.id, globalYear)) return;
+
+    const valid = selectedLUs.filter(luId => colStatus(mob.id, luId).ok);
+    if (valid.length === 0) return;
+
+    setSelectedLUs(valid);
     setSelectedCol(prev => prev === mob.id ? null : mob.id);
   };
 
@@ -454,9 +457,12 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   // ─────────────────────────────────────────────────────────────────────────
 
   const openPurchaseModal = (work, mob) => {
+    // Ячейка недоступна в этом году — молча игнорируем
+    if (!isColActiveThisYear(mob.id, globalYear)) return;
+
     if (selectedLUs.length > 0 && selectedCol === mob.id) {
       const cellKey = `${work.id}-${mob.id}`;
-      const toBuy   = selectedLUs.filter(luId => {
+      const toBuy = selectedLUs.filter(luId => {
         const s = colStatus(mob.id, luId);
         return s.ok && !getProgress(luId).purchasedCells?.[cellKey];
       });
@@ -468,12 +474,12 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       setPurchaseModal({ work, mob, cellKey, multi: true, toBuy, breakdown, total: breakdown.reduce((s, x) => s + x.cost, 0) });
       return;
     }
-    if (!activeLU) { alert('Выберите участок!'); return; }
-    const luId  = activeLU.cellRef;
-    const s     = colStatus(mob.id, luId);
-    if (!s.ok)  { alert(s.reason); return; }
-    const cellKey  = `${work.id}-${mob.id}`;
-    const prog     = getProgress(luId);
+    if (!activeLU) return;
+    const luId = activeLU.cellRef;
+    const s = colStatus(mob.id, luId);
+    if (!s.ok) return;
+    const cellKey = `${work.id}-${mob.id}`;
+    const prog = getProgress(luId);
     if (prog.purchasedCells?.[cellKey]) return;
     const needsMob = !(prog.mobilizedColumns || []).includes(mob.id);
     setPurchaseModal({ work, mob, cellKey, multi: false, luId, needsMob, total: work.cost + (needsMob ? mob.cost : 0) });
@@ -484,13 +490,13 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     const { work, mob, cellKey, multi } = purchaseModal;
     if (multi) {
       const { breakdown, total } = purchaseModal;
-      if (player.budget < total) { alert(`Недостаточно средств! Нужно: ${total} млн`); return; }
+      if (player.budget < total) return;
       const updProg = { ...research.progressByLU };
       breakdown.forEach(({ luId, needsMob, cost }) => {
-        const p       = updProg[luId] || defaultProgress();
-        const rate    = work.successRates[mob.id] || 0;
+        const p = updProg[luId] || defaultProgress();
+        const rate = work.successRates[mob.id] || 0;
         const newRate = Math.min((p.successRates?.[mob.id] || 0) + rate, 95);
-        const rw      = makeResearchWork(work, mob, cellKey, cost, needsMob, rate);
+        const rw = makeResearchWork(work, mob, cellKey, cost, needsMob, rate);
         updProg[luId] = mergePurchase(p, mob, cellKey, rw, newRate, needsMob);
       });
       useGameStore.setState(st => ({ player: { ...st.player, budget: st.player.budget - total }, research: { ...st.research, progressByLU: updProg } }));
@@ -499,11 +505,11 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       return;
     }
     const { luId, needsMob, total } = purchaseModal;
-    if (player.budget < total) { alert('Недостаточно средств!'); return; }
-    const p       = getProgress(luId);
-    const rate    = work.successRates[mob.id] || 0;
+    if (player.budget < total) return;
+    const p = getProgress(luId);
+    const rate = work.successRates[mob.id] || 0;
     const newRate = Math.min((p.successRates?.[mob.id] || 0) + rate, 95);
-    const rw      = makeResearchWork(work, mob, cellKey, total, needsMob, rate);
+    const rw = makeResearchWork(work, mob, cellKey, total, needsMob, rate);
     const updProg = { ...useGameStore.getState().research.progressByLU };
     updProg[luId] = mergePurchase(p, mob, cellKey, rw, newRate, needsMob);
     useGameStore.setState(st => ({ player: { ...st.player, budget: st.player.budget - total }, research: { ...st.research, progressByLU: updProg } }));
@@ -522,14 +528,13 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     resetSelection();
   };
 
+  // ── skipResearch — без window.confirm ────────────────────────────────────
   const skipResearch = () => {
     if (selectedLUs.length === 0) return;
     const skippable = selectedLUs.filter(luId =>
       (getProgress(luId).purchasedWorksByYear?.[globalYear] || []).length === 0
     );
     if (skippable.length === 0) return;
-    const names = skippable.map(id => ownedLUs.find(l => l.cellRef === id)?.name || id).join(', ');
-    if (!window.confirm(`Отказаться от исследований в году ${globalYear} для:\n${names}?`)) return;
     skippable.forEach(luId => markYearSkippedForLU?.(luId, globalYear));
     const remaining = selectedLUs.filter(id => !skippable.includes(id));
     if (remaining.length === 0) { resetSelection(); }
@@ -553,38 +558,36 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     const year = globalYear;
     return {
       ...prog,
-      mobilizedColumns:     needsMob ? [...new Set([...(prog.mobilizedColumns || []), mob.id])] : (prog.mobilizedColumns || []),
+      mobilizedColumns: needsMob ? [...new Set([...(prog.mobilizedColumns || []), mob.id])] : (prog.mobilizedColumns || []),
       mobilizedColumnsByYear: needsMob ? appendToYearArr(prog.mobilizedColumnsByYear, year, mob.id) : (prog.mobilizedColumnsByYear || {}),
-      columnsByYear:        { ...(prog.columnsByYear || {}), [year]: mob.id },
-      purchasedWorks:       [...(prog.purchasedWorks || []), rw],
+      columnsByYear: { ...(prog.columnsByYear || {}), [year]: mob.id },
+      purchasedWorks: [...(prog.purchasedWorks || []), rw],
       purchasedWorksByYear: appendToYearArr(prog.purchasedWorksByYear, year, rw),
-      purchasedCells:       { ...(prog.purchasedCells || {}), [cellKey]: { ...rw, successRate: rw.metadata.successRate } },
+      purchasedCells: { ...(prog.purchasedCells || {}), [cellKey]: { ...rw, successRate: rw.metadata.successRate } },
       purchasedCellsByYear: appendToYearMap(prog.purchasedCellsByYear, year, cellKey, { ...rw, successRate: rw.metadata.successRate }),
-      successRates:         { ...(prog.successRates || {}), [mob.id]: newRate },
-      successRatesByYear:   appendRateToYear(prog.successRatesByYear, prog.successRatesByYear?.[year], year, mob.id, newRate),
-      totalSpent:           (prog.totalSpent || 0) + rw.baseCost,
+      successRates: { ...(prog.successRates || {}), [mob.id]: newRate },
+      successRatesByYear: appendRateToYear(prog.successRatesByYear, prog.successRatesByYear?.[year], year, mob.id, newRate),
+      totalSpent: (prog.totalSpent || 0) + rw.baseCost,
     };
   };
 
-  const appendToYearArr  = (obj, year, item)      => { const o = obj || {}; return { ...o, [year]: [...(o[year] || []), item] }; };
-  const appendToYearMap  = (obj, year, key, val)  => { const o = obj || {}; return { ...o, [year]: { ...(o[year] || {}), [key]: val } }; };
+  const appendToYearArr = (obj, year, item) => { const o = obj || {}; return { ...o, [year]: [...(o[year] || []), item] }; };
+  const appendToYearMap = (obj, year, key, val) => { const o = obj || {}; return { ...o, [year]: { ...(o[year] || {}), [key]: val } }; };
   const appendRateToYear = (byYear, cur, year, colId, rate) => { const o = byYear || {}; return { ...o, [year]: { ...(cur || {}), [colId]: rate } }; };
 
   // ─────────────────────────────────────────────────────────────────────────
   // ТАЙМЕР UI
   // ─────────────────────────────────────────────────────────────────────────
 
-  // НИРы (текущий компонент)
   const totalSpent = Object.values(research.progressByLU).reduce((s, p) => s + (p.totalSpent || 0), 0);
 
-  // Расходы на карте региона: карточки ЛУ + аукционные участки
   const regionMapSpent = (licenseUnits?.owned ?? []).reduce((s, lu) => s + (lu.cost || 0), 0)
     + Object.values(gridCells?.owned ?? {}).reduce((s, c) => s + (c.auctionPrice || 0), 0);
 
   const timerCls = () => {
-    if (inRefusal)            return `${styles.timer} ${styles.timerWarning}`;
-    if (timeRemaining <= 0)   return `${styles.timer} ${styles.timerFinished}`;
-    if (timeRemaining <= 30)  return `${styles.timer} ${styles.timerCritical}`;
+    if (inRefusal) return `${styles.timer} ${styles.timerWarning}`;
+    if (timeRemaining <= 0) return `${styles.timer} ${styles.timerFinished}`;
+    if (timeRemaining <= 30) return `${styles.timer} ${styles.timerCritical}`;
     if (timeRemaining <= 120) return `${styles.timer} ${styles.timerWarning}`;
     if (timeRemaining <= 300) return `${styles.timer} ${styles.timerAlert}`;
     return styles.timer;
@@ -601,16 +604,28 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   // ДАННЫЕ ДЛЯ ТАБЛИЦЫ
   // ─────────────────────────────────────────────────────────────────────────
 
-  const activeProg    = activeLU ? getProgress(activeLU.cellRef) : null;
-  const multiMode     = selectedLUs.length > 0;
-  const canSkipAny    = selectedLUs.some(luId => (getProgress(luId).purchasedWorksByYear?.[globalYear] || []).length === 0);
+  const activeProg = activeLU ? getProgress(activeLU.cellRef) : null;
+  const multiMode = selectedLUs.length > 0;
+  const canSkipAny = selectedLUs.some(luId => (getProgress(luId).purchasedWorksByYear?.[globalYear] || []).length === 0);
 
-  const colRateActive = (colId) => {
-    if (!activeProg) return 0;
-    let sum = 0;
-    Object.values(activeProg.purchasedCells || {}).forEach(c => { if (c.mobilizationType === colId) sum += (c.successRate || 0); });
-    return Math.min(sum, 95);
-  };
+  // ── colRateActive — исправлен для мульти-режима ──────────────────────────
+  const colRateActive = useCallback((colId) => {
+    const targetProgs = multiMode && selectedLUs.length > 0
+      ? selectedLUs.map(id => research.progressByLU[id] || defaultProgress())
+      : activeProg ? [activeProg] : [];
+
+    if (targetProgs.length === 0) return 0;
+
+    let maxRate = 0;
+    targetProgs.forEach(prog => {
+      let sum = 0;
+      Object.values(prog.purchasedCells || {}).forEach(c => {
+        if (c.mobilizationType === colId) sum += (c.successRate || 0);
+      });
+      maxRate = Math.max(maxRate, Math.min(sum, 95));
+    });
+    return maxRate;
+  }, [multiMode, selectedLUs, activeProg, research.progressByLU]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // РЕНДЕР
@@ -669,15 +684,15 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
 
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
               {ownedLUs.map(lu => {
-                const prog       = getProgress(lu.cellRef);
-                const inGroup    = selectedLUs.includes(lu.cellRef);
-                const done       = isLUDone(lu.cellRef) && !inGroup;
-                const skipped    = (prog.skippedYears || []).includes(globalYear);
-                const blocked    = prog.blockedColumns || [];
-                const nirCount   = (prog.purchasedWorksByYear?.[globalYear] || []).length;
-                const prevYear   = globalYear - 1;
-                const evScore    = events?.historyByYear?.[prevYear]?.lineScores?.[lu.cellRef] ?? events?.lineScores?.[lu.cellRef] ?? null;
-                const prevColId  = prevYear > 0 ? prog.columnsByYear?.[prevYear] : null;
+                const prog = getProgress(lu.cellRef);
+                const inGroup = selectedLUs.includes(lu.cellRef);
+                const done = isLUDone(lu.cellRef) && !inGroup;
+                const skipped = (prog.skippedYears || []).includes(globalYear);
+                const blocked = prog.blockedColumns || [];
+                const nirCount = (prog.purchasedWorksByYear?.[globalYear] || []).length;
+                const prevYear = globalYear - 1;
+                const evScore = events?.historyByYear?.[prevYear]?.lineScores?.[lu.cellRef] ?? events?.lineScores?.[lu.cellRef] ?? null;
+                const prevColId = prevYear > 0 ? prog.columnsByYear?.[prevYear] : null;
                 const prevColName = prevColId ? MOBILIZATION_WORKS.find(w => w.id === prevColId)?.name : null;
 
                 return (
@@ -731,8 +746,58 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
             {multiMode && selectedCol && sessionCount === 0 && <div style={{ padding: '6px 12px', background: '#fff8e1', borderRadius: 7, border: '1px solid #ffe082', color: '#795548', fontSize: '0.85rem' }}><strong>Шаг 3:</strong> кликайте по ячейкам столбца. После покупок нажмите «Подтвердить».</div>}
           </div>
         )}
+
         <br />
         <BudgetBar budget={player.budget} spent={totalSpent + regionMapSpent} theme="light" />
+
+        {/* ── Панель суммарной успешности — лаконичная версия ── */}
+        {(multiMode || activeLU) && (() => {
+          const targetLUIds = multiMode ? selectedLUs : [activeLU?.cellRef].filter(Boolean);
+          const activeColId = selectedCol
+            || (activeLU ? getProgress(activeLU.cellRef).columnsByYear?.[globalYear] : null);
+
+          if (!activeColId || targetLUIds.length === 0) return null;
+
+          const mob = MOBILIZATION_WORKS.find(m => m.id === activeColId);
+          if (!mob) return null;
+
+          const items = targetLUIds.map(luId => {
+            const prog = getProgress(luId);
+            let sum = 0;
+            Object.values(prog.purchasedCells || {}).forEach(c => {
+              if (c.mobilizationType === activeColId) sum += (c.successRate || 0);
+            });
+            const rate = Math.min(sum, 95);
+            const luName = ownedLUs.find(l => l.cellRef === luId)?.name || luId;
+            return { luId, luName, rate };
+          });
+
+          const hasPurchases = items.some(i => i.rate > 0);
+          if (!hasPurchases) return null;
+
+          // Короткое имя столбца: убираем "Успешность " в начале если есть
+          const shortColName = mob.name.replace(/^Успешность\s+/i, '');
+
+          return (
+            <div style={{
+              marginTop: 10, padding: '7px 12px', background: '#e8f5e9',
+              borderRadius: 8, border: '1px solid #a5d6a7',
+              display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center',
+            }}>
+              <span style={{ fontWeight: 600, color: '#555', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                {shortColName}:
+              </span>
+              {items.map(({ luId, luName, rate }) => (
+                <span key={luId} style={{
+                  fontSize: '0.82rem', fontWeight: 700,
+                  color: rate >= 70 ? '#2e7d32' : rate >= 40 ? '#f57c00' : rate > 0 ? '#c62828' : '#999',
+                }}>
+                  {luName} — {rate > 0 ? `${rate}%` : '—'}
+                </span>
+              ))}
+            </div>
+          );
+        })()}
       </div>
 
       {/* ── ГОД + КНОПКА ЗАВЕРШИТЬ ─────────────────────────────────────── */}
@@ -780,43 +845,88 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                 <th className={styles.colCost}>Стоимость</th>
                 {MOBILIZATION_WORKS.map((mob) => {
                   const { cls, label, ids } = getColGroup(mob.id);
-                  const isFirstInGroup     = ids[0] === mob.id;
-                  const active             = isColActiveThisYear(mob.id, globalYear);
-                  const isSelected         = multiMode && selectedCol === mob.id;
-                  const hasDep             = mob.dependency && !allMobilized.has(mob.dependency);
-                  const blockedForActive   = activeLU && !multiMode ? (getProgress(activeLU.cellRef).blockedColumns || []).includes(mob.id) : false;
-                  const repeatableForActive = activeLU && !multiMode && !blockedForActive ? Object.values(getProgress(activeLU.cellRef).columnsByYear || {}).includes(mob.id) : false;
-                  const blockedCount       = multiMode ? selectedLUs.filter(id => (getProgress(id).blockedColumns || []).includes(mob.id)).length : 0;
-                  const allBlocked         = multiMode && selectedLUs.length > 0 && blockedCount === selectedLUs.length;
-                  const takenByOther       = active && Object.entries(research.progressByLU).some(([id, p]) => !selectedLUs.includes(id) && p.columnsByYear?.[globalYear] === mob.id);
-                  const clickable          = multiMode && active && !allBlocked && !hasDep && !takenByOther;
+                  const isFirstInGroup = ids[0] === mob.id;
+                  // Столбец активен в этом году?
+                  const active = isColActiveThisYear(mob.id, globalYear);
+                  const isSelected = multiMode && selectedCol === mob.id;
+                  const hasDep = mob.dependency && !allMobilized.has(mob.dependency);
 
+                  // Заблокирован для одиночного ЛУ
+                  const blockedForActive = activeLU && !multiMode
+                    ? (getProgress(activeLU.cellRef).blockedColumns || []).includes(mob.id)
+                    : false;
+                  const repeatableForActive = activeLU && !multiMode && !blockedForActive
+                    ? Object.values(getProgress(activeLU.cellRef).columnsByYear || {}).includes(mob.id)
+                    : false;
+
+                  // В мульти-режиме
+                  const blockedCount = multiMode
+                    ? selectedLUs.filter(id => (getProgress(id).blockedColumns || []).includes(mob.id)).length
+                    : 0;
+                  const allBlocked = multiMode && selectedLUs.length > 0 && blockedCount === selectedLUs.length;
+                  const validCount = multiMode
+                    ? selectedLUs.filter(id => colStatus(mob.id, id).ok).length
+                    : 0;
+                  const noneValid = multiMode && selectedLUs.length > 0 && validCount === 0;
+
+                  const takenByOther = active && Object.entries(research.progressByLU).some(
+                    ([id, p]) => !selectedLUs.includes(id) && p.columnsByYear?.[globalYear] === mob.id
+                  );
+
+                  // Столбец полностью недоступен (не в этом году или все заблокированы и т.д.)
+                  const fullyDisabled = !active || hasDep || takenByOther
+                    || (blockedForActive && !multiMode)
+                    || (noneValid && multiMode);
+
+                  const clickable = multiMode && active && !noneValid && !hasDep && !takenByOther;
+
+                  // CSS-классы заголовка
                   let hClass = `${styles[cls] || ''}`;
-                  if (isSelected)                             hClass += ` ${styles.mobilized}`;
-                  else if (takenByOther)                      hClass += ` ${styles.locked}`;
-                  else if (blockedForActive && !multiMode)    hClass += ` ${styles.locked}`;
-                  else if (active && !allBlocked)             hClass += ` ${styles.available}`;
-                  else                                        hClass += ` ${styles.locked}`;
+                  if (!active) {
+                    hClass += ` ${styles.colYearInactive}`; // серый, не в этом году
+                  } else if (isSelected) {
+                    hClass += ` ${styles.mobilized}`;
+                  } else if (takenByOther || (blockedForActive && !multiMode) || (noneValid && multiMode)) {
+                    hClass += ` ${styles.locked}`;
+                  } else {
+                    hClass += ` ${styles.available}`;
+                  }
 
                   return (
                     <th key={mob.id} className={`${styles.colMob} ${hClass}`}
                       onClick={() => clickable && handleColClick(mob)}
-                      style={{ cursor: clickable ? 'pointer' : 'default', outline: isSelected ? '3px solid #ff9800' : 'none', outlineOffset: '-3px', opacity: (allBlocked || takenByOther || (blockedForActive && !multiMode)) ? 0.4 : 1 }}
-                      title={isSelected ? 'Выбран — повторный клик снимает' : hasDep ? `Требует: ${MOBILIZATION_WORKS.find(w => w.id === mob.dependency)?.name}` : takenByOther ? `Занят другим участком в ${globalYear} году` : blockedForActive ? 'Заблокирован (события ≥ 0)' : repeatableForActive ? '↺ Доступен повторно (события < 0)' : !active ? 'Не в этом году' : clickable ? 'Нажмите для выбора' : ''}
+                      style={{
+                        cursor: clickable ? 'pointer' : 'default',
+                        outline: isSelected ? '3px solid #ff9800' : 'none',
+                        outlineOffset: '-3px',
+                        // Серый + непрозрачный если год не тот
+                        filter: !active ? 'grayscale(1)' : 'none',
+                        opacity: !active ? 0.4 : fullyDisabled ? 0.45 : 1,
+                      }}
+                      title={
+                        !active ? `Доступен в годы: ${mob.years?.join(', ') || '—'}`
+                          : isSelected ? 'Выбран — повторный клик снимает'
+                            : hasDep ? `Требует: ${MOBILIZATION_WORKS.find(w => w.id === mob.dependency)?.name}`
+                              : takenByOther ? `Занят другим участком в ${globalYear} году`
+                                : blockedForActive ? 'Заблокирован (события ≥ 0)'
+                                  : noneValid && multiMode ? 'Недоступен для всех выбранных участков'
+                                    : repeatableForActive ? '↺ Доступен повторно (события < 0)'
+                                      : clickable ? 'Нажмите для выбора' : ''
+                      }
                     >
                       {isFirstInGroup && <div className={styles.groupHeader}>{label}</div>}
                       <div className={styles.mobHeader}>
                         {isSelected && <span style={{ fontSize: '0.85rem', marginRight: 2 }}>★ </span>}
                         <span className={styles.mobName}>{mob.name}</span>
                         <span className={styles.mobCost}>{mob.cost} млн</span>
-                        <span className={styles.mobYears}>{mob.years?.join(', ') ? `Годы: ${mob.years.join(', ')}` : ''}</span>
+                        <span className={styles.mobYears}>{mob.years?.length ? `Годы: ${mob.years.join(', ')}` : ''}</span>
                         {!active && <span className={styles.mobLocked}>Не в этом году</span>}
-                        {hasDep && <span className={styles.mobLocked}>Требует зависимость</span>}
-                        {takenByOther && <span className={styles.mobLocked} style={{ color: '#ef9a9a' }}>Занят в {globalYear}г</span>}
-                        {blockedForActive && !multiMode && <span className={styles.mobLocked} style={{ color: '#bdbdbd' }}>Заблокирован</span>}
-                        {repeatableForActive && !multiMode && <span className={styles.mobLocked} style={{ color: '#ff9800' }}>↺ Повтор</span>}
-                        {multiMode && blockedCount > 0 && !allBlocked && <span className={styles.mobLocked} style={{ color: '#ffccbc' }}>{blockedCount} заблок.</span>}
-                        {allBlocked && <span className={styles.mobLocked} style={{ color: '#bdbdbd' }}>Все заблок.</span>}
+                        {active && hasDep && <span className={styles.mobLocked}>Требует зависимость</span>}
+                        {active && takenByOther && <span className={styles.mobLocked} style={{ color: '#ef9a9a' }}>Занят в {globalYear}г</span>}
+                        {active && blockedForActive && !multiMode && <span className={styles.mobLocked} style={{ color: '#bdbdbd' }}>Заблокирован</span>}
+                        {active && repeatableForActive && !multiMode && <span className={styles.mobLocked} style={{ color: '#ff9800' }}>↺ Повтор</span>}
+                        {active && multiMode && blockedCount > 0 && !noneValid && <span className={styles.mobLocked} style={{ color: '#ffccbc' }}>{blockedCount} заблок.</span>}
+                        {active && noneValid && multiMode && <span className={styles.mobLocked} style={{ color: '#bdbdbd' }}>Недоступен</span>}
                       </div>
                     </th>
                   );
@@ -829,11 +939,12 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                   <td className={styles.workName}>{work.name}</td>
                   <td className={styles.workCost}>{work.cost} млн</td>
                   {MOBILIZATION_WORKS.map((mob) => {
-                    const { cls }    = getColGroup(mob.id);
-                    const cellKey    = `${work.id}-${mob.id}`;
-                    const active     = isColActiveThisYear(mob.id, globalYear);
-                    const isSelCol   = multiMode && selectedCol === mob.id;
-                    const rate       = work.successRates[mob.id] || 0;
+                    const { cls } = getColGroup(mob.id);
+                    const cellKey = `${work.id}-${mob.id}`;
+                    // Столбец активен в этом году?
+                    const active = isColActiveThisYear(mob.id, globalYear);
+                    const isSelCol = multiMode && selectedCol === mob.id;
+                    const rate = work.successRates[mob.id] || 0;
 
                     const boughtByMe = multiMode
                       ? selectedLUs.length > 0 && selectedLUs.every(id => !!getProgress(id).purchasedCells?.[cellKey])
@@ -845,45 +956,77 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
 
                     const displayRate = multiMode
                       ? (() => {
-                          const buyer = selectedLUs.find(id => !!getProgress(id).purchasedCells?.[cellKey]);
-                          return buyer ? (getProgress(buyer).purchasedCells[cellKey]?.successRate ?? rate) : rate;
-                        })()
+                        const buyer = selectedLUs.find(id => !!getProgress(id).purchasedCells?.[cellKey]);
+                        return buyer ? (getProgress(buyer).purchasedCells[cellKey]?.successRate ?? rate) : rate;
+                      })()
                       : rate;
 
-                    const blockedMe  = activeLU && !multiMode && !boughtByMe ? (getProgress(activeLU.cellRef).blockedColumns || []).includes(mob.id) : false;
-                    const repeatMe   = activeLU && !multiMode && !blockedMe && !boughtByMe ? Object.values(getProgress(activeLU.cellRef).columnsByYear || {}).includes(mob.id) : false;
+                    const blockedMe = activeLU && !multiMode && !boughtByMe
+                      ? (getProgress(activeLU.cellRef).blockedColumns || []).includes(mob.id)
+                      : false;
+                    const repeatMe = activeLU && !multiMode && !blockedMe && !boughtByMe
+                      ? Object.values(getProgress(activeLU.cellRef).columnsByYear || {}).includes(mob.id)
+                      : false;
 
                     const validLUsForSel = isSelCol ? selectedLUs.filter(id => colStatus(mob.id, id).ok) : [];
-                    const allBought      = isSelCol && validLUsForSel.length > 0 && validLUsForSel.every(id => !!getProgress(id).purchasedCells?.[cellKey]);
-                    const canClickMulti  = isSelCol && active && validLUsForSel.length > 0 && !allBought;
+                    const allBought = isSelCol && validLUsForSel.length > 0 && validLUsForSel.every(id => !!getProgress(id).purchasedCells?.[cellKey]);
+                    const canClickMulti = isSelCol && active && validLUsForSel.length > 0 && !allBought;
                     const canClickSingle = !multiMode && activeLU && !boughtByMe && active && !blockedMe && colStatus(mob.id, activeLU.cellRef).ok;
-                    const clickable      = canClickMulti || canClickSingle;
+                    const clickable = canClickMulti || canClickSingle;
+
+                    const colNoneValid = multiMode && selectedLUs.length > 0
+                      && selectedLUs.filter(id => colStatus(mob.id, id).ok).length === 0;
+
+                    // Ячейка серая если столбец не активен в этом году
+                    if (!active) {
+                      return (
+                        <td key={mob.id} className={`${styles.cell} ${styles[cls] || ''} ${styles.cellYearInactive}`}
+                          style={{ cursor: 'not-allowed', opacity: 0.25, filter: 'grayscale(1)' }}
+                          title={`Доступен в годы: ${mob.years?.join(', ') || '—'}`}
+                        >
+                          <div className={styles.cellUnavailable}>
+                            <span className={styles.cellLockIcon}>—</span>
+                          </div>
+                        </td>
+                      );
+                    }
 
                     let cCls = `${styles.cell} ${styles[cls] || ''}`;
-                    if (boughtByMe)       cCls += ` ${styles.purchased}`;
-                    else if (someBought)  cCls += ` ${styles.purchased}`;
-                    else if (blockedMe)   cCls += ` ${styles.pastPurchased}`;
-                    else if (repeatMe)    cCls += ` ${styles.repeatable}`;
-                    else if (!active)     cCls += ` ${styles.unavailable}`;
-                    else if (clickable)   cCls += ` ${styles.available}`;
-                    else                  cCls += ` ${styles.unavailable}`;
+                    if (boughtByMe) cCls += ` ${styles.purchased}`;
+                    else if (someBought) cCls += ` ${styles.purchased}`;
+                    else if (blockedMe) cCls += ` ${styles.pastPurchased}`;
+                    else if (repeatMe) cCls += ` ${styles.repeatable}`;
+                    else if (colNoneValid) cCls += ` ${styles.unavailable}`;
+                    else if (clickable) cCls += ` ${styles.available}`;
+                    else cCls += ` ${styles.unavailable}`;
 
                     return (
                       <td key={mob.id} className={cCls}
                         onClick={() => clickable && openPurchaseModal(work, mob)}
-                        style={{ cursor: clickable ? 'pointer' : 'not-allowed', outline: isSelCol ? '2px solid rgba(255,152,0,.4)' : 'none', outlineOffset: '-2px', opacity: blockedMe ? 0.4 : 1 }}
-                        title={boughtByMe ? `Куплено у всех: +${displayRate}%` : someBought ? `Куплено у части: +${displayRate}%` : blockedMe ? 'Заблокирован' : repeatMe ? '↺ Доступен повторно' : !active ? 'Не в этом году' : canClickMulti ? `Купить для ${validLUsForSel.length} уч.` : canClickSingle ? 'Нажмите для покупки' : 'Недоступно'}
+                        style={{
+                          cursor: clickable ? 'pointer' : 'not-allowed',
+                          outline: isSelCol && !colNoneValid ? '2px solid rgba(255,152,0,.4)' : 'none',
+                          outlineOffset: '-2px',
+                          opacity: (blockedMe || colNoneValid) ? 0.35 : 1,
+                        }}
+                        title={
+                          boughtByMe ? `Куплено: +${displayRate}%`
+                            : someBought ? `Частично куплено: +${displayRate}%`
+                              : blockedMe ? 'Заблокирован'
+                                : colNoneValid ? 'Недоступен для выбранных участков'
+                                  : repeatMe ? '↺ Доступен повторно'
+                                    : canClickMulti ? `Купить для ${validLUsForSel.length} уч.`
+                                      : canClickSingle ? 'Нажмите для покупки' : 'Недоступно'
+                        }
                       >
                         {boughtByMe ? (
                           <div className={styles.cellPurchased}><span className={styles.cellRate}>{displayRate}%</span></div>
                         ) : someBought ? (
                           <div className={styles.cellPurchased} style={{ opacity: 0.6 }}><span className={styles.cellRate}>~{displayRate}%</span></div>
-                        ) : blockedMe ? (
+                        ) : blockedMe || colNoneValid ? (
                           <div className={styles.cellUnavailable}><span className={styles.cellLockIcon}>✕</span></div>
                         ) : repeatMe ? (
                           <div className={styles.cellAvailable}><span className={styles.cellHiddenRate}>↺</span><span className={styles.cellHoverInfo}>Повтор</span></div>
-                        ) : !active ? (
-                          <div className={styles.cellUnavailable}><span className={styles.cellLockIcon}>-</span></div>
                         ) : (
                           <div className={styles.cellAvailable}>
                             <span className={styles.cellHiddenRate}>?</span>
@@ -895,20 +1038,47 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                   })}
                 </tr>
               ))}
+
+              {/* ── ИТОГОВАЯ СТРОКА ── */}
               <tr className={styles.totalsRow}>
                 <td colSpan="2" className={styles.totalsLabel}><strong>Итоговая успешность:</strong></td>
                 {MOBILIZATION_WORKS.map((mob) => {
-                  const { cls }  = getColGroup(mob.id);
-                  const succ     = colRateActive(mob.id);
-                  const bought   = Object.keys(activeProg?.purchasedCells || {}).some(k => k.endsWith(`-${mob.id}`));
-                  const blocked  = activeLU && (getProgress(activeLU.cellRef).blockedColumns || []).includes(mob.id);
-                  const repeat   = activeLU && !blocked && Object.values(getProgress(activeLU.cellRef).columnsByYear || {}).includes(mob.id);
+                  const { cls } = getColGroup(mob.id);
+                  const active = isColActiveThisYear(mob.id, globalYear);
+                  const succ = colRateActive(mob.id);
+
+                  const checkProgs = multiMode && selectedLUs.length > 0
+                    ? selectedLUs.map(id => research.progressByLU[id] || defaultProgress())
+                    : activeProg ? [activeProg] : [];
+
+                  const bought = checkProgs.some(prog =>
+                    Object.keys(prog.purchasedCells || {}).some(k => k.endsWith(`-${mob.id}`))
+                  );
+
+                  const blocked = !multiMode && activeLU
+                    ? (getProgress(activeLU.cellRef).blockedColumns || []).includes(mob.id)
+                    : false;
+                  const repeat = !multiMode && activeLU && !blocked
+                    ? Object.values(getProgress(activeLU.cellRef).columnsByYear || {}).includes(mob.id)
+                    : false;
+
+                  // Серая ячейка итогов если год не тот
+                  if (!active) {
+                    return (
+                      <td key={mob.id} className={`${styles.totalsCell} ${styles[cls] || ''}`}
+                        style={{ opacity: 0.25, filter: 'grayscale(1)' }}>
+                        <span style={{ color: '#bbb', fontSize: '0.9rem' }}>—</span>
+                      </td>
+                    );
+                  }
+
                   return (
                     <td key={mob.id} className={`${styles.totalsCell} ${styles[cls] || ''}`}>
-                      {bought   ? <span className={`${styles.totalSuccess} ${succ >= 70 ? styles.high : succ >= 40 ? styles.medium : styles.low}`}>{succ}%</span>
-                       : blocked ? <span style={{ color: '#bdbdbd', fontSize: '0.9rem' }}>✕</span>
-                       : repeat  ? <span style={{ color: '#ff9800', fontSize: '0.9rem' }}>↺</span>
-                       :           <span className={styles.lockedTotal}>?</span>}
+                      {bought
+                        ? <span className={`${styles.totalSuccess} ${succ >= 70 ? styles.high : succ >= 40 ? styles.medium : styles.low}`}>{succ}%</span>
+                        : blocked ? <span style={{ color: '#bdbdbd', fontSize: '0.9rem' }}>✕</span>
+                          : repeat ? <span style={{ color: '#ff9800', fontSize: '0.9rem' }}>↺</span>
+                            : <span className={styles.lockedTotal}>?</span>}
                     </td>
                   );
                 })}
@@ -977,9 +1147,11 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                   : <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}><span style={{ color: '#555' }}>{purchaseModal.work.name}</span><span style={{ color: '#333', fontWeight: 600 }}>{purchaseModal.work.cost} млн</span></div>}
               </div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#e8f5e9', borderRadius: 8, padding: '10px 14px', marginBottom: '1.25rem' }}>
-              <span style={{ fontWeight: 600, color: '#2e7d32', fontSize: '0.9rem' }}>Итого</span>
-              <span style={{ fontWeight: 700, fontSize: '1.1rem', color: '#2e7d32' }}>{purchaseModal.total} млн руб.</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: player.budget < purchaseModal.total ? '#ffebee' : '#e8f5e9', borderRadius: 8, padding: '10px 14px', marginBottom: '1.25rem' }}>
+              <span style={{ fontWeight: 600, color: player.budget < purchaseModal.total ? '#c62828' : '#2e7d32', fontSize: '0.9rem' }}>
+                {player.budget < purchaseModal.total ? '⚠ Недостаточно средств' : 'Итого'}
+              </span>
+              <span style={{ fontWeight: 700, fontSize: '1.1rem', color: player.budget < purchaseModal.total ? '#c62828' : '#2e7d32' }}>{purchaseModal.total} млн руб.</span>
             </div>
             <div className={styles.modalActions}>
               <button className={styles.purchaseModalBtn} onClick={confirmPurchase} disabled={player.budget < purchaseModal.total}>Купить</button>
@@ -1004,18 +1176,18 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                 <p style={{ textAlign: 'center', marginBottom: 10, color: '#444', fontSize: '0.9rem' }}>Результаты в <strong>{globalYear} году</strong></p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {Object.values(gridCells.owned).map(cell => {
-                    const prog          = research.progressByLU[cell.cellRef] || defaultProgress();
+                    const prog = research.progressByLU[cell.cellRef] || defaultProgress();
                     const worksThisYear = (prog.purchasedWorksByYear?.[globalYear] || []).length;
-                    const col           = prog.columnsByYear?.[globalYear];
-                    const colName       = col ? MOBILIZATION_WORKS.find(m => m.id === col)?.name : null;
-                    const skipped       = (prog.skippedYears || []).includes(globalYear);
-                    const spent         = (prog.purchasedWorksByYear?.[globalYear] || []).reduce((s, w) => s + (w.baseCost || 0), 0);
+                    const col = prog.columnsByYear?.[globalYear];
+                    const colName = col ? MOBILIZATION_WORKS.find(m => m.id === col)?.name : null;
+                    const skipped = (prog.skippedYears || []).includes(globalYear);
+                    const spent = (prog.purchasedWorksByYear?.[globalYear] || []).reduce((s, w) => s + (w.baseCost || 0), 0);
                     return (
                       <div key={cell.cellRef} style={{ padding: '8px 12px', background: '#f8f9fa', borderRadius: 8, border: '1px solid #e0e0e0' }}>
                         <div style={{ fontWeight: 700, marginBottom: 3, color: '#222' }}>{cell.name || `Участок ${cell.cellRef}`}</div>
                         {skipped ? <div style={{ color: '#ff9800', fontSize: '0.85rem' }}>Исследования пропущены</div>
-                         : colName ? <><div style={{ fontSize: '0.85rem', color: '#555' }}>Направление: <strong>{colName}</strong></div><div style={{ fontSize: '0.85rem', color: '#555' }}>НИР: <strong>{worksThisYear}</strong> шт. · Потрачено: <strong>{spent} млн</strong></div></>
-                         : <div style={{ fontSize: '0.85rem', color: '#999' }}>Направление не выбрано</div>}
+                          : colName ? <><div style={{ fontSize: '0.85rem', color: '#555' }}>Направление: <strong>{colName}</strong></div><div style={{ fontSize: '0.85rem', color: '#555' }}>НИР: <strong>{worksThisYear}</strong> шт. · Потрачено: <strong>{spent} млн</strong></div></>
+                            : <div style={{ fontSize: '0.85rem', color: '#999' }}>Направление не выбрано</div>}
                       </div>
                     );
                   })}
@@ -1023,7 +1195,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
               </div>
               <div className={styles.modalActions} style={{ marginTop: 16 }}>
                 <button className={styles.purchaseModalBtn} onClick={confirmNextYear}>{globalYear >= 10 ? 'Завершить игру' : `Перейти на год ${globalYear + 1}`}</button>
-                <button className={styles.cancelModalBtn} onClick={() => { clearInterval(resultsTimerRef.current); setShowYearResultsModal(false); setResultsTimeRemaining(RESULTS_DURATION); }}>Вернуться к исследованиям</button>
+                {/* <button className={styles.cancelModalBtn} onClick={() => { clearInterval(resultsTimerRef.current); setShowYearResultsModal(false); setResultsTimeRemaining(RESULTS_DURATION); }}>Вернуться к исследованиям</button> */}
               </div>
             </div>
           </div>
@@ -1071,14 +1243,14 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
             </div>
             <div className={styles.modalActions}>
               <button className={styles.purchaseModalBtn}
-                onClick={() => { if (refusalRefs.length === 0 && ownedLUs.length > 0) { alert('Выберите хотя бы один участок на карте'); return; } handleRefusalAccept(refusalRefs); }}
+                onClick={() => { if (refusalRefs.length === 0 && ownedLUs.length > 0) { return; } handleRefusalAccept(refusalRefs); }}
                 style={{ background: '#e65100' }}>
                 {refusalRefs.length > 0 ? `Отказаться от: ${refusalRefs.join(', ')}` : 'Пропустить и продолжить'}
               </button>
               <button className={styles.cancelModalBtn} onClick={() => { setRefusalRefs([]); handleRefusalAccept([]); }}>Продолжить с текущими</button>
             </div>
           </div>
-          <RefusalTour onDone={() => {}} />
+          <RefusalTour onDone={() => { }} />
         </div>
       )}
 
@@ -1100,7 +1272,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
         </div>
       )}
 
-      {/* <ResearchPanelTour globalYear={globalYear} onDone={() => {}} /> */}
     </div>
   );
 }

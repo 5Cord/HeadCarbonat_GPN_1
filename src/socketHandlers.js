@@ -1,3 +1,4 @@
+// Frontend часть
 import {
   getTeamByToken, updateTeamSocket, setTeamOffline,
   getSessionById, getSessionTeams, updateTeamBudget,

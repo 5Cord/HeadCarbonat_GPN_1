@@ -80,11 +80,12 @@ export const FIELD_WORK_BLOCKS = [
     ]
   },
 
+  // ── 1ПО: поисковая скважина ───────────────────────────────────────────────
   {
     blockId: 'block_1pr',
-    mobWorkId: '1pr',
+    mobWorkId: '1pr',   // совпадает с id в MOBILIZATION_WORKS
     groupColor: 'orange',
-    title: 'Поисково-разведочное бурение',
+    title: 'Бурение скважины 1ПО (поисковая)',
     cards: [
       {
         cardId: '1pr_ispytaniya',
@@ -116,42 +117,43 @@ export const FIELD_WORK_BLOCKS = [
     ]
   },
 
+  // ── 3P: разведочная скважина ──────────────────────────────────────────────
+  // ФИКС: mobWorkId исправлен с '3pr' на '3r' — совпадает с id в MOBILIZATION_WORKS
   {
-    blockId: 'block_gs',
-    mobWorkId: '2pr',
-    groupColor: 'beige',
-    title: 'Горизонтальные скважины (ГС)',
+    blockId: 'block_3r',
+    mobWorkId: '3r',    // было '3pr' — не совпадало с MOBILIZATION_WORKS, блок не отображался
+    groupColor: 'orange',
+    title: 'Бурение скважины 3P (разведочная)',
     cards: [
       {
-        cardId: 'gs_traektoria',
-        cardTitle: 'Траектория',
+        cardId: '3r_ispytaniya',
+        cardTitle: 'Испытания',
         options: [
-          { rank: 1, param: 'Угол ствола м/у Т1 и Т3 — 90°', cost: 30 },
-          { rank: 2, param: 'Угол ствола м/у Т1 и Т3 — 75°', cost: 20 },
-          { rank: 3, param: 'Угол ствола м/у Т1 и Т3 — 60°', cost: 10 }
+          { rank: 1, param: 'ИПТ, MDT, перфорация', cost: 70 },
+          { rank: 2, param: 'MDT, перфорация', cost: 50 },
+          { rank: 3, param: 'ИПТ, перфорация', cost: 10 }
         ]
       },
       {
-        cardId: 'gs_dlina',
-        cardTitle: 'Длина ГС',
+        cardId: '3r_gis',
+        cardTitle: 'Комплекс ГИС',
         options: [
-          { rank: 1, param: '1300 м', cost: 140 },
-          { rank: 2, param: '1000 м', cost: 120 },
-          { rank: 3, param: '700 м', cost: 100 }
+          { rank: 1, param: 'НК, АК, ГК, УЭС, КВ, ГГКП, ЛП, ЯМК, ИНГКС, FMI, АКШ (SS)', cost: 75 },
+          { rank: 2, param: 'НК, АК, ГК, УЭС, КВ, ГГКП, ЛП, ЯМК, ИНГКС', cost: 50 },
+          { rank: 3, param: 'НК, АК, ГК, УЭС, КВ, ГГКП, ЛП, ЯМК', cost: 25 }
         ]
       },
       {
-        cardId: 'gs_issledovaniya',
-        cardTitle: 'Исследования',
+        cardId: '3r_kern',
+        cardTitle: 'Отбор керна',
         options: [
-          { rank: 1, param: 'LWD, микроимиджер, ГДИС', cost: 30 },
-          { rank: 2, param: 'LWD, микроимиджер', cost: 25 },
-          { rank: 3, param: 'Комплекс LWD', cost: 10 }
+          { rank: 1, param: 'Алюминиевая труба half-moon, антизаклиночная система, 9 м за рейс', cost: 30 },
+          { rank: 2, param: 'Стеклопластиковая труба, антизаклиночная система, 18 м за рейс', cost: 20 },
+          { rank: 3, param: 'Стеклопластиковая труба, 27 м за рейс', cost: 10 }
         ]
       }
     ]
   },
-
 
   {
     blockId: 'block_gs_mgrp',
@@ -220,6 +222,69 @@ export const FIELD_WORK_BLOCKS = [
           { rank: 1, param: '5 стволов', cost: 240 },
           { rank: 2, param: '4 ствола', cost: 210 },
           { rank: 3, param: '3 ствола', cost: 190 }
+        ]
+      }
+    ]
+  },
+
+  {
+    blockId: 'block_7mzs',
+    mobWorkId: 'drilling_7mzs',
+    groupColor: 'beige',
+    title: 'Скважина 7МЗС (многозабойная)',
+    cards: [
+      {
+        cardId: '7mzs_dlina_otv',
+        cardTitle: 'Длина ответвления',
+        options: [
+          { rank: 1, param: '700 м', cost: 60 },
+          { rank: 2, param: '500 м', cost: 30 },
+          { rank: 3, param: '300 м', cost: 0 }
+        ]
+      },
+      {
+        cardId: '7mzs_podryadchik',
+        cardTitle: 'Подрядчик',
+        options: [
+          { rank: 1, param: 'Зарубежный лицензиар технологии', cost: 50 },
+          { rank: 2, param: 'Российский подрядчик (зарубежное обор.)', cost: 30 },
+          { rank: 3, param: 'Российский вендор', cost: 0 }
+        ]
+      },
+      {
+        cardId: '7mzs_kol_stvolv',
+        cardTitle: 'Кол-во стволов',
+        options: [
+          { rank: 1, param: '5 стволов', cost: 240 },
+          { rank: 2, param: '4 ствола', cost: 210 },
+          { rank: 3, param: '3 ствола', cost: 190 }
+        ]
+      }
+    ]
+  },
+
+  {
+    blockId: 'block_testing',
+    mobWorkId: 'testing',
+    groupColor: 'beige',
+    title: 'Тестирование закачки и ППД',
+    cards: [
+      {
+        cardId: 'testing_vid',
+        cardTitle: 'Вид испытания',
+        options: [
+          { rank: 1, param: 'КВД + КВУ + ГДИС после ГРП', cost: 80 },
+          { rank: 2, param: 'КВД + КВУ', cost: 50 },
+          { rank: 3, param: 'КВД', cost: 20 }
+        ]
+      },
+      {
+        cardId: 'testing_podryadchik',
+        cardTitle: 'Подрядчик',
+        options: [
+          { rank: 1, param: 'Зарубежный лицензиар технологии', cost: 50 },
+          { rank: 2, param: 'Российский подрядчик (зарубежное обор.)', cost: 30 },
+          { rank: 3, param: 'Российский вендор', cost: 0 }
         ]
       }
     ]
@@ -328,7 +393,7 @@ export const FIELD_WORK_BLOCKS = [
     blockId: 'block_perv_ppd',
     mobWorkId: 'bsko',
     groupColor: 'blue',
-    title: 'Адресный перевод в ППД',
+    title: 'Адресный перевод в ППД (БСКО)',
     cards: [
       {
         cardId: 'pervppd_kriteriy',
@@ -392,13 +457,9 @@ export const FIELD_WORK_BLOCKS = [
  * @returns {Array} доступные блоки
  */
 export const getAvailableBlocks = (researchProgress, eventsScore = 0) => {
-
   if (eventsScore < 0) return [];
-
   if (!researchProgress) return [];
-
   const mobilized = researchProgress.mobilizedColumns || [];
-
   return FIELD_WORK_BLOCKS.filter(block => mobilized.includes(block.mobWorkId));
 };
 

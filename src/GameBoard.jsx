@@ -156,7 +156,13 @@ const GameBoard = () => {
     const handleResultsComplete = () => {
         const newYear = useGameStore.getState().globalTimer.currentYear;
         const isGameOver = newYear > 10;
-        if (isGameOver) { goToMenu(); return; }
+
+        if (isGameOver) {
+            // Игра завершена — просто выходим в меню
+            goToMenu();
+            return;
+        }
+
         if (currentLU) {
             set({
                 game: {

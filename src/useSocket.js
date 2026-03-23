@@ -1,3 +1,4 @@
+// Frontend часть
 /**
  * useSocket.js
  *

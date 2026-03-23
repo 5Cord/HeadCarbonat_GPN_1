@@ -1,13 +1,13 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
     getAdminSessions, getAdminTeams, getAdminStats,
-    deleteSession, resetTeam, exportData, createSession,
+    deleteSession, resetTeam, exportData,
     adminLogin, getAdminSessionDetails,
 } from './apiHelpers';
 import { io as socketIO } from 'socket.io-client';
 import './AdminPanel.css';
 
-// ─── Константы ────────────────────────────────────────────────────────────────
+// ─── Константы ───────────────────────────────────────────────────────────────
 
 const YEARS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -18,7 +18,6 @@ const DEFAULT_TIMERS = {
 
 const BUDGET_DEFAULTS = { students: 99999999, professionals: 99999999 };
 
-// Только фазы которые реально нужны администратору для переключения
 const ALL_PHASES = [
     'LOBBY',
     'REGION_MAP_SELECTION',
@@ -43,11 +42,9 @@ const fmt = (sec) => {
     return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 };
 
-// ─── Проверка токена в localStorage ──────────────────────────────────────────
-// Возвращает токен если он есть, иначе null
 const getSavedToken = () => localStorage.getItem('auth_token') || null;
 
-// ─── API ──────────────────────────────────────────────────────────────────────
+// ─── API ─────────────────────────────────────────────────────────────────────
 
 const apiAction = async (path, method = 'POST', body) => {
     const token = getSavedToken();
@@ -60,7 +57,7 @@ const apiAction = async (path, method = 'POST', body) => {
     return res.json();
 };
 
-// ─── MinuteInput ──────────────────────────────────────────────────────────────
+// ─── MinuteInput ─────────────────────────────────────────────────────────────
 
 const MinuteInput = ({ value, onChange, disabled }) => {
     const [raw, setRaw] = useState(String(value ?? ''));
@@ -85,7 +82,7 @@ const MinuteInput = ({ value, onChange, disabled }) => {
     );
 };
 
-// ─── LoginScreen ──────────────────────────────────────────────────────────────
+// ─── LoginScreen ─────────────────────────────────────────────────────────────
 
 const LoginScreen = ({ onLogin }) => {
     const [pw, setPw] = useState('');
@@ -101,7 +98,6 @@ const LoginScreen = ({ onLogin }) => {
                 const res = await adminLogin('admin', pw);
                 token = res.token;
             } catch {
-                // Fallback: используем пароль напрямую как токен
                 token = pw;
             }
             localStorage.setItem('auth_token', token);
@@ -136,7 +132,7 @@ const LoginScreen = ({ onLogin }) => {
     );
 };
 
-// ─── TimersForm ───────────────────────────────────────────────────────────────
+// ─── TimersForm ──────────────────────────────────────────────────────────────
 
 const TimersForm = ({ timers, onChange }) => {
     const set = (path, val) => {
@@ -149,23 +145,30 @@ const TimersForm = ({ timers, onChange }) => {
     };
 
     return (
+        // Два столбца: левый — карта региона, правый — годовая сетка
         <div className="timers-form">
             <div className="tf-section">
                 <div className="tf-section-title">🗺️ Карта региона</div>
                 <div className="tf-row">
                     <label>Выбор участков</label>
-                    <MinuteInput value={timers.regionMap.selection} onChange={v => set('regionMap.selection', v)} />
-                    <span>мин</span>
+                    <div className="tf-row-right">
+                        <MinuteInput value={timers.regionMap.selection} onChange={v => set('regionMap.selection', v)} />
+                        <span>мин</span>
+                    </div>
                 </div>
                 <div className="tf-row">
                     <label>Аукцион</label>
-                    <MinuteInput value={timers.regionMap.auction} onChange={v => set('regionMap.auction', v)} />
-                    <span>мин</span>
+                    <div className="tf-row-right">
+                        <MinuteInput value={timers.regionMap.auction} onChange={v => set('regionMap.auction', v)} />
+                        <span>мин</span>
+                    </div>
                 </div>
                 <div className="tf-row">
                     <label>Допокупка</label>
-                    <MinuteInput value={timers.regionMap.postAuction} onChange={v => set('regionMap.postAuction', v)} />
-                    <span>мин</span>
+                    <div className="tf-row-right">
+                        <MinuteInput value={timers.regionMap.postAuction} onChange={v => set('regionMap.postAuction', v)} />
+                        <span>мин</span>
+                    </div>
                 </div>
             </div>
 
@@ -315,13 +318,10 @@ const TimerControl = ({ sessionId, sessions, adminSocket, onRefresh }) => {
         catch (e) { alert('Ошибка: ' + e.message); }
     };
 
-    if (!sessionId) return (
-        <div className="tc-empty">Выберите сессию из списка выше</div>
-    );
+    if (!sessionId) return <div className="tc-empty">Выберите сессию из списка выше</div>;
 
     return (
         <div className="tc-panel">
-            {/* Статус */}
             <div className="tc-status">
                 <span className={`dot ${connected ? 'dot-on' : 'dot-off'}`} />
                 <span>{connected ? 'Подключено' : 'Нет соединения'}</span>
@@ -329,7 +329,6 @@ const TimerControl = ({ sessionId, sessions, adminSocket, onRefresh }) => {
                 <span className={`badge badge-${status}`}>{status}</span>
             </div>
 
-            {/* Старт/стоп */}
             <div className="tc-action">
                 {status === 'waiting' && (
                     <button className="tc-start-btn" onClick={handleStart} disabled={!connected || starting}>
@@ -345,7 +344,6 @@ const TimerControl = ({ sessionId, sessions, adminSocket, onRefresh }) => {
                 {status === 'finished' && <div className="tc-finished-label">Сессия завершена</div>}
             </div>
 
-            {/* Дисплей */}
             <div className="tc-display">
                 <div className="tc-time">{timer ? fmt(timer.timeRemaining) : '--:--'}</div>
                 {timer && (
@@ -362,24 +360,20 @@ const TimerControl = ({ sessionId, sessions, adminSocket, onRefresh }) => {
                 )}
             </div>
 
-            {/* Управление */}
             <div className="tc-group-label">Управление</div>
             <div className="tc-btns">
                 <button className="tb tb-green" onClick={() => emit('admin:startTimer')} disabled={!connected || (timer?.isRunning && !timer?.isPaused)}>▶ Старт</button>
                 <button className="tb tb-yellow" onClick={() => emit(timer?.isPaused ? 'admin:resumeTimer' : 'admin:pauseTimer')} disabled={!connected || !timer?.isRunning}>
                     {timer?.isPaused ? '▶ Продолжить' : '⏸ Пауза'}
                 </button>
-                <button className="tb tb-red" onClick={() => emit('admin:stopTimer')} disabled={!connected || !timer?.isRunning}>⏹ Стоп</button>
             </div>
 
-            {/* Навигация */}
             <div className="tc-group-label">Навигация</div>
             <div className="tc-btns">
                 <button className="tb tb-gray" onClick={() => emit('admin:advanceYear')} disabled={!connected}>След. год →</button>
                 <button className="tb tb-gray tb-danger" onClick={() => confirm('Сбросить к году 1?') && emit('admin:resetTimer')} disabled={!connected}>↺ Сброс</button>
             </div>
 
-            {/* Смена фазы */}
             <div className="tc-group-label">Сменить фазу</div>
             <div className="tc-phase-row">
                 <select className="tc-select" value={phase} onChange={e => setPhase_(e.target.value)}>
@@ -387,7 +381,6 @@ const TimerControl = ({ sessionId, sessions, adminSocket, onRefresh }) => {
                 </select>
                 <button className="tb tb-gray" onClick={() => emit('admin:setPhase', { phase })} disabled={!connected}>Применить</button>
             </div>
-
         </div>
     );
 };
@@ -465,7 +458,6 @@ const CreateSessionTab = () => {
     return (
         <div className="create-form">
             <div className="create-form-left">
-                {/* Режим */}
                 <div className="fs">
                     <div className="fs-title">Режим игры</div>
                     <div className="toggle-row">
@@ -475,7 +467,6 @@ const CreateSessionTab = () => {
                     </div>
                 </div>
 
-                {/* Игроки */}
                 <div className="fs">
                     <div className="fs-title">Тип игроков</div>
                     <div className="toggle-row">
@@ -485,37 +476,40 @@ const CreateSessionTab = () => {
                     </div>
                 </div>
 
-                {/* Бюджет */}
                 <div className="fs">
                     <div className="fs-title">Бюджеты (млн ₽)</div>
                     <div className="tf-row">
                         <label>🎓 Студенты</label>
-                        <input className="num-input" type="number" min={1} value={form.budgets.students}
-                            onChange={e => setForm(f => ({ ...f, budgets: { ...f.budgets, students: Number(e.target.value) } }))} />
-                        <span>млн</span>
+                        <div className="tf-row-right">
+                            <input className="num-input" type="number" min={1} value={form.budgets.students}
+                                onChange={e => setForm(f => ({ ...f, budgets: { ...f.budgets, students: Number(e.target.value) } }))} />
+                            <span>млн</span>
+                        </div>
                     </div>
                     <div className="tf-row">
                         <label>💼 Профессионалы</label>
-                        <input className="num-input" type="number" min={1} value={form.budgets.professionals}
-                            onChange={e => setForm(f => ({ ...f, budgets: { ...f.budgets, professionals: Number(e.target.value) } }))} />
-                        <span>млн</span>
+                        <div className="tf-row-right">
+                            <input className="num-input" type="number" min={1} value={form.budgets.professionals}
+                                onChange={e => setForm(f => ({ ...f, budgets: { ...f.budgets, professionals: Number(e.target.value) } }))} />
+                            <span>млн</span>
+                        </div>
                     </div>
                 </div>
 
-                {/* Лимит ЛУ */}
                 <div className="fs">
                     <div className="fs-title">Лицензионные участки</div>
                     <div className="tf-row">
                         <label>Макс. ЛУ на команду</label>
-                        <input className="num-input" type="number" min={3} max={5} value={form.maxLUs}
-                            onChange={e => sf('maxLUs', Math.max(3, Math.min(5, Number(e.target.value))))} />
-                        <span>(3–5)</span>
+                        <div className="tf-row-right">
+                            <input className="num-input" type="number" min={3} max={5} value={form.maxLUs}
+                                onChange={e => sf('maxLUs', Math.max(3, Math.min(5, Number(e.target.value))))} />
+                            <span>(3–5)</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <div className="create-form-right">
-                {/* Таймеры */}
                 <div className="fs">
                     <div className="fs-title-row">
                         <span className="fs-title">Таймеры</span>
@@ -534,12 +528,23 @@ const CreateSessionTab = () => {
     );
 };
 
-// ─── TeamsMonitor — детальная информация по командам сессии ──────────────────
+// ─── TeamsMonitor ─────────────────────────────────────────────────────────────
+//
+// АККОРДЕОН — каждая карточка открывается и закрывается НЕЗАВИСИМО.
+//
+// openIds — это React.useState с Set<string>.
+// toggle(teamId):
+//   • если String(teamId) есть в Set → удаляем (карточка закрывается)
+//   • если нет → добавляем (карточка открывается)
+//   • все остальные карточки НЕ затрагиваются
+//
+// isOpen = openIds.has(String(team.id)) — строгое сравнение строк,
+// не зависит от того, число или строка пришло с сервера.
 
-const TeamsMonitor = ({ sessionId, sessions }) => {
+const TeamsMonitor = ({ sessionId }) => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [expanded, setExpanded] = useState(null); // teamId раскрытой карточки
+    const [openIds, setOpenIds] = useState(() => new Set());
 
     const load = async (sid) => {
         if (!sid) return;
@@ -550,8 +555,7 @@ const TeamsMonitor = ({ sessionId, sessions }) => {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            const json = await r.json();
-            setData(json);
+            setData(await r.json());
         } catch (e) {
             console.error(e);
         } finally {
@@ -561,38 +565,38 @@ const TeamsMonitor = ({ sessionId, sessions }) => {
 
     useEffect(() => {
         setData(null);
-        setExpanded(null);
+        setOpenIds(new Set());   // сбрасываем все раскрытые при смене сессии
         load(sessionId);
     }, [sessionId]);
 
-    if (!sessionId) return (
-        <div className="tm-empty">Выберите сессию для просмотра команд</div>
-    );
+    const toggle = (teamId) => {
+        const id = String(teamId);
+        setOpenIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+                next.delete(id);   // карточка была открыта → закрываем
+            } else {
+                next.add(id);      // карточка была закрыта → открываем
+            }
+            return next;
+        });
+    };
 
+    if (!sessionId) return <div className="tm-empty">Выберите сессию для просмотра команд</div>;
     if (loading) return <div className="tm-loading">Загрузка данных…</div>;
-
     if (!data) return <div className="tm-empty">Нет данных</div>;
 
     const teams = data.teams ?? [];
     const cells = data.cells ?? [];
 
-    // Собираем карту: teamId → список ЛУ (cellRef)
     const teamCells = {};
     cells.forEach(cell => {
         if (!cell.team_id) return;
-        if (!teamCells[cell.team_id]) teamCells[cell.team_id] = [];
-        teamCells[cell.team_id].push(cell.cell_ref);
+        (teamCells[cell.team_id] ??= []).push(cell.cell_ref);
     });
 
-    const initialBudgetRef = teams.reduce((acc, t) => {
-        acc[t.id] = t.initial_budget ?? t.budget;
-        return acc;
-    }, {});
-
-    // Сортируем по убыванию бюджета
-    const sorted = [...teams].sort((a, b) => b.budget - a.budget);
-
     const maxBudget = Math.max(...teams.map(t => t.initial_budget ?? t.budget ?? 0), 1);
+    const sorted = [...teams].sort((a, b) => b.budget - a.budget);
 
     return (
         <div className="tm-wrap">
@@ -609,12 +613,15 @@ const TeamsMonitor = ({ sessionId, sessions }) => {
                     const spent = initial - (team.budget ?? 0);
                     const pct = Math.max(0, Math.min(100, ((team.budget ?? 0) / maxBudget) * 100));
                     const isOnline = team.is_online;
-                    const open = expanded === team.id;
+                    const isOpen = openIds.has(String(team.id));
 
                     return (
-                        <div key={team.id} className={`tm-card ${isOnline ? 'tm-card-online' : 'tm-card-offline'}`}>
-                            {/* Заголовок карточки */}
-                            <div className="tm-card-header" onClick={() => setExpanded(open ? null : team.id)}>
+                        <div
+                            key={team.id}
+                            className={`tm-card ${isOnline ? 'tm-card-online' : 'tm-card-offline'}`}
+                        >
+                            {/* Кликабельный заголовок */}
+                            <div className="tm-card-header" onClick={() => toggle(team.id)}>
                                 <div className="tm-card-left">
                                     <span className={`tm-online-dot ${isOnline ? 'tm-dot-on' : 'tm-dot-off'}`} />
                                     <strong className="tm-team-name">{team.name}</strong>
@@ -623,7 +630,7 @@ const TeamsMonitor = ({ sessionId, sessions }) => {
                                 <div className="tm-card-right">
                                     <span className="tm-budget-val">{(team.budget ?? 0).toLocaleString('ru-RU')} млн ₽</span>
                                     <span className="tm-lu-count">{lu.length} ЛУ</span>
-                                    <span className="tm-chevron">{open ? '▲' : '▼'}</span>
+                                    <span className={`tm-chevron ${isOpen ? 'tm-chevron-open' : ''}`}>▼</span>
                                 </div>
                             </div>
 
@@ -636,48 +643,41 @@ const TeamsMonitor = ({ sessionId, sessions }) => {
                                 <span className={spent > 0 ? 'tm-spent' : ''}>Потрачено: {spent.toLocaleString('ru-RU')} млн</span>
                             </div>
 
-                            {/* Раскрытые детали */}
-                            {open && (
+                            {/* Аккордеон — рендерится только если isOpen */}
+                            {isOpen && (
                                 <div className="tm-card-details">
-                                    {/* Лицензионные участки */}
                                     <div className="tm-detail-section">
                                         <div className="tm-detail-title">🗺️ Лицензионные участки ({lu.length})</div>
                                         {lu.length === 0
                                             ? <div className="tm-detail-empty">Нет участков</div>
-                                            : (
-                                                <div className="tm-lu-list">
-                                                    {lu.map(ref => (
-                                                        <span key={ref} className="tm-lu-badge">{ref}</span>
-                                                    ))}
-                                                </div>
-                                            )
+                                            : <div className="tm-lu-list">
+                                                {lu.map(ref => <span key={ref} className="tm-lu-badge">{ref}</span>)}
+                                            </div>
                                         }
                                     </div>
 
-                                    {/* Состав команды */}
                                     <div className="tm-detail-section">
                                         <div className="tm-detail-title">👥 Состав ({members.length} чел.)</div>
                                         {members.length === 0
                                             ? <div className="tm-detail-empty">Нет данных</div>
-                                            : (
-                                                <div className="tm-members-list">
-                                                    {members.map((m, i) => (
-                                                        <div key={i} className="tm-member-row">
-                                                            <span className="tm-member-icon">👤</span>
-                                                            <span className="tm-member-name">{typeof m === 'string' ? m : (m.name || m.fullName || JSON.stringify(m))}</span>
-                                                            {m.role && <span className="tm-member-role">{m.role}</span>}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )
+                                            : <div className="tm-members-list">
+                                                {members.map((m, i) => (
+                                                    <div key={i} className="tm-member-row">
+                                                        <span className="tm-member-icon">👤</span>
+                                                        <span className="tm-member-name">
+                                                            {typeof m === 'string' ? m : (m.name || m.fullName || JSON.stringify(m))}
+                                                        </span>
+                                                        {m.role && <span className="tm-member-role">{m.role}</span>}
+                                                    </div>
+                                                ))}
+                                            </div>
                                         }
                                     </div>
 
-                                    {/* Доп. инфо */}
                                     <div className="tm-detail-section tm-detail-meta">
                                         <div><span className="tm-meta-label">Тип:</span> {team.experience === 'students' ? '🎓 Студенты' : '💼 Профессионалы'}</div>
                                         <div><span className="tm-meta-label">Статус:</span> {isOnline ? '🟢 Онлайн' : '🔴 Офлайн'}</div>
-                                        <div><span className="tm-meta-label">ID:</span> <code className="tm-id">{team.id?.slice(0, 12)}…</code></div>
+                                        <div><span className="tm-meta-label">ID:</span> <code className="tm-id">{String(team.id).slice(0, 12)}…</code></div>
                                     </div>
                                 </div>
                             )}
@@ -692,9 +692,7 @@ const TeamsMonitor = ({ sessionId, sessions }) => {
 // ─── AdminPanel ───────────────────────────────────────────────────────────────
 
 const AdminPanel = () => {
-    // Инициализируем из localStorage — авторизация сохраняется при обновлении/смене вкладок
     const [loggedIn, setLoggedIn] = useState(() => !!getSavedToken());
-
     const [tab, setTab] = useState('create');
     const [stats, setStats] = useState(null);
     const [sessions, setSessions] = useState([]);
@@ -704,14 +702,12 @@ const AdminPanel = () => {
     const [monitorSess, setMonitorSess] = useState(null);
     const adminSocketRef = useRef(null);
 
-    // ── WS — создаём один раз при логине ──────────────────────────────────────
     useEffect(() => {
         if (!loggedIn) {
             adminSocketRef.current?.disconnect();
             adminSocketRef.current = null;
             return;
         }
-        // Не пересоздаём если уже есть подключение
         if (adminSocketRef.current) return;
 
         const sock = socketIO(WS_URL, {
@@ -724,19 +720,13 @@ const AdminPanel = () => {
         adminSocketRef.current = sock;
         sock.on('connect', () => console.log('🔧 admin ws connected'));
         sock.on('disconnect', () => console.log('🔧 admin ws disconnected'));
-
-        // Cleanup только при реальном logout (loggedIn = false)
-        // Намеренно не возвращаем cleanup — сокет должен жить между рендерами
     }, [loggedIn]);
 
-    // ── Восстанавливаем сессию при монтировании ────────────────────────────────
     useEffect(() => {
         if (loggedIn) {
-            // Подгружаем начальные данные если вкладка была открыта
             const savedTab = sessionStorage.getItem('admin_tab') || 'create';
             setTab(savedTab);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     if (!loggedIn) {
@@ -756,9 +746,7 @@ const AdminPanel = () => {
 
     const apiFetch = async (url) => {
         const token = getSavedToken();
-        const r = await fetch(`${API_URL}${url}`, {
-            headers: { Authorization: `Bearer ${token}` },
-        });
+        const r = await fetch(`${API_URL}${url}`, { headers: { Authorization: `Bearer ${token}` } });
         if (r.status === 401) { logout(); throw new Error('Unauthorized'); }
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
@@ -766,30 +754,27 @@ const AdminPanel = () => {
 
     const loadSessions = async () => {
         setLoading(true);
-        try {
-            const data = await apiFetch('/api/admin/sessions');
-            setSessions(data);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
+        try { setSessions(await apiFetch('/api/admin/sessions')); }
+        catch (e) { console.error(e); }
+        finally { setLoading(false); }
     };
 
     const loadTeams = async () => {
         setLoading(true);
-        try { setTeams(await getAdminTeams()); } catch { } finally { setLoading(false); }
+        try { setTeams(await getAdminTeams()); } catch { }
+        finally { setLoading(false); }
     };
 
     const loadDash = async () => {
         setLoading(true);
-        try { setStats(await getAdminStats()); } catch { } finally { setLoading(false); }
+        try { setStats(await getAdminStats()); } catch { }
+        finally { setLoading(false); }
     };
 
     const changeTab = t => {
         setTab(t);
         sessionStorage.setItem('admin_tab', t);
-        if (t === 'sessions' || t === 'timer' || t === 'monitor') loadSessions();
+        if (['sessions', 'timer', 'monitor'].includes(t)) loadSessions();
         if (t === 'teams') loadTeams();
         if (t === 'dashboard') loadDash();
     };
@@ -834,10 +819,8 @@ const AdminPanel = () => {
             <main className="ap-main">
                 {loading && <div className="ap-loading">Загрузка…</div>}
 
-                {/* ── Создать ── */}
                 {tab === 'create' && <CreateSessionTab />}
 
-                {/* ── Таймер ── */}
                 {tab === 'timer' && (
                     <div className="timer-tab-wrap">
                         <h2>Управление таймером</h2>
@@ -862,7 +845,6 @@ const AdminPanel = () => {
                     </div>
                 )}
 
-                {/* ── Мониторинг команд ── */}
                 {tab === 'monitor' && (
                     <div className="monitor-tab-wrap">
                         <h2>Мониторинг команд</h2>
@@ -875,11 +857,10 @@ const AdminPanel = () => {
                             </select>
                             <button className="tb tb-gray" onClick={loadSessions}>↻ Обновить список</button>
                         </div>
-                        <TeamsMonitor sessionId={monitorSess} sessions={sessions} />
+                        <TeamsMonitor sessionId={monitorSess} />
                     </div>
                 )}
 
-                {/* ── Сессии ── */}
                 {tab === 'sessions' && (
                     <div>
                         <h2>Сессии</h2>
@@ -923,7 +904,6 @@ const AdminPanel = () => {
                     </div>
                 )}
 
-                {/* ── Команды ── */}
                 {tab === 'teams' && (
                     <div>
                         <h2>Команды</h2>
@@ -959,7 +939,6 @@ const AdminPanel = () => {
                     </div>
                 )}
 
-                {/* ── Статистика ── */}
                 {tab === 'dashboard' && (
                     <div>
                         <h2>Статистика</h2>

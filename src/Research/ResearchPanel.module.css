@@ -998,10 +998,13 @@
 }
 
 @keyframes timerPulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
+
   50% {
     opacity: 0.85;
     transform: scale(1.03);
@@ -1015,6 +1018,7 @@
     padding: 8px 24px;
     min-width: 160px;
   }
+
   .timerValue {
     font-size: 1.8rem;
   }
@@ -1027,12 +1031,15 @@
     padding: 6px 20px;
     min-width: 140px;
   }
+
   .timerValue {
     font-size: 1.6rem;
   }
+
   .timerLabel {
     font-size: 10px;
   }
+
   .timerSubtitle {
     font-size: 9px;
   }
@@ -1042,25 +1049,31 @@
   .researchPanel {
     padding: 1rem;
   }
+
   .timer {
     top: 10px;
     right: 20px;
     padding: 6px 16px;
     min-width: 120px;
   }
+
   .timerValue {
     font-size: 1.4rem;
   }
+
   .timerLabel {
     font-size: 9px;
   }
+
   .timerSubtitle {
     font-size: 8px;
   }
+
   .researchHeader {
     flex-direction: column;
     gap: 1rem;
   }
+
   .cell {
     width: 60px;
     height: 60px;
@@ -1101,8 +1114,15 @@
 }
 
 @keyframes column-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.85; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.85;
+  }
 }
 
 /* Ячейка в корзине */

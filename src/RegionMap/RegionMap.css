@@ -1441,10 +1441,12 @@
 }
 
 .grid-cell-blocked:hover {
-  background: inherit !important; /* Не меняем цвет при hover */
+  background: inherit !important;
+  /* Не меняем цвет при hover */
   transform: none !important;
   border-color: inherit !important;
-  filter: brightness(0.95); /* Легкое затемнение при наведении */
+  filter: brightness(0.95);
+  /* Легкое затемнение при наведении */
 }
 
 /* Базовая заглушка для всех заблокированных типов */
@@ -1458,17 +1460,20 @@
 
 /* ЦВЕТА ДЛЯ КАЖДОГО ТИПА (возвращаем цвета) */
 .grid-cell-blocked-reserve {
-  background: #c8e6c9 !important;  /* Светло-зеленый */
+  background: #c8e6c9 !important;
+  /* Светло-зеленый */
   border: 2px solid #66bb6a !important;
 }
 
 .grid-cell-blocked-settlement {
-  background: #fff9c4 !important;  /* Светло-желтый */
+  background: #fff9c4 !important;
+  /* Светло-желтый */
   border: 2px solid #fbc02d !important;
 }
 
 .grid-cell-blocked-company {
-  background: #e1bee7 !important;  /* Светло-фиолетовый */
+  background: #e1bee7 !important;
+  /* Светло-фиолетовый */
   border: 2px solid #ab47bc !important;
 }
 
@@ -1482,14 +1487,14 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: repeating-linear-gradient(
-    45deg,
-    rgba(0, 0, 0, 0.15),  /* Темные полоски */
-    rgba(0, 0, 0, 0.15) 6px,
-    transparent 6px,
-    transparent 12px
-  );
-  pointer-events: none; /* Чтобы не мешать кликам */
+  background: repeating-linear-gradient(45deg,
+      rgba(0, 0, 0, 0.15),
+      /* Темные полоски */
+      rgba(0, 0, 0, 0.15) 6px,
+      transparent 6px,
+      transparent 12px);
+  pointer-events: none;
+  /* Чтобы не мешать кликам */
   z-index: 1;
 }
 
@@ -1497,12 +1502,15 @@
 .grid-cell-blocked-reserve .cell-label,
 .grid-cell-blocked-settlement .cell-label,
 .grid-cell-blocked-company .cell-label {
-  color: #333;  /* Темно-серый текст для читаемости */
+  color: #333;
+  /* Темно-серый текст для читаемости */
   font-size: 11px;
   font-weight: 600;
-  z-index: 2; /* Чтобы текст был над паттерном */
+  z-index: 2;
+  /* Чтобы текст был над паттерном */
   position: relative;
-  text-shadow: 0 0 2px rgba(255, 255, 255, 0.8); /* Легкая подсветка для читаемости */
+  text-shadow: 0 0 2px rgba(255, 255, 255, 0.8);
+  /* Легкая подсветка для читаемости */
 }
 
 /* Иконка/маркер для заблокированных */
@@ -1526,21 +1534,24 @@
    ЛЕГЕНДА ДЛЯ НЕДОСТУПНЫХ ЯЧЕЕК (ЦВЕТНАЯ, НО С ПАТТЕРНОМ)
    ══════════════════════════════════════════════════════════════ */
 .legend-color-blocked-reserve {
-  background: #c8e6c9;  /* Светло-зеленый */
+  background: #c8e6c9;
+  /* Светло-зеленый */
   border: 2px solid #66bb6a;
   position: relative;
   overflow: hidden;
 }
 
 .legend-color-blocked-settlement {
-  background: #fff9c4;  /* Светло-желтый */
+  background: #fff9c4;
+  /* Светло-желтый */
   border: 2px solid #fbc02d;
   position: relative;
   overflow: hidden;
 }
 
 .legend-color-blocked-company {
-  background: #e1bee7;  /* Светло-фиолетовый */
+  background: #e1bee7;
+  /* Светло-фиолетовый */
   border: 2px solid #ab47bc;
   position: relative;
   overflow: hidden;
@@ -1556,13 +1567,11 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: repeating-linear-gradient(
-    45deg,
-    rgba(0, 0, 0, 0.2),
-    rgba(0, 0, 0, 0.2) 4px,
-    transparent 4px,
-    transparent 8px
-  );
+  background: repeating-linear-gradient(45deg,
+      rgba(0, 0, 0, 0.2),
+      rgba(0, 0, 0, 0.2) 4px,
+      transparent 4px,
+      transparent 8px);
   pointer-events: none;
 }
 
@@ -1746,8 +1755,15 @@
 }
 
 @keyframes slideDown {
-  from { opacity: 0; transform: translateX(-50%) translateY(-12px); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 /* Статус "Вы лидируете" в модале аукциона */
@@ -1833,7 +1849,8 @@
 
 .confirm-modal-content h2 {
   font-size: 20px;
-  padding-right: 36px; /* чтобы не залезть за кнопку закрытия */
+  padding-right: 36px;
+  /* чтобы не залезть за кнопку закрытия */
 }
 
 /* Тело модала — текстовые параграфы */
@@ -1985,9 +2002,17 @@
 }
 
 /* Вспомогательные классы цветов */
-.text-danger  { color: #c62828; }
-.text-success { color: #2e7d32; }
-.text-warning { color: #e65100; }
+.text-danger {
+  color: #c62828;
+}
+
+.text-success {
+  color: #2e7d32;
+}
+
+.text-warning {
+  color: #e65100;
+}
 
 /* ── Модал «нет карточек» ────────────────────────────────── */
 .no-card-modal-icon {
@@ -2043,6 +2068,7 @@
   transform: none !important;
   box-shadow: none !important;
 }
+
 /* ══════════════════════════════════════════════════════════════
    ОСПАРИВАЕМЫЕ ЯЧЕЙКИ — добавить в конец RegionMap.css
    ══════════════════════════════════════════════════════════════ */
@@ -2061,8 +2087,15 @@
 }
 
 @keyframes contestedPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(249, 168, 37, 0); }
-  50%       { box-shadow: 0 0 0 4px rgba(249, 168, 37, 0.35); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(249, 168, 37, 0);
+  }
+
+  50% {
+    box-shadow: 0 0 0 4px rgba(249, 168, 37, 0.35);
+  }
 }
 
 /* Метка ⚔ внутри оспариваемой ячейки */
@@ -2075,8 +2108,17 @@
 }
 
 @keyframes swordPulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%       { opacity: 0.6; transform: scale(1.2); }
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
 }
 
 /* Метка cell-label внутри оспариваемой ячейки */
@@ -2115,8 +2157,15 @@
 }
 
 @keyframes contestedBannerPulse {
-  0%, 100% { box-shadow: 0 4px 18px rgba(230, 81, 0, 0.45); }
-  50%       { box-shadow: 0 4px 28px rgba(230, 81, 0, 0.7); }
+
+  0%,
+  100% {
+    box-shadow: 0 4px 18px rgba(230, 81, 0, 0.45);
+  }
+
+  50% {
+    box-shadow: 0 4px 28px rgba(230, 81, 0, 0.7);
+  }
 }
 
 .contested-banner-icon {
@@ -2227,4 +2276,106 @@
   color: #e65100 !important;
   font-weight: 800 !important;
   animation: swordPulse 1.2s ease-in-out infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Добавьте эти стили в RegionMap.css
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Баннер авто-выдачи участков ─────────────────────────────────────────── */
+.auto-assign-banner {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  background: linear-gradient(135deg, #1e3c72, #2a5298);
+  color: #fff;
+  border-radius: 12px;
+  padding: 1rem 1.25rem 1rem 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  max-width: 500px;
+  min-width: 320px;
+  animation: autoAssignSlideDown 0.3s ease-out;
+}
+
+@keyframes autoAssignSlideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.auto-assign-banner-icon {
+  font-size: 1.8rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.auto-assign-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  flex: 1;
+}
+
+.auto-assign-banner-text strong:first-child {
+  font-size: 1rem;
+  color: #a5d8ff;
+  display: block;
+}
+
+.auto-assign-banner-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  font-size: 1rem;
+  flex-shrink: 0;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.15s;
+  margin-left: 4px;
+}
+
+.auto-assign-banner-close:hover {
+  color: #fff;
+}
+
+/* ── Ячейка карты: авто-назначена ────────────────────────────────────────── */
+.grid-cell-auto {
+  background: linear-gradient(135deg, #e8f4fd, #c8e6fa) !important;
+  border-color: #4a9eda !important;
+}
+
+.cell-mark-auto {
+  font-size: 0.6rem;
+  line-height: 1;
+}
+
+/* ── Легенда: авто-назначенный участок ───────────────────────────────────── */
+.legend-color-auto {
+  background: linear-gradient(135deg, #e8f4fd, #c8e6fa);
+  border: 1.5px solid #4a9eda;
+}
+
+/* ── Список участков в боковой панели: авто-назначен ─────────────────────── */
+.owned-cell-item-auto {
+  border-left: 3px solid #4a9eda !important;
+  background: #f0f8ff !important;
+}
+
+.owned-cell-auto-icon {
+  font-size: 0.8rem;
+  margin-right: 2px;
 }

@@ -380,7 +380,7 @@ export const MOBILIZATION_WORKS = [
   { id: 'srr_2d', name: 'Успешность СРР 2D', cost: 300, round: 1, years: [1, 2, 3, 4], dependency: null },
   { id: 'srr_3d', name: 'Успешность СРР 3D', cost: 300, round: 1, years: [1, 2, 3, 4], dependency: null },
   { id: '1pr', name: 'Успешность бурения скв. 1ПО (поисковая)', cost: 800, round: 1, years: [1, 2, 3, 4], dependency: null },
-  { id: '3r', name: 'Успешность бурения скв. 3P (разведочная)', cost: 800, round: 0, years: [4, 5], dependency: null },
+  { id: '3r', name: 'Успешность бурения скв. 3P (разведочная)', cost: 800, round: 1, years: [4, 5], dependency: null },
   { id: 'drilling_5gs', name: 'Успешность бурения скв. 5ГС (горизонт)', cost: 200, round: 2, years: [6, 7, 8], dependency: null },
   { id: 'drilling_6gs', name: 'Успешность бурения скв. 6ГС с МГРП', cost: 200, round: 2, years: [6, 7, 8], dependency: null },
   { id: 'drilling_7mzs', name: 'Успешность бурения скв. 7МЗС (многозабойная)', cost: 200, round: 2, years: [6, 7, 8], dependency: null },
