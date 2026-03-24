@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import './ResultsPanelTour.css';
+import './Resultspaneltour.css';
 
 const TOUR_KEY = 'resultsPanel_tourDone';
 

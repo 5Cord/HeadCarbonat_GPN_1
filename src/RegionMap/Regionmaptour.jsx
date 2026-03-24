@@ -8,7 +8,7 @@
 //   <RegionMapTour onDone={() => {}} />
 
 import React, { useState, useEffect, useRef } from 'react';
-import './RegionMapTour.css';
+import './Regionmaptour.css';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ШАГИ ТУРА

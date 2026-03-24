@@ -5,7 +5,7 @@ import {
     adminLogin, getAdminSessionDetails,
 } from './apiHelpers';
 import { io as socketIO } from 'socket.io-client';
-import './AdminPanel.css';
+import './Adminpanel.css';
 
 // ─── Константы ───────────────────────────────────────────────────────────────
 

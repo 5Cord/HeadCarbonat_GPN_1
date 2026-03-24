@@ -9,7 +9,7 @@
 //   <ResearchPanelTour globalYear={globalYear} onDone={() => {}} />
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import './ResearchPanelTour.css';
+import './Researchpaneltour.css';
 
 const TOUR_KEY = 'researchPanel_tourDone';
 

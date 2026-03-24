@@ -9,7 +9,7 @@
 //   <FieldWorkPanelTour globalYear={globalYear} onDone={() => {}} />
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import './FieldWorkPanelTour.css';
+import './Fieldworkpaneltour.css';
 
 const TOUR_KEY = 'fieldWorkPanel_tourDone';
 

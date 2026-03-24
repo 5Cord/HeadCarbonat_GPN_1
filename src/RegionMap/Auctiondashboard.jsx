@@ -1,7 +1,7 @@
 // С Бэкендом
 // AuctionDashboard.jsx
 import React, { useState, useEffect } from 'react';
-import './AuctionDashboard.css';
+import './Auctiondashboard.css';
 import { AUCTION_START_PRICE } from '../../store/gameStore';
 
 const AuctionDashboard = ({ auctions, player, budget, onPlaceBid, onLeaveAuction, currentPhase }) => {

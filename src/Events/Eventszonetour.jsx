@@ -9,7 +9,7 @@
 //   <EventsZoneTour globalYear={globalYear} onDone={() => {}} />
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import './EventsZoneTour.css';
+import './Eventszonetour.css';
 
 const TOUR_KEY = 'eventsZone_tourDone';
 

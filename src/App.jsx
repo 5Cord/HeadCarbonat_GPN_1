@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import GameLobby from './GameLobby';
 import GameBoard from './GameBoard';
-import AdminPanel from './AdminPanel';
+import AdminPanel from './Adminpanel';
 import GameOverScreen from './GameOver/GameOverScreen'; // ← НОВЫЙ ИМПОРТ
 import useGameStore from '../store/gameStore';
 import useGlobalTimer from './useGlobalTimer';
