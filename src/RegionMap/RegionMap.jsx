@@ -18,6 +18,41 @@ const LICENSE_UNITS = [
   { id: 'quarry', name: 'Карьер', shortName: 'К', cost: 20, cellRef: 'F1', position: 'left', customStyle: { top: '0', left: '-130px' }, description: 'Горные породы: известняки и доломиты массивные, химически чистые, органогенные, кавернозно-трещиноватые. Тип: разрабатываемый содовый карьер.', hasImage: false },
   { id: 'outcrop', name: 'Обнажение', shortName: 'О', cost: 10, cellRef: 'D1', position: 'left', customStyle: { top: '0', left: '-130px' }, description: 'Горные породы: ритмично-слоистые светло-серые известняки и доломиты с микробиальными биотермами до 10 м толщиной. Встречаются поры, каверны и трещины с запахом УВ.', hasImage: false },
 ];
+const assignRandomCellsToFillLimit = () => {
+  const MAX_CELLS = 5;
+  const currentOwned = Object.keys(useGameStore.getState().gridCells.owned);
+  const shortage = MAX_CELLS - currentOwned.length;
+  if (shortage <= 0) return;
+
+  // Собираем все ячейки сетки
+  const allCellRefs = [];
+  rows.forEach(row => cols.forEach(col => allCellRefs.push(`${row}${col}`)));
+
+  // Фильтруем: не заблокированные, не занятые (ни нами, ни другими)
+  const allTeams = useGameStore.getState().gridCells.allTeams;
+  const available = allCellRefs.filter(cellRef => {
+    if (isBlocked(cellRef)) return false;
+    if (currentOwned.includes(cellRef)) return false;
+    const cellData = allTeams[cellRef];
+    if (cellData && cellData.ownedByTeamId) return false;
+    return true;
+  });
+
+  // Перемешиваем и берём нужное количество
+  const shuffled = [...available].sort(() => Math.random() - 0.5);
+  const toAssign = shuffled.slice(0, shortage);
+
+  toAssign.forEach(cellRef => {
+    purchaseGridCell(cellRef, `Участок ${cellRef} (авто)`);
+  });
+
+  if (toAssign.length > 0) {
+    showAlert(
+      '🎲 Участки назначены автоматически',
+      `Время вышло. Вам случайно назначены участки: ${toAssign.join(', ')} (${toAssign.length} шт.), чтобы достичь лимита в ${MAX_CELLS} участков.`
+    );
+  }
+};
 
 const BLOCKED_CELLS = {
   reserve: ['C3', 'C4', 'D3', 'D4'],
