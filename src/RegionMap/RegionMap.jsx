@@ -18,41 +18,6 @@ const LICENSE_UNITS = [
   { id: 'quarry', name: 'Карьер', shortName: 'К', cost: 20, cellRef: 'F1', position: 'left', customStyle: { top: '0', left: '-130px' }, description: 'Горные породы: известняки и доломиты массивные, химически чистые, органогенные, кавернозно-трещиноватые. Тип: разрабатываемый содовый карьер.', hasImage: false },
   { id: 'outcrop', name: 'Обнажение', shortName: 'О', cost: 10, cellRef: 'D1', position: 'left', customStyle: { top: '0', left: '-130px' }, description: 'Горные породы: ритмично-слоистые светло-серые известняки и доломиты с микробиальными биотермами до 10 м толщиной. Встречаются поры, каверны и трещины с запахом УВ.', hasImage: false },
 ];
-const assignRandomCellsToFillLimit = () => {
-  const MAX_CELLS = 5;
-  const currentOwned = Object.keys(useGameStore.getState().gridCells.owned);
-  const shortage = MAX_CELLS - currentOwned.length;
-  if (shortage <= 0) return;
-
-  // Собираем все ячейки сетки
-  const allCellRefs = [];
-  rows.forEach(row => cols.forEach(col => allCellRefs.push(`${row}${col}`)));
-
-  // Фильтруем: не заблокированные, не занятые (ни нами, ни другими)
-  const allTeams = useGameStore.getState().gridCells.allTeams;
-  const available = allCellRefs.filter(cellRef => {
-    if (isBlocked(cellRef)) return false;
-    if (currentOwned.includes(cellRef)) return false;
-    const cellData = allTeams[cellRef];
-    if (cellData && cellData.ownedByTeamId) return false;
-    return true;
-  });
-
-  // Перемешиваем и берём нужное количество
-  const shuffled = [...available].sort(() => Math.random() - 0.5);
-  const toAssign = shuffled.slice(0, shortage);
-
-  toAssign.forEach(cellRef => {
-    purchaseGridCell(cellRef, `Участок ${cellRef} (авто)`);
-  });
-
-  if (toAssign.length > 0) {
-    showAlert(
-      '🎲 Участки назначены автоматически',
-      `Время вышло. Вам случайно назначены участки: ${toAssign.join(', ')} (${toAssign.length} шт.), чтобы достичь лимита в ${MAX_CELLS} участков.`
-    );
-  }
-};
 
 const BLOCKED_CELLS = {
   reserve: ['C3', 'C4', 'D3', 'D4'],
@@ -216,7 +181,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const contestedBannerTimerRef = useRef(null);
   const prevContestedKeysRef = useRef('');
 
-  // ── НОВОЕ: баннер авто-выдачи участков ───────────────────────────────────
+  // Баннер авто-выдачи участков
   const [autoAssignBanner, setAutoAssignBanner] = useState(null);
   const autoAssignTimerRef = useRef(null);
 
@@ -257,7 +222,67 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
     return () => socket.off('budget:updated', onBudgetUpdated);
   }, []);
 
-  // ── НОВОЕ: слушаем cells:auto_assigned — показываем баннер нашей команде ──
+  // ── Слушаем cells:updated — обновляем карту для ВСЕХ игроков (в т.ч. противников) ──
+  // Это событие приходит при любом изменении ячеек: покупка, аукцион, авто-выдача.
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const onCellsUpdated = (cellsMap) => {
+      // cellsMap: { [cellRef]: { ownedByTeamId, ownedByTeamName, auctionPrice, isAutoAssigned } }
+      useGameStore.setState(st => {
+        const myTeamId = st.player.teamId || st.player.name;
+
+        // Строим новый owned (только наши ячейки) и allTeams (все)
+        const newOwned = {};
+        const newAllTeams = { ...st.gridCells.allTeams };
+
+        // Сначала обновляем allTeams из полученной карты
+        for (const [cellRef, data] of Object.entries(cellsMap)) {
+          if (data && data.ownedByTeamId) {
+            newAllTeams[cellRef] = data;
+          } else {
+            // Ячейка освобождена
+            delete newAllTeams[cellRef];
+          }
+        }
+
+        // Пересчитываем owned из allTeams
+        // Начинаем с текущего owned и обновляем/удаляем по данным из события
+        const baseOwned = { ...st.gridCells.owned };
+        for (const [cellRef, data] of Object.entries(cellsMap)) {
+          if (data && data.ownedByTeamId === myTeamId) {
+            // Ячейка принадлежит нам (в т.ч. авто-выданная)
+            baseOwned[cellRef] = {
+              cellRef,
+              name: `Участок ${cellRef}`,
+              auctionPrice: data.auctionPrice ?? 0,
+              isAutoAssigned: data.isAutoAssigned ?? false,
+              ownedByTeamId: data.ownedByTeamId,
+              ownedByTeamName: data.ownedByTeamName,
+            };
+          } else if (data && data.ownedByTeamId && data.ownedByTeamId !== myTeamId) {
+            // Ячейка принадлежит другой команде — убираем из наших
+            delete baseOwned[cellRef];
+          }
+        }
+
+        return {
+          gridCells: {
+            ...st.gridCells,
+            owned: baseOwned,
+            allTeams: newAllTeams,
+          },
+        };
+      });
+    };
+
+    socket.on('cells:updated', onCellsUpdated);
+    return () => socket.off('cells:updated', onCellsUpdated);
+  }, []);
+
+  // ── Слушаем cells:auto_assigned — показываем баннер нашей команде ──────────
+  // Важно: сначала cells:updated уже обновил стор, поэтому здесь только баннер.
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -268,7 +293,6 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
       setAutoAssignBanner({ cells });
 
-      // Скрываем через 12 секунд
       if (autoAssignTimerRef.current) clearTimeout(autoAssignTimerRef.current);
       autoAssignTimerRef.current = setTimeout(() => {
         setAutoAssignBanner(null);
@@ -621,10 +645,10 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         </div>
       )}
 
-      {/* ── НОВЫЙ БАННЕР: авто-выдача участков ── */}
+      {/* Баннер авто-выдачи участков */}
       {autoAssignBanner && (
         <div className="auto-assign-banner">
-          <span className="auto-assign-banner-icon"></span>
+          <span className="auto-assign-banner-icon">🎲</span>
           <div className="auto-assign-banner-text">
             <strong>Участки назначены автоматически</strong>
             <span>
