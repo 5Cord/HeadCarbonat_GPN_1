@@ -31,8 +31,8 @@ const TABLE_COLUMNS = [
   { mobWorkId: '3bs', label: 'ЗБС', color: 'blue' },
 ];
 
-const COLOR_MAP    = { gray: '#9e9e9e', orange: '#e67e22', beige: '#c8a96e', blue: '#5b8dd9' };
-const GROUP_BG     = { gray: '#f0f0f0', orange: '#ffd8b1', beige: '#f5e8d0', blue: '#c6e2ff' };
+const COLOR_MAP = { gray: '#9e9e9e', orange: '#e67e22', beige: '#c8a96e', blue: '#5b8dd9' };
+const GROUP_BG = { gray: '#f0f0f0', orange: '#ffd8b1', beige: '#f5e8d0', blue: '#c6e2ff' };
 const STATUS_LABEL = { done: 'Выполнено', noWork: 'Нет работ', failed: 'Провал', noResearch: 'Нет НИР' };
 
 // ─── Хелперы чтения fieldWork ─────────────────────────────────────────────────
@@ -227,19 +227,19 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
     game, setGlobalPhase,
   } = useGameStore();
 
-  const globalTimer    = useGameStore(s => s.globalTimer);
-  const timeRemaining  = globalTimer.timeRemaining;
-  const globalYear     = globalTimer?.currentYear ?? game?.currentYear ?? 1;
-  const isLastYear     = globalYear >= 10;
+  const globalTimer = useGameStore(s => s.globalTimer);
+  const timeRemaining = globalTimer.timeRemaining;
+  const globalYear = globalTimer?.currentYear ?? game?.currentYear ?? 1;
+  const isLastYear = globalYear >= 10;
 
   useEffect(() => { setGlobalPhase('RESULTS'); }, []);
 
   const [showConfirm, setShowConfirm] = useState(false);
 
   // ── Состояние ожидания других команд ─────────────────────────────────────
-  const [waiting, setWaiting]           = useState(false);
-  const [readyCount, setReadyCount]     = useState(0);
-  const [totalCount, setTotalCount]     = useState(0);
+  const [waiting, setWaiting] = useState(false);
+  const [readyCount, setReadyCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const [readyTeamIds, setReadyTeamIds] = useState([]);
   const [readyTeamNames, setReadyTeamNames] = useState([]);
 
@@ -270,13 +270,13 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
     };
 
     socket.on('year:ready_status', onReadyStatus);
-    socket.on('year:advanced',     onYearAdvanced);
-    socket.on('game:over',         onGameOver);
+    socket.on('year:advanced', onYearAdvanced);
+    socket.on('game:over', onGameOver);
 
     return () => {
       socket.off('year:ready_status', onReadyStatus);
-      socket.off('year:advanced',     onYearAdvanced);
-      socket.off('game:over',         onGameOver);
+      socket.off('year:advanced', onYearAdvanced);
+      socket.off('game:over', onGameOver);
     };
   }, []);
 
@@ -294,17 +294,17 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
   }));
 
   const [activeLUId, setActiveLUId] = useState(() => ownedLUs[0]?.cellRef || null);
-  const activeLU     = ownedLUs.find(l => l.cellRef === activeLUId) || ownedLUs[0] || null;
+  const activeLU = ownedLUs.find(l => l.cellRef === activeLUId) || ownedLUs[0] || null;
   const activeFwData = activeLU ? (fieldWork.selectionsByLU[activeLU.cellRef] || null) : null;
-  const workedYears  = getWorkedYears(activeFwData);
+  const workedYears = getWorkedYears(activeFwData);
 
   const blockByMobId = {};
   FIELD_WORK_BLOCKS.forEach(b => { blockByMobId[b.mobWorkId] = b; });
 
-  const activeEv      = activeLU ? (events.lineScores?.[activeLU.cellRef] ?? 0) : 0;
+  const activeEv = activeLU ? (events.lineScores?.[activeLU.cellRef] ?? 0) : 0;
   const activeCostAll = getTotalCostAllYears(activeFwData);
-  const activeMob     = activeLU ? (research.progressByLU[activeLU.cellRef]?.mobilizedColumns?.length || 0) : 0;
-  const activeQAvg    = workedYears.length
+  const activeMob = activeLU ? (research.progressByLU[activeLU.cellRef]?.mobilizedColumns?.length || 0) : 0;
+  const activeQAvg = workedYears.length
     ? Math.round(workedYears.reduce((s, y) => s + getQualityForYear(activeFwData, y), 0) / workedYears.length)
     : 0;
 
@@ -392,13 +392,13 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
 
       {/* ── ТАЙМЕР ──────────────────────────────────────────────────────── */}
       <div className={timerCls()}>
-        <div className="rp-timer-lbl">Итоги года {globalYear}</div>
+        <div className="rp-timer-lbl">Глобальный таймер</div>
         {timeRemaining > 0
           ? <div className="rp-timer-val">{formatTime(timeRemaining)}</div>
           : <div className="rp-timer-val">—</div>}
         <div className="rp-timer-sub">
           {isLastYear ? 'Игра завершена'
-            : timeRemaining > 0 ? `осталось ${formatTime(timeRemaining)}`
+            : timeRemaining > 0 ? `Год ${globalYear}`
               : 'Время вышло'}
         </div>
       </div>
@@ -408,13 +408,13 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
         <span className="rp-lu-switcher-label">Выберите участок:</span>
         <div className="rp-lu-switcher-row">
           {ownedLUs.map(lu => {
-            const status       = getLUStatus(lu.cellRef);
-            const isActive     = lu.cellRef === activeLUId;
-            const score        = events.lineScores?.[lu.cellRef] ?? 0;
-            const mob          = research.progressByLU[lu.cellRef]?.mobilizedColumns?.length || 0;
-            const fw           = fieldWork.selectionsByLU[lu.cellRef];
-            const fwCostBadge  = getTotalCostAllYears(fw);
-            const wYears       = getWorkedYears(fw);
+            const status = getLUStatus(lu.cellRef);
+            const isActive = lu.cellRef === activeLUId;
+            const score = events.lineScores?.[lu.cellRef] ?? 0;
+            const mob = research.progressByLU[lu.cellRef]?.mobilizedColumns?.length || 0;
+            const fw = fieldWork.selectionsByLU[lu.cellRef];
+            const fwCostBadge = getTotalCostAllYears(fw);
+            const wYears = getWorkedYears(fw);
             return (
               <div
                 key={lu.cellRef}
@@ -477,12 +477,12 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
               <tbody>
                 {workedYears.length === 0 && (
                   <tr>
-                    <td className="rp-td rp-td-lu">
+                    {/* <td className="rp-td rp-td-lu">
                       <div className="rp-lu-info">
                         <div className="rp-lu-info-ref">{activeLU.cellRef}</div>
                         <div className="rp-lu-info-name">{activeLU.name}</div>
                       </div>
-                    </td>
+                    </td> */}
                     {TABLE_COLUMNS.map(col => (
                       <td key={col.mobWorkId} className="rp-td"><div className="rp-empty-cell" /></td>
                     ))}
@@ -495,19 +495,6 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
                       <div className="rp-lu-info">
                         <div className="rp-lu-info-ref">{activeLU.cellRef}</div>
                         <div className="rp-lu-info-name">{activeLU.name}</div>
-                        <div className="rp-lu-info-divider" />
-                        {[
-                          { l: workedYears.length > 1 ? 'Итого (все годы)' : `Год ${workedYears[0]}`, v: `${activeCostAll} млн`, bold: true },
-                          { l: 'Среднее качество', v: `${activeQAvg}%` },
-                          { l: 'События', v: activeEv === 0 ? '—' : (activeEv >= 0 ? '+' : '') + activeEv, cls: activeEv >= 0 ? 'rp-pos' : 'rp-neg' },
-                          { l: 'НИР', v: `${activeMob} кол.` },
-                          ...(workedYears.length > 1 ? [{ l: 'Годы работ', v: workedYears.join(', ') }] : []),
-                        ].map(({ l, v, cls, bold }) => (
-                          <div key={l} className="rp-lu-info-row">
-                            <span className="rp-lu-info-lbl">{l}</span>
-                            <span className={`rp-lu-info-val ${cls || ''}`} style={bold ? { fontWeight: 800 } : {}}>{v}</span>
-                          </div>
-                        ))}
                       </div>
                     </td>
                     {TABLE_COLUMNS.map(col => {
@@ -516,7 +503,7 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
                         <td key={col.mobWorkId} className="rp-td">
                           {workedYears.length === 1
                             ? (() => {
-                              const sels   = getSelectionsForYear(activeFwData, workedYears[0]);
+                              const sels = getSelectionsForYear(activeFwData, workedYears[0]);
                               const hasAny = block && sels && block.cards.some(c => sels[c.cardId] != null);
                               return hasAny
                                 ? <WorkCell block={block} selections={sels} year={null} />
@@ -531,40 +518,12 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
                 )}
 
                 {workedYears.length > 1 && workedYears.map(y => {
-                  const ySels  = getSelectionsForYear(activeFwData, y);
-                  const yCost  = getCostForYear(activeFwData, y);
-                  const yQ     = getQualityForYear(activeFwData, y);
+                  const ySels = getSelectionsForYear(activeFwData, y);
+                  const yCost = getCostForYear(activeFwData, y);
+                  const yQ = getQualityForYear(activeFwData, y);
                   const hasWork = ySels && Object.keys(ySels).length > 0;
                   if (!hasWork) return null;
-                  return (
-                    <tr key={y} style={{ opacity: 0.7 }}>
-                      <td className="rp-td rp-td-lu">
-                        <div className="rp-lu-info">
-                          <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#5b8dd9', marginBottom: 4 }}>Год {y}</div>
-                          {[
-                            { l: 'Стоимость', v: `${yCost} млн` },
-                            { l: 'Качество',  v: `${yQ}%` },
-                          ].map(({ l, v }) => (
-                            <div key={l} className="rp-lu-info-row">
-                              <span className="rp-lu-info-lbl">{l}</span>
-                              <span className="rp-lu-info-val">{v}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </td>
-                      {TABLE_COLUMNS.map(col => {
-                        const block  = blockByMobId[col.mobWorkId];
-                        const hasAny = block && ySels && block.cards.some(c => ySels[c.cardId] != null);
-                        return (
-                          <td key={col.mobWorkId} className="rp-td">
-                            {hasAny
-                              ? <WorkCell block={block} selections={ySels} year={y} />
-                              : <div className="rp-empty-cell" />}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
+
                 })}
               </tbody>
             </table>
@@ -575,10 +534,10 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
       {/* ── ЛЕГЕНДА ─────────────────────────────────────────────────────── */}
       <div className="rp-legend">
         {[
-          { color: 'gray',   label: 'СРР (сейсморазведочные работы)' },
+          { color: 'gray', label: 'СРР (сейсморазведочные работы)' },
           { color: 'orange', label: 'ГРР (геологоразведочные работы)' },
-          { color: 'beige',  label: 'Бурение' },
-          { color: 'blue',   label: 'Добыча' },
+          { color: 'beige', label: 'Бурение' },
+          { color: 'blue', label: 'Добыча' },
         ].map(({ color, label }) => (
           <div key={color} className="rp-legend-item">
             <div className="rp-legend-dot" style={{ background: COLOR_MAP[color] }} />

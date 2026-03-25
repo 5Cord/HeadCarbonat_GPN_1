@@ -488,9 +488,35 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   const confirmPurchase = () => {
     if (!purchaseModal) return;
     const { work, mob, cellKey, multi } = purchaseModal;
+
     if (multi) {
-      const { breakdown, total } = purchaseModal;
+      const { breakdown, total, toBuy } = purchaseModal;
       if (player.budget < total) return;
+
+      // Формируем данные для отправки
+      const purchases = breakdown.map(({ luId, needsMob, cost }) => ({
+        luId,
+        workId: work.id,
+        workName: work.name,
+        mobId: mob.id,
+        mobName: mob.name,
+        needsMob,
+        cost,
+        year: globalYear,
+      }));
+
+      // Отправляем на сервер
+      if (isOnline) {
+        socket?.emit('research:purchase', { purchases, totalCost: total }, (res) => {
+          if (!res?.ok) {
+            showAlert?.('Ошибка', res?.error || 'Не удалось списать бюджет');
+            return;
+          }
+          // Бюджет придёт через budget:updated
+        });
+      }
+
+      // Локально обновляем ТОЛЬКО прогресс НИР (не бюджет!)
       const updProg = { ...research.progressByLU };
       breakdown.forEach(({ luId, needsMob, cost }) => {
         const p = updProg[luId] || defaultProgress();
@@ -499,20 +525,63 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
         const rw = makeResearchWork(work, mob, cellKey, cost, needsMob, rate);
         updProg[luId] = mergePurchase(p, mob, cellKey, rw, newRate, needsMob);
       });
-      useGameStore.setState(st => ({ player: { ...st.player, budget: st.player.budget - total }, research: { ...st.research, progressByLU: updProg } }));
+
+      if (isOnline) {
+        // В онлайн-режиме бюджет НЕ ТРОГАЕМ
+        useGameStore.setState(st => ({ research: { ...st.research, progressByLU: updProg } }));
+      } else {
+        // Офлайн — списываем локально
+        useGameStore.setState(st => ({
+          player: { ...st.player, budget: st.player.budget - total },
+          research: { ...st.research, progressByLU: updProg }
+        }));
+      }
+
       setSessionCount(c => c + breakdown.length);
       setPurchaseModal(null);
       return;
     }
+
+    // Одиночная покупка — аналогичная логика
     const { luId, needsMob, total } = purchaseModal;
     if (player.budget < total) return;
+
+    if (isOnline) {
+      socket?.emit('research:purchase', {
+        purchases: [{
+          luId,
+          workId: work.id,
+          workName: work.name,
+          mobId: mob.id,
+          mobName: mob.name,
+          needsMob,
+          cost: total,
+          year: globalYear,
+        }],
+        totalCost: total,
+      }, (res) => {
+        if (!res?.ok) {
+          showAlert?.('Ошибка', res?.error || 'Не удалось списать бюджет');
+        }
+      });
+    }
+
     const p = getProgress(luId);
     const rate = work.successRates[mob.id] || 0;
     const newRate = Math.min((p.successRates?.[mob.id] || 0) + rate, 95);
     const rw = makeResearchWork(work, mob, cellKey, total, needsMob, rate);
     const updProg = { ...useGameStore.getState().research.progressByLU };
     updProg[luId] = mergePurchase(p, mob, cellKey, rw, newRate, needsMob);
-    useGameStore.setState(st => ({ player: { ...st.player, budget: st.player.budget - total }, research: { ...st.research, progressByLU: updProg } }));
+
+    if (isOnline) {
+      useGameStore.setState(st => ({ research: { ...st.research, progressByLU: updProg } }));
+    } else {
+      useGameStore.setState(st => ({
+        player: { ...st.player, budget: st.player.budget - total },
+        research: { ...st.research, progressByLU: updProg }
+      }));
+    }
+
     setSessionCount(c => c + 1);
     setPurchaseModal(null);
   };

@@ -9,14 +9,14 @@ import { getSocket } from '../apiHelpers';
 const LICENSE_UNITS = [
   { id: 'well1', name: 'Парам. скважина №1', shortName: '1', cost: 10, cellRef: 'A2', position: 'top-left', customStyle: { top: '-130px', left: '0px' }, description: 'Целевой комплекс: светлые слоистые строматолитовые доломиты с прослоями гипса и ангидрита. Свойства: доломиты слабо пористые, с редкими выпотами густой нефти.', hasImage: false },
   { id: 'well2', name: 'Парам. скважина №2', shortName: '2', cost: 10, cellRef: 'A5', position: 'top-left', customStyle: { top: '-130px', left: '0px' }, description: 'Целевой комплекс: светлые тонкослоистые известняки и доломиты, прослоями зернистые. Свойства: межзерновая пористость, признаки нефтенасыщения по порам.', hasImage: false },
-  { id: 'seismic', name: 'ОиИ архивных СРР 2Д', shortName: 'И', cost: 30, cellRef: 'A10', position: 'corner-bottom-left', customStyle: { top: '-130px', left: '80px' }, description: 'По данным 2D сейсморазведки выделяются ориентированные с ЮЗ на СВ объекты, похожие на структурные валы. В центральной части территории между ними фиксируется палеопрогиб.', hasImage: false },
-  { id: 'well3', name: 'Парам. скважина №3', shortName: '3', cost: 10, cellRef: 'B10', position: 'right', customStyle: { top: '0', left: '85px' }, description: 'Целевой комплекс: тонкослоистые черные кремнистые известняки с повышенным содержанием Сорг (органического углерода). Свойства: мощность комплекса сильно сокращена.', hasImage: false },
+  { id: 'seismic', name: 'ОиИ архивных СРР 2D', shortName: 'И', cost: 30, cellRef: 'A10', position: 'corner-bottom-left', customStyle: { top: '-130px', left: '80px' }, description: 'По данным двухмерной сейсморазведки выделяются ориентированные с юго-запада на северо-восток объекты, похожие на структурные валы. В центральной части территории между ними фиксируется палеопрогиб.', hasImage: false },
+  { id: 'well3', name: 'Парам. скважина №3', shortName: '3', cost: 10, cellRef: 'B10', position: 'right', customStyle: { top: '0', left: '85px' }, description: 'Целевой комплекс: тонкослоистые черные кремнистые известняки с повышенным содержанием органического углерода. Свойства: мощность комплекса сильно сокращена.', hasImage: false },
   { id: 'well4', name: 'Парам. скважина №4', shortName: '4', cost: 20, cellRef: 'E10', position: 'right', customStyle: { top: '0px', left: '85px' }, description: 'Целевой комплекс: массивные трещиновато-кавернозные известняки с кораллами и губками. Свойства: по кавернам обильные выполы (выпоты) нефти.', hasImage: false },
-  { id: 'well5', name: 'Парам. скважина №5', shortName: '5', cost: 20, cellRef: 'J8', position: 'right', customStyle: { top: '85px', left: '0px' }, description: 'Целевой комплекс: светлые слоистые известняки и доломиты (зернистые и микритовые). Свойства: прослоями породы пористые, с признаками углеводородов (УВ).', hasImage: false },
-  { id: 'well6', name: 'Парам. скважина №6', shortName: '6', cost: 10, cellRef: 'J3', position: 'right', customStyle: { top: '85px', left: '0px' }, description: 'Целевой комплекс: тонкослоистые черные кремнистые известняки с повышенным содержанием Сорг, с остатками планктонной фауны. Свойства: мощность комплекса сильно сокращена.', hasImage: false },
-  { id: 'research', name: 'Региональная НИР', shortName: 'Н', cost: 70, cellRef: 'J1', position: 'corner-top-right', customStyle: { top: '85px', left: '-118px' }, description: 'Выполнены: КГМ, СГМ, БМ, оценка ресурсов. Карта плотности ресурсов УВ (тыс. т. у.в. на кв. км): 10-50, 5-10, <5.', hasImage: true, imagePath: '/src/svgs/RegNir.svg' },
+  { id: 'well5', name: 'Парам. скважина №5', shortName: '5', cost: 20, cellRef: 'J8', position: 'right', customStyle: { top: '85px', left: '0px' }, description: 'Целевой комплекс: светлые слоистые известняки и доломиты (зернистые и микритовые). Свойства: прослоями породы пористые, с признаками углеводородов.', hasImage: false },
+  { id: 'well6', name: 'Парам. скважина №6', shortName: '6', cost: 10, cellRef: 'J3', position: 'right', customStyle: { top: '85px', left: '0px' }, description: 'Целевой комплекс: тонкослоистые черные кремнистые известняки с повышенным содержанием органического углерода, с остатками планктонной фауны. Свойства: мощность комплекса сильно сокращена.', hasImage: false },
+  { id: 'research', name: 'Региональная НИР', shortName: 'Н', cost: 70, cellRef: 'J1', position: 'corner-top-right', customStyle: { top: '85px', left: '-118px' }, description: 'Выполнены: космогеологическое моделирование, структурно-генетическое моделирование, бассейновое моделирование, оценка ресурсов. Карта плотности ресурсов углеводородов (тысяч тонн условного топлива на квадратный километр): 10-50, 5-10, менее 5.', hasImage: true, imagePath: '/src/svgs/RegNir.svg' },
   { id: 'quarry', name: 'Карьер', shortName: 'К', cost: 20, cellRef: 'F1', position: 'left', customStyle: { top: '0', left: '-130px' }, description: 'Горные породы: известняки и доломиты массивные, химически чистые, органогенные, кавернозно-трещиноватые. Тип: разрабатываемый содовый карьер.', hasImage: false },
-  { id: 'outcrop', name: 'Обнажение', shortName: 'О', cost: 10, cellRef: 'D1', position: 'left', customStyle: { top: '0', left: '-130px' }, description: 'Горные породы: ритмично-слоистые светло-серые известняки и доломиты с микробиальными биотермами до 10 м толщиной. Встречаются поры, каверны и трещины с запахом УВ.', hasImage: false },
+  { id: 'outcrop', name: 'Обнажение', shortName: 'О', cost: 10, cellRef: 'D1', position: 'left', customStyle: { top: '0', left: '-130px' }, description: 'Горные породы: ритмично-слоистые светло-серые известняки и доломиты с микробиальными биотермами до 10 м толщиной. Встречаются поры, каверны и трещины с запахом углеводородов.', hasImage: false },
 ];
 
 const BLOCKED_CELLS = {
@@ -132,7 +132,6 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const sessionConfig = player.sessionConfig ?? {};
   const MAX_LUS_PER_TEAM = sessionConfig.maxLUsPerTeam ?? 5;
 
-  // Серверный таймер
   const globalTimer = useGameStore(s => s.globalTimer);
   const serverPhase = globalTimer.phase;
   const timeRemaining = globalTimer.timeRemaining;
@@ -154,13 +153,10 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
   const myId = player.teamId || player.name;
 
-  // ── Вычисляем оспариваемые ячейки ────────────────────────────────────────
   const myContestedCells = Object.entries(auctions.active || {}).reduce((acc, [cellRef, auction]) => {
     const isMyCell = ownedCells[cellRef] !== undefined;
     const hasOtherParticipants = (auction.participants || []).some(pid => pid !== myId);
-    if (isMyCell && hasOtherParticipants) {
-      acc[cellRef] = auction;
-    }
+    if (isMyCell && hasOtherParticipants) acc[cellRef] = auction;
     return acc;
   }, {});
 
@@ -176,12 +172,10 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const [showPostAuctionBanner, setShowPostAuctionBanner] = useState(false);
   const bannerTimerRef = useRef(null);
 
-  // Баннер «оспаривается»
   const [showContestedBanner, setShowContestedBanner] = useState(false);
   const contestedBannerTimerRef = useRef(null);
   const prevContestedKeysRef = useRef('');
 
-  // Баннер авто-выдачи участков
   const [autoAssignBanner, setAutoAssignBanner] = useState(null);
   const autoAssignTimerRef = useRef(null);
 
@@ -191,9 +185,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
       prevContestedKeysRef.current = contestedKeys;
       setShowContestedBanner(true);
       if (contestedBannerTimerRef.current) clearTimeout(contestedBannerTimerRef.current);
-      contestedBannerTimerRef.current = setTimeout(() => {
-        setShowContestedBanner(false);
-      }, 7000);
+      contestedBannerTimerRef.current = setTimeout(() => setShowContestedBanner(false), 7000);
     }
     if (!contestedKeys) {
       prevContestedKeysRef.current = '';
@@ -209,96 +201,60 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
   const showAlert = (title, message) => setAlertModal({ title, message });
 
-  // ── Слушаем budget:updated от сервера ────────────────────────────────────
+  // ── budget:updated → обновляем стор ──────────────────────────────────────
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
     const onBudgetUpdated = ({ budget: newBudget }) => {
-      useGameStore.setState(st => ({
-        player: { ...st.player, budget: newBudget },
-      }));
+      useGameStore.setState(st => ({ player: { ...st.player, budget: newBudget } }));
     };
     socket.on('budget:updated', onBudgetUpdated);
     return () => socket.off('budget:updated', onBudgetUpdated);
   }, []);
 
-  // ── Слушаем cells:updated — обновляем карту для ВСЕХ игроков (в т.ч. противников) ──
-  // Это событие приходит при любом изменении ячеек: покупка, аукцион, авто-выдача.
+  // ── cells:updated ─────────────────────────────────────────────────────────
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
-
     const onCellsUpdated = (cellsMap) => {
-      // cellsMap: { [cellRef]: { ownedByTeamId, ownedByTeamName, auctionPrice, isAutoAssigned } }
       useGameStore.setState(st => {
         const myTeamId = st.player.teamId || st.player.name;
-
-        // Строим новый owned (только наши ячейки) и allTeams (все)
-        const newOwned = {};
         const newAllTeams = { ...st.gridCells.allTeams };
-
-        // Сначала обновляем allTeams из полученной карты
         for (const [cellRef, data] of Object.entries(cellsMap)) {
-          if (data && data.ownedByTeamId) {
-            newAllTeams[cellRef] = data;
-          } else {
-            // Ячейка освобождена
-            delete newAllTeams[cellRef];
-          }
+          if (data && data.ownedByTeamId) newAllTeams[cellRef] = data;
+          else delete newAllTeams[cellRef];
         }
-
-        // Пересчитываем owned из allTeams
-        // Начинаем с текущего owned и обновляем/удаляем по данным из события
         const baseOwned = { ...st.gridCells.owned };
         for (const [cellRef, data] of Object.entries(cellsMap)) {
           if (data && data.ownedByTeamId === myTeamId) {
-            // Ячейка принадлежит нам (в т.ч. авто-выданная)
             baseOwned[cellRef] = {
-              cellRef,
-              name: `Участок ${cellRef}`,
+              cellRef, name: `Участок ${cellRef}`,
               auctionPrice: data.auctionPrice ?? 0,
               isAutoAssigned: data.isAutoAssigned ?? false,
               ownedByTeamId: data.ownedByTeamId,
               ownedByTeamName: data.ownedByTeamName,
             };
           } else if (data && data.ownedByTeamId && data.ownedByTeamId !== myTeamId) {
-            // Ячейка принадлежит другой команде — убираем из наших
             delete baseOwned[cellRef];
           }
         }
-
-        return {
-          gridCells: {
-            ...st.gridCells,
-            owned: baseOwned,
-            allTeams: newAllTeams,
-          },
-        };
+        return { gridCells: { ...st.gridCells, owned: baseOwned, allTeams: newAllTeams } };
       });
     };
-
     socket.on('cells:updated', onCellsUpdated);
     return () => socket.off('cells:updated', onCellsUpdated);
   }, []);
 
-  // ── Слушаем cells:auto_assigned — показываем баннер нашей команде ──────────
-  // Важно: сначала cells:updated уже обновил стор, поэтому здесь только баннер.
+  // ── cells:auto_assigned ───────────────────────────────────────────────────
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
-
     const onAutoAssigned = ({ teamId, cells }) => {
-      // Показываем только нашей команде
       if (teamId !== myId) return;
-
       setAutoAssignBanner({ cells });
-
       if (autoAssignTimerRef.current) clearTimeout(autoAssignTimerRef.current);
-      autoAssignTimerRef.current = setTimeout(() => {
-        setAutoAssignBanner(null);
-      }, 12000);
+      autoAssignTimerRef.current = setTimeout(() => setAutoAssignBanner(null), 12000);
     };
-
     socket.on('cells:auto_assigned', onAutoAssigned);
     return () => {
       socket.off('cells:auto_assigned', onAutoAssigned);
@@ -363,9 +319,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         useGameStore.setState(state => {
           const t = state.auctions.active[cellRef];
           if (t) {
-            t.currentBid = newBid;
-            t.currentBidTeamId = otherTeamId;
-            t.currentBidTeamName = otherTeamName;
+            t.currentBid = newBid; t.currentBidTeamId = otherTeamId; t.currentBidTeamName = otherTeamName;
             t.bids = [...(t.bids || []), { teamId: otherTeamId, teamName: otherTeamName, amount: newBid, timestamp: Date.now() }];
             if (!t.participants.includes(otherTeamId)) t.participants = [...t.participants, otherTeamId];
           }
@@ -418,11 +372,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         BLOCKED_CELLS.company.includes(ref) ? 'company' : null;
 
   const isBlocked = (ref) => !!getBlockedType(ref);
-  const getBlockedLabel = (type) => ({
-    reserve: 'Природный заказник',
-    settlement: 'Населённый пункт',
-    company: 'Занято нефтяной компанией',
-  }[type] || 'Заблокировано');
+  const getBlockedLabel = (type) => ({ reserve: 'Природный заказник', settlement: 'Населённый пункт', company: 'Занято нефтяной компанией' }[type] || 'Заблокировано');
 
   const isLUSelected = (luId) => selectedLU.some(lu => lu.id === luId);
   const canAffordLU = (lu) => isLUSelected(lu.id) || budget >= lu.cost;
@@ -451,23 +401,42 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
     setLuConfirmModal({ lu });
   };
 
+  // ── ИСПРАВЛЕНО: убрано двойное списание ──────────────────────────────────
+  // В онлайн-режиме бюджет списывает ТОЛЬКО сервер через lu:purchase.
+  // Ответ приходит в budget:updated → стор обновляется там.
+  // Здесь добавляем карточку в owned БЕЗ изменения budget.
+  // В оффлайн-режиме — старый путь через purchaseLU (списывает локально).
   const confirmBuyLU = () => {
     if (!luConfirmModal) return;
     const { lu } = luConfirmModal;
     setLuConfirmModal(null);
+
     const socket = getSocket();
     if (socket?.connected && player.sessionId) {
       socket.emit('lu:purchase', { luId: lu.id, luName: lu.name, cost: lu.cost }, (res) => {
         if (res?.ok) {
-          purchaseLU(lu);
+          // Только добавляем карточку локально. Бюджет НЕ трогаем —
+          // он придёт через событие budget:updated от сервера.
+          useGameStore.setState(st => {
+            const alreadyOwned = st.licenseUnits.owned.some(l => l.id === lu.id);
+            if (alreadyOwned) return st;
+            return {
+              licenseUnits: {
+                ...st.licenseUnits,
+                owned: [...st.licenseUnits.owned, lu],
+              },
+            };
+          });
         } else {
-          showAlert('Ошибка', res?.error === 'INSUFFICIENT_FUNDS'
-            ? 'Недостаточно средств на счёте.'
-            : `Ошибка покупки: ${res?.error || 'неизвестная ошибка'}`
+          showAlert('Ошибка',
+            res?.error === 'INSUFFICIENT_FUNDS' ? 'Недостаточно средств на счёте.' :
+            res?.error === 'ALREADY_PURCHASED'  ? 'Эта карточка уже куплена.' :
+            `Ошибка покупки: ${res?.error || 'неизвестная ошибка'}`
           );
         }
       });
     } else {
+      // Оффлайн — старый путь (purchaseLU вычитает бюджет локально)
       purchaseLU(lu);
     }
   };
@@ -485,8 +454,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
       if (isMyContestedCell(cellRef)) {
         const auction = myContestedCells[cellRef];
         const competitorCount = (auction.participants || []).filter(p => p !== myId).length;
-        showAlert(
-          `⚔️ Участок ${cellRef} оспаривается!`,
+        showAlert(`⚔️ Участок ${cellRef} оспаривается!`,
           `${competitorCount} ${competitorCount === 1 ? 'команда претендует' : 'команды претендуют'} на ваш участок ${cellRef}. После фазы выбора состоится аукцион — вы в нём не участвуете, участок будет разыгран между претендентами. Победитель выкупит его у вас по финальной ставке.`
         );
       } else {
@@ -497,22 +465,15 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
     if (isOwnedByOther(cellRef)) {
       const ownerTeam = gridCells.allTeams[cellRef]?.ownedByTeamName || 'Другая команда';
-      if (currentPhase === 'post_auction') {
-        showAlert('Участок занят', `Участок ${cellRef} занят командой «${ownerTeam}».\n\nВо время допокупки аукционы недоступны.`);
-        return;
-      }
+      if (currentPhase === 'post_auction') { showAlert('Участок занят', `Участок ${cellRef} занят командой «${ownerTeam}».\n\nВо время допокупки аукционы недоступны.`); return; }
       if (!canJoinAuction()) { showAlert('Недоступно', 'Регистрация на аукцион сейчас недоступна.'); return; }
       if (isRegisteredForAuction(cellRef)) { showAlert('Уже зарегистрированы', `Вы уже зарегистрированы на аукцион за участок ${cellRef}.`); return; }
-      if (totalCommittedCells >= MAX_LUS_PER_TEAM) {
-        showAlert('Лимит', `Достигнут лимит ${MAX_LUS_PER_TEAM} участков.`);
-        return;
-      }
+      if (totalCommittedCells >= MAX_LUS_PER_TEAM) { showAlert('Лимит', `Достигнут лимит ${MAX_LUS_PER_TEAM} участков.`); return; }
       setGridConfirmModal({ cellRef, mode: 'auction', ownerTeam });
       return;
     }
 
     if (currentPhase === 'auction') return;
-
     if (!canBuyCells()) { showAlert('Недоступно', 'Покупка участков сейчас недоступна.'); return; }
     if (totalCommittedCells >= MAX_LUS_PER_TEAM && !isRegisteredForAuction(cellRef)) {
       showAlert('Лимит участков', `Лимит ${MAX_LUS_PER_TEAM} участков. У вас: ${ownedCount} + ${myAuctionCells.length} аукционов = ${totalCommittedCells}/${MAX_LUS_PER_TEAM}`);
@@ -563,9 +524,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
     const socket = getSocket();
     if (socket?.connected && player.sessionId) {
       return new Promise(resolve => {
-        socket.emit('auction:bid', { cellRef, amount }, (res) => {
-          resolve(res?.ok ?? false);
-        });
+        socket.emit('auction:bid', { cellRef, amount }, (res) => { resolve(res?.ok ?? false); });
       });
     }
     return placeBid(cellRef, amount);
@@ -591,187 +550,80 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
     }
   };
 
-  const DEV_SIMULATED_TEAMS = [
-    { cellRef: 'E5', name: 'Участок E5', teamId: 'dev_team_alpha', teamName: 'Команда Альфа' },
-    { cellRef: 'F7', name: 'Участок F7', teamId: 'dev_team_beta', teamName: 'Команда Бета' },
-  ];
-  const shouldShowDevButton = () =>
-    DEV_SIMULATED_TEAMS.some(({ cellRef }) => !isOwnedByMe(cellRef) && !isOwnedByOther(cellRef));
-
   const contestedCount = Object.keys(myContestedCells).length;
 
-  // ── РЕНДЕР ────────────────────────────────────────────────────────────────
   return (
     <div className="region-map-fullscreen">
 
-      {/* Таймер */}
       <div className={getTimerClass()}>
         {!isOurPhase ? (
-          <>
-            <div className="region-timer-label">{getTimerLabel()}</div>
-            <div className="region-timer-value">00:00</div>
-            <div className="region-timer-subtitle">{getTimerSubtitle()}</div>
-          </>
+          <><div className="region-timer-label">{getTimerLabel()}</div><div className="region-timer-value">00:00</div><div className="region-timer-subtitle">{getTimerSubtitle()}</div></>
         ) : (
-          <>
-            <div className="region-timer-label">{getTimerLabel()}</div>
-            <div className="region-timer-value">{formatTime(timeRemaining)}</div>
-            <div className="region-timer-subtitle">{getTimerSubtitle()}</div>
-          </>
+          <><div className="region-timer-label">{getTimerLabel()}</div><div className="region-timer-value">{formatTime(timeRemaining)}</div><div className="region-timer-subtitle">{getTimerSubtitle()}</div></>
         )}
       </div>
 
-      {/* Баннер допокупки */}
       {currentPhase === 'post_auction' && showPostAuctionBanner && (
-        <div className="post-auction-banner">
-          Аукцион завершён! Есть время докупить свободные участки (аукционы недоступны)
-        </div>
+        <div className="post-auction-banner">Аукцион завершён! Есть время докупить свободные участки (аукционы недоступны)</div>
       )}
 
-      {/* Баннер «Ваши участки оспариваются» */}
       {showContestedBanner && contestedCount > 0 && (currentPhase === 'selection' || currentPhase === 'auction') && (
         <div className="contested-banner">
           <span className="contested-banner-icon">⚔️</span>
           <div className="contested-banner-text">
-            <strong>
-              {contestedCount === 1
-                ? 'Ваш участок оспаривается!'
-                : `${contestedCount} ваших участка оспариваются!`}
-            </strong>
-            <span>
-              {Object.keys(myContestedCells).join(', ')} — другие команды зарегистрировались на аукцион за {contestedCount === 1 ? 'него' : 'них'}
-            </span>
+            <strong>{contestedCount === 1 ? 'Ваш участок оспаривается!' : `${contestedCount} ваших участка оспариваются!`}</strong>
+            <span>{Object.keys(myContestedCells).join(', ')} — другие команды зарегистрировались на аукцион за {contestedCount === 1 ? 'него' : 'них'}</span>
           </div>
         </div>
       )}
 
-      {/* Баннер авто-выдачи участков */}
       {autoAssignBanner && (
         <div className="auto-assign-banner">
           <span className="auto-assign-banner-icon">🎲</span>
           <div className="auto-assign-banner-text">
             <strong>Участки назначены автоматически</strong>
-            <span>
-              Время допокупки истекло. Вам выданы свободные участки:{' '}
-              <strong>{autoAssignBanner.cells.join(', ')}</strong>
-            </span>
+            <span>Время допокупки истекло. Вам выданы свободные участки: <strong>{autoAssignBanner.cells.join(', ')}</strong></span>
           </div>
-          <button
-            className="auto-assign-banner-close"
-            onClick={() => setAutoAssignBanner(null)}
-          >
-            ✕
-          </button>
+          <button className="auto-assign-banner-close" onClick={() => setAutoAssignBanner(null)}>✕</button>
         </div>
       )}
 
-      {/* Кнопки управления */}
       <div className="map-controls">
-        <button
-          className={`control-btn back-control-btn ${isOurPhase ? 'control-btn-locked' : ''}`}
-          onClick={isOurPhase ? undefined : onBack}
-          disabled={isOurPhase}
-          title={isOurPhase ? 'Дождитесь завершения всех этапов карты региона' : ''}
-        >
-          ← Назад
-        </button>
-        <button
-          className={`control-btn back-control-btn ${isOurPhase ? 'control-btn-locked' : ''}`}
-          onClick={isOurPhase ? undefined : onMenu}
-          disabled={isOurPhase}
-          title={isOurPhase ? 'Дождитесь завершения всех этапов карты региона' : ''}
-        >
-          В меню
-        </button>
+        <button className={`control-btn back-control-btn ${isOurPhase ? 'control-btn-locked' : ''}`} onClick={isOurPhase ? undefined : onBack} disabled={isOurPhase} title={isOurPhase ? 'Дождитесь завершения всех этапов карты региона' : ''}>← Назад</button>
+        <button className={`control-btn back-control-btn ${isOurPhase ? 'control-btn-locked' : ''}`} onClick={isOurPhase ? undefined : onMenu} disabled={isOurPhase} title={isOurPhase ? 'Дождитесь завершения всех этапов карты региона' : ''}>В меню</button>
         {onNext && (() => {
-          const mapDone = !isOurPhase && serverPhase !== 'LOBBY' && serverPhase !== 'REGION_MAP_SELECTION' && serverPhase !== 'REGION_MAP_AUCTION' && serverPhase !== 'REGION_MAP_POST_AUCTION';
+          const mapDone = !isOurPhase && serverPhase !== 'LOBBY' && !isRegionMapPhase(serverPhase);
           const hasLUs = ownedCount > 0;
-
-          if (mapDone && hasLUs) {
-            return (
-              <button className="control-btn next-control-btn" onClick={onNext}>
-                Далее — Научные исследования
-              </button>
-            );
-          }
-
-          const hint = isOurPhase
-            ? `Дождитесь завершения всех этапов карты (${currentPhase === 'selection' ? 'Выбор → Аукцион → Допокупка' :
-              currentPhase === 'auction' ? 'Аукцион → Допокупка' :
-                currentPhase === 'post_auction' ? 'Допокупка…' : '…'
-            })`
-            : !hasLUs
-              ? 'Сначала выберите хотя бы один участок'
-              : 'Ожидайте завершения всех этапов карты';
-
-          return (
-            <button
-              className="control-btn next-control-btn next-control-btn-disabled"
-              disabled
-              title={hint}
-            >
-              {isOurPhase ? `⏳ ${currentPhase === 'selection' ? 'Идёт выбор участков…' :
-                currentPhase === 'auction' ? 'Идёт аукцион…' :
-                  currentPhase === 'post_auction' ? 'Идёт допокупка…' : 'Карта региона…'
-                }` : 'Далее — Научные исследования'}
-            </button>
-          );
+          if (mapDone && hasLUs) return <button className="control-btn next-control-btn" onClick={onNext}>Далее — Научные исследования</button>;
+          const hint = isOurPhase ? `Дождитесь завершения всех этапов карты` : !hasLUs ? 'Сначала выберите хотя бы один участок' : 'Ожидайте завершения всех этапов карты';
+          return <button className="control-btn next-control-btn next-control-btn-disabled" disabled title={hint}>{isOurPhase ? `⏳ Идёт ${currentPhase === 'selection' ? 'выбор участков' : currentPhase === 'auction' ? 'аукцион' : 'допокупка'}…` : 'Далее — Научные исследования'}</button>;
         })()}
       </div>
 
-      {/* DEV симуляция */}
       {import.meta.env.DEV && currentPhase === 'auction' && (
         <div style={{ position: 'fixed', bottom: '20px', left: '380px', zIndex: 1000, display: 'flex', gap: '8px' }}>
-          <button
-            className="dev-sim-btn"
-            onClick={simulationActive ? stopBidSimulation : startBidSimulation}
-            style={{ backgroundColor: simulationActive ? '#f44336' : '#4caf50', color: 'white', fontWeight: 700 }}
-          >
+          <button className="dev-sim-btn" onClick={simulationActive ? stopBidSimulation : startBidSimulation} style={{ backgroundColor: simulationActive ? '#f44336' : '#4caf50', color: 'white', fontWeight: 700 }}>
             {simulationActive ? 'STOP симуляция' : 'START симуляция ставок'}
           </button>
           {Object.keys(auctions.active).length > 0 && (
-            <button
-              className="dev-sim-btn"
-              style={{ backgroundColor: '#ff9800', color: 'white', fontWeight: 700 }}
-              onClick={() => {
-                const keys = Object.keys(auctions.active);
-                simulateOtherTeamBid(keys[Math.floor(Math.random() * keys.length)]);
-              }}
-            >
-              DEV: перебить ставку
-            </button>
+            <button className="dev-sim-btn" style={{ backgroundColor: '#ff9800', color: 'white', fontWeight: 700 }} onClick={() => { const keys = Object.keys(auctions.active); simulateOtherTeamBid(keys[Math.floor(Math.random() * keys.length)]); }}>DEV: перебить ставку</button>
           )}
         </div>
       )}
 
-      {/* Информационная панель */}
       <div className={`game-info-panel ${!isWideScreen ? 'ultra-compact' : ''}`}>
         {!isWideScreen ? (
           <>
             <div className="info-row"><span className="info-label">Карточки:</span><span className="info-value">{selectedLU.length}</span></div>
             <div className="info-row"><span className="info-label">Участки:</span><span className="info-value">{ownedCount}/{MAX_LUS_PER_TEAM}</span></div>
-            {myAuctionCells.length > 0 && (
-              <div className="info-row"><span className="info-label">Аукционы:</span><span className="info-value auction-count">{myAuctionCells.length}</span></div>
-            )}
-            {contestedCount > 0 && (
-              <div className="info-row contested-info-row">
-                <span className="info-label">⚔️ Оспор.:</span>
-                <span className="info-value contested-value">{contestedCount}</span>
-              </div>
-            )}
-            <div className="info-row">
-              <span className="info-label">Всего:</span>
-              <span className={`info-value ${totalCommittedCells >= MAX_LUS_PER_TEAM ? 'limit-reached' : ''}`}>{totalCommittedCells}/{MAX_LUS_PER_TEAM}</span>
-            </div>
-            <div className="info-row icons-only">
-              <span className="info-value budget-value">{budget.toLocaleString('ru-RU')} млн</span>
-              <span className="info-value spent-value">{totalSpent} млн</span>
-            </div>
+            {myAuctionCells.length > 0 && <div className="info-row"><span className="info-label">Аукционы:</span><span className="info-value auction-count">{myAuctionCells.length}</span></div>}
+            {contestedCount > 0 && <div className="info-row contested-info-row"><span className="info-label">⚔️ Оспор.:</span><span className="info-value contested-value">{contestedCount}</span></div>}
+            <div className="info-row"><span className="info-label">Всего:</span><span className={`info-value ${totalCommittedCells >= MAX_LUS_PER_TEAM ? 'limit-reached' : ''}`}>{totalCommittedCells}/{MAX_LUS_PER_TEAM}</span></div>
+            <div className="info-row icons-only"><span className="info-value budget-value">{budget.toLocaleString('ru-RU')} млн</span><span className="info-value spent-value">{totalSpent} млн</span></div>
             {selectedLU.length > 0 && (
               <div className="compact-cards-mini-list">
                 {selectedLU.map(lu => (
-                  <div key={lu.id} className="compact-card-mini-item"
-                    onClick={() => { setViewMode('button'); setSelectedInfoCard(lu); setShowInfoCards(true); }}>
+                  <div key={lu.id} className="compact-card-mini-item" onClick={() => { setViewMode('button'); setSelectedInfoCard(lu); setShowInfoCards(true); }}>
                     <span className="compact-card-mini-title">{lu.name}</span>
                     <span className="compact-card-mini-cost">{lu.cost} млн</span>
                     <span className="compact-card-mini-hint">→</span>
@@ -783,28 +635,18 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         ) : (
           <>
             <div className="info-row"><span className="info-label">Карточки информации:</span><span className="info-value">{selectedLU.length}</span></div>
-            <div className="info-row">
-              <span className="info-label">Выбрано участков:</span>
-              <span className="info-value">{ownedCount} / {MAX_LUS_PER_TEAM}</span>
-            </div>
-            {myAuctionCells.length > 0 && (
-              <div className="info-row"><span className="info-label">Зарегистрировано на аукционы:</span><span className="info-value auction-count">{myAuctionCells.length}</span></div>
-            )}
+            <div className="info-row"><span className="info-label">Выбрано участков:</span><span className="info-value">{ownedCount} / {MAX_LUS_PER_TEAM}</span></div>
+            {myAuctionCells.length > 0 && <div className="info-row"><span className="info-label">Зарегистрировано на аукционы:</span><span className="info-value auction-count">{myAuctionCells.length}</span></div>}
             {contestedCount > 0 && (
               <div className="contested-cells-block">
-                <div className="contested-cells-title">
-                  <span>⚔️ Ваши участки оспариваются</span>
-                  <span className="contested-cells-count">{contestedCount}</span>
-                </div>
+                <div className="contested-cells-title"><span>⚔️ Ваши участки оспариваются</span><span className="contested-cells-count">{contestedCount}</span></div>
                 <div className="contested-cells-list">
                   {Object.entries(myContestedCells).map(([ref, auction]) => {
                     const competitors = (auction.participants || []).filter(p => p !== myId);
                     return (
                       <div key={ref} className="contested-cell-row">
                         <span className="contested-cell-ref">{ref}</span>
-                        <span className="contested-cell-info">
-                          {competitors.length} {competitors.length === 1 ? 'претендент' : 'претендента'}
-                        </span>
+                        <span className="contested-cell-info">{competitors.length} {competitors.length === 1 ? 'претендент' : 'претендента'}</span>
                         <span className="contested-cell-hint">аукцион ждёт</span>
                       </div>
                     );
@@ -814,17 +656,11 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
             )}
             <div className="info-row"><span className="info-label">Бюджет:</span><span className="info-value budget-value">{budget.toLocaleString('ru-RU')} млн руб.</span></div>
             <div className="info-row"><span className="info-label">Потрачено:</span><span className="info-value spent-value">{totalSpent.toLocaleString('ru-RU')} млн руб.</span></div>
-            {isOnline() && (
-              <div className="info-row"><span className="info-label">Онлайн</span><span className="info-value" style={{ color: '#4caf50' }}>синхронизировано</span></div>
-            )}
+            {isOnline() && <div className="info-row"><span className="info-label">Онлайн</span><span className="info-value" style={{ color: '#4caf50' }}>синхронизировано</span></div>}
             {myAuctionCells.length > 0 && currentPhase === 'selection' && (
               <div className="pending-auctions-list">
                 <div className="pending-auctions-title">Ожидание аукционов:</div>
-                {myAuctionCells.map(ref => (
-                  <div key={ref} className="pending-auction-item">
-                    <span className="pending-auction-cell">WAIT {ref}</span>
-                  </div>
-                ))}
+                {myAuctionCells.map(ref => <div key={ref} className="pending-auction-item"><span className="pending-auction-cell">WAIT {ref}</span></div>)}
               </div>
             )}
             {selectedLU.length > 0 && (
@@ -832,12 +668,8 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                 <h4 className="info-panel-section-title">Карточки информации <span className="section-title-count">{selectedLU.length}</span></h4>
                 <div className="info-panel-cards-list">
                   {selectedLU.map(lu => (
-                    <div key={lu.id} className="info-panel-card-item"
-                      onClick={() => { setViewMode('sidebar'); setSelectedInfoCard(lu); }}>
-                      <div className="info-panel-card-header">
-                        <span className="info-panel-card-title">{lu.name}</span>
-                        <span className="info-panel-card-cost">{lu.cost} млн руб.</span>
-                      </div>
+                    <div key={lu.id} className="info-panel-card-item" onClick={() => { setViewMode('sidebar'); setSelectedInfoCard(lu); }}>
+                      <div className="info-panel-card-header"><span className="info-panel-card-title">{lu.name}</span><span className="info-panel-card-cost">{lu.cost} млн руб.</span></div>
                       <div className="info-panel-card-footer"><span className="info-panel-card-hint">Подробнее →</span></div>
                     </div>
                   ))}
@@ -848,21 +680,12 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
               <div className="owned-cells-list">
                 <div className="owned-cells-title">Ваши участки:</div>
                 {Object.values(ownedCells).map(cell => (
-                  <div
-                    key={cell.cellRef}
-                    className={`owned-cell-item owned-cell-item-static ${myContestedCells[cell.cellRef] ? 'owned-cell-item-contested' : ''} ${cell.isAutoAssigned ? 'owned-cell-item-auto' : ''}`}
-                  >
+                  <div key={cell.cellRef} className={`owned-cell-item owned-cell-item-static ${myContestedCells[cell.cellRef] ? 'owned-cell-item-contested' : ''} ${cell.isAutoAssigned ? 'owned-cell-item-auto' : ''}`}>
                     <span className="owned-cell-ref">{cell.cellRef}</span>
-                    {myContestedCells[cell.cellRef] && (
-                      <span className="owned-cell-contested-icon" title="Другая команда претендует на этот участок">⚔️</span>
-                    )}
-                    {cell.isAutoAssigned && (
-                      <span className="owned-cell-auto-icon" title="Участок выдан автоматически">🎲</span>
-                    )}
+                    {myContestedCells[cell.cellRef] && <span className="owned-cell-contested-icon" title="Другая команда претендует на этот участок">⚔️</span>}
+                    {cell.isAutoAssigned && <span className="owned-cell-auto-icon" title="Участок выдан автоматически">🎲</span>}
                     <span className="owned-cell-name">{cell.name}</span>
-                    {cell.auctionPrice
-                      ? <span className="owned-cell-price">{cell.auctionPrice} млн</span>
-                      : <span className="owned-cell-free">{cell.isAutoAssigned ? 'авто' : 'бесплатно'}</span>}
+                    {cell.auctionPrice ? <span className="owned-cell-price">{cell.auctionPrice} млн</span> : <span className="owned-cell-free">{cell.isAutoAssigned ? 'авто' : 'бесплатно'}</span>}
                   </div>
                 ))}
               </div>
@@ -876,12 +699,8 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
           <h3>Карточки информации</h3>
           <div className="compact-cards-list">
             {selectedLU.map(lu => (
-              <div key={lu.id} className="compact-info-card"
-                onClick={() => { setViewMode('sidebar'); setSelectedInfoCard(lu); }}>
-                <div className="compact-card-header">
-                  <span className="compact-card-title">{lu.name}</span>
-                  <span className="compact-card-cost">{lu.cost} млн руб.</span>
-                </div>
+              <div key={lu.id} className="compact-info-card" onClick={() => { setViewMode('sidebar'); setSelectedInfoCard(lu); }}>
+                <div className="compact-card-header"><span className="compact-card-title">{lu.name}</span><span className="compact-card-cost">{lu.cost} млн руб.</span></div>
                 <div className="compact-card-hint">Подробнее →</div>
               </div>
             ))}
@@ -891,7 +710,6 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
       <div className="vertical-title"><div className="vertical-title-text">Карта региона</div></div>
 
-      {/* Основная карта */}
       <div className="map-main-area">
         <div className="grid-with-lu-wrapper">
           <div className="grid-column-headers">
@@ -920,31 +738,9 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                     return (
                       <div key={cellId} className="cell-with-lu-wrapper">
                         <div
-                          className={[
-                            'grid-cell',
-                            ownedByMe && isContested ? 'grid-cell-contested' : '',
-                            ownedByMe && !isContested && isAutoAssigned ? 'grid-cell-auto' : '',
-                            ownedByMe && !isContested && !isAutoAssigned ? 'grid-cell-owned' : '',
-                            ownedByOther ? 'grid-cell-other' : '',
-                            hasActiveAuction ? 'grid-cell-auction' : '',
-                            isPendingAuction ? 'grid-cell-pending-auction' : '',
-                            blockedType ? `grid-cell-blocked grid-cell-blocked-${blockedType}` : '',
-                            isDisabled ? 'grid-cell-disabled' : '',
-                          ].filter(Boolean).join(' ')}
+                          className={['grid-cell', ownedByMe && isContested ? 'grid-cell-contested' : '', ownedByMe && !isContested && isAutoAssigned ? 'grid-cell-auto' : '', ownedByMe && !isContested && !isAutoAssigned ? 'grid-cell-owned' : '', ownedByOther ? 'grid-cell-other' : '', hasActiveAuction ? 'grid-cell-auction' : '', isPendingAuction ? 'grid-cell-pending-auction' : '', blockedType ? `grid-cell-blocked grid-cell-blocked-${blockedType}` : '', isDisabled ? 'grid-cell-disabled' : ''].filter(Boolean).join(' ')}
                           onClick={() => handleGridCellClick(cellId)}
-                          title={
-                            isContested
-                              ? `${cellId} — ваш участок, но на него претендует другая команда!`
-                              : isAutoAssigned ? `${cellId} — выдан автоматически`
-                                : !isOurPhase ? 'Выбор участков недоступен'
-                                  : blockedType ? `${cellId} - ${getBlockedLabel(blockedType)}`
-                                    : ownedByMe ? `${cellId} - ваш участок`
-                                      : ownedByOther ? `${cellId} - занят другой командой`
-                                        : hasActiveAuction ? `${cellId} - аукцион`
-                                          : isPendingAuction ? `${cellId} - вы в очереди`
-                                            : totalCommittedCells >= MAX_LUS_PER_TEAM ? `${cellId} - лимит ${MAX_LUS_PER_TEAM}`
-                                              : `${cellId} - нажмите чтобы выбрать`
-                          }
+                          title={isContested ? `${cellId} — ваш участок, но на него претендует другая команда!` : isAutoAssigned ? `${cellId} — выдан автоматически` : !isOurPhase ? 'Выбор участков недоступен' : blockedType ? `${cellId} - ${getBlockedLabel(blockedType)}` : ownedByMe ? `${cellId} - ваш участок` : ownedByOther ? `${cellId} - занят другой командой` : hasActiveAuction ? `${cellId} - аукцион` : isPendingAuction ? `${cellId} - вы в очереди` : totalCommittedCells >= MAX_LUS_PER_TEAM ? `${cellId} - лимит ${MAX_LUS_PER_TEAM}` : `${cellId} - нажмите чтобы выбрать`}
                         >
                           <span className="cell-label">{cellId}</span>
                           {ownedByMe && isContested && <span className="cell-mark cell-mark-contested">⚔</span>}
@@ -960,12 +756,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                         {lu && (
                           <div className="lu-container">
                             <div
-                              className={[
-                                'lu-marker',
-                                isLUSelected(lu.id) ? 'selected' : '',
-                                !canAffordLU(lu) && !isLUSelected(lu.id) ? 'disabled' : '',
-                                !canBuyCells() && !isLUSelected(lu.id) ? 'timer-disabled' : '',
-                              ].filter(Boolean).join(' ')}
+                              className={['lu-marker', isLUSelected(lu.id) ? 'selected' : '', !canAffordLU(lu) && !isLUSelected(lu.id) ? 'disabled' : '', !canBuyCells() && !isLUSelected(lu.id) ? 'timer-disabled' : ''].filter(Boolean).join(' ')}
                               style={lu.customStyle}
                               onClick={() => handleLUClick(lu)}
                               onMouseEnter={() => setHoveredLU(lu.id)}
@@ -975,16 +766,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                               <span className="lu-marker-number">{lu.shortName}</span>
                               {isLUSelected(lu.id) && <span className="lu-marker-check">OK</span>}
                             </div>
-                            <div
-                              className="lu-name-label"
-                              style={{
-                                position: 'absolute',
-                                top: lu.customStyle?.top || '0',
-                                left: lu.customStyle?.left || '0',
-                                transform: getLUNamePosition(lu.position),
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
+                            <div className="lu-name-label" style={{ position: 'absolute', top: lu.customStyle?.top || '0', left: lu.customStyle?.left || '0', transform: getLUNamePosition(lu.position), whiteSpace: 'nowrap' }}>
                               <div className="lu-name-text">{lu.name}</div>
                               <div className="lu-cost-text">{lu.cost} млн руб.</div>
                             </div>
@@ -1000,37 +782,22 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         </div>
       </div>
 
-      {/* Легенда */}
       <div className="map-legend">
-        <div className="legend-item"><div className="legend-color legend-color-own"></div><span>Ваш участок</span></div>
-        <div className="legend-item"><div className="legend-color legend-color-auto"></div><span>Назначен авто</span></div>
-        <div className="legend-item"><div className="legend-color legend-color-contested"></div><span>Ваш — оспаривается</span></div>
+        <div className="legend-item"><div className="legend-color legend-color-contested"></div><span>Аукцион</span></div>
         <div className="legend-item"><div className="legend-color legend-color-other"></div><span>Занят другой командой</span></div>
-        <div className="legend-item"><div className="legend-color legend-color-free"></div><span>Свободный участок</span></div>
         <div className="legend-item"><div className="legend-color legend-color-blocked-reserve"></div><span>Природный заказник</span></div>
         <div className="legend-item"><div className="legend-color legend-color-blocked-settlement"></div><span>Населённый пункт</span></div>
-        <div className="legend-item"><div className="legend-color legend-color-blocked-company"></div><span>Нефтяная компания</span></div>
+        <div className="legend-item"><div className="legend-color legend-color-blocked-company"></div><span>Другие компании</span></div>
       </div>
 
-      {/* Панель аукционов */}
-      <AuctionDashboard
-        auctions={auctions}
-        player={player}
-        budget={budget}
-        onPlaceBid={handleDashboardBid}
-        onLeaveAuction={handleDashboardLeave}
-        currentPhase={currentPhase}
-      />
+      <AuctionDashboard auctions={auctions} player={player} budget={budget} onPlaceBid={handleDashboardBid} onLeaveAuction={handleDashboardLeave} currentPhase={currentPhase} />
 
-      {/* Модалки */}
       {selectedInfoCard && viewMode === 'sidebar' && (
         <div className="modal-overlay" onClick={() => { setSelectedInfoCard(null); setViewMode(null); }}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <button className="modal-close" onClick={() => { setSelectedInfoCard(null); setViewMode(null); }}>✕</button>
             <h2>{selectedInfoCard.name}</h2>
-            {selectedInfoCard.hasImage && (
-              <div className="card-image-wrap"><img src={selectedInfoCard.imagePath} alt={selectedInfoCard.name} /></div>
-            )}
+            {selectedInfoCard.hasImage && <div className="card-image-wrap"><img src={selectedInfoCard.imagePath} alt={selectedInfoCard.name} /></div>}
             <div className="card-description">{selectedInfoCard.description}</div>
             <div className="card-meta"><span>Стоимость: <strong>{selectedInfoCard.cost} млн руб.</strong></span></div>
           </div>
@@ -1059,50 +826,22 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         </div>
       )}
 
-      <ConfirmModal
-        isOpen={!!luConfirmModal}
-        onClose={() => setLuConfirmModal(null)}
-        onConfirm={confirmBuyLU}
-        title="Купить карточку информации?"
-        confirmLabel={`Купить за ${luConfirmModal?.lu.cost} млн руб.`}
-        cancelLabel="Отмена"
-      >
+      <ConfirmModal isOpen={!!luConfirmModal} onClose={() => setLuConfirmModal(null)} onConfirm={confirmBuyLU} title="Купить карточку информации?" confirmLabel={`Купить за ${luConfirmModal?.lu.cost} млн руб.`} cancelLabel="Отмена">
         {luConfirmModal && (
           <div className="confirm-purchase-details">
-            <div className="confirm-card-header-row">
-              <div className="confirm-card-icon">{luConfirmModal.lu.shortName}</div>
-              <div className="confirm-card-name">{luConfirmModal.lu.name}</div>
-            </div>
+            <div className="confirm-card-header-row"><div className="confirm-card-icon">{luConfirmModal.lu.shortName}</div><div className="confirm-card-name">{luConfirmModal.lu.name}</div></div>
             <div className="confirm-budget-row"><span>Стоимость:</span><strong>{luConfirmModal.lu.cost.toLocaleString('ru-RU')} млн руб.</strong></div>
-            <div className="confirm-budget-row">
-              <span>Бюджет после покупки:</span>
-              <strong className={budget - luConfirmModal.lu.cost < 0 ? 'text-danger' : 'text-success'}>
-                {(budget - luConfirmModal.lu.cost).toLocaleString('ru-RU')} млн руб.
-              </strong>
-            </div>
+            <div className="confirm-budget-row"><span>Бюджет после покупки:</span><strong className={budget - luConfirmModal.lu.cost < 0 ? 'text-danger' : 'text-success'}>{(budget - luConfirmModal.lu.cost).toLocaleString('ru-RU')} млн руб.</strong></div>
           </div>
         )}
       </ConfirmModal>
 
-      <ConfirmModal
-        isOpen={!!gridConfirmModal && gridConfirmModal.mode !== 'leave'}
-        onClose={() => setGridConfirmModal(null)}
-        onConfirm={confirmGridAction}
-        title={
-          gridConfirmModal?.mode === 'buy'
-            ? `Приобрести участок ${gridConfirmModal?.cellRef}?`
-            : `Зарегистрироваться на аукцион за участок ${gridConfirmModal?.cellRef}?`
-        }
-        confirmLabel={gridConfirmModal?.mode === 'buy' ? 'Приобрести участок' : 'Зарегистрироваться на аукцион'}
-        cancelLabel="Отмена"
-      >
+      <ConfirmModal isOpen={!!gridConfirmModal && gridConfirmModal.mode !== 'leave'} onClose={() => setGridConfirmModal(null)} onConfirm={confirmGridAction} title={gridConfirmModal?.mode === 'buy' ? `Приобрести участок ${gridConfirmModal?.cellRef}?` : `Зарегистрироваться на аукцион за участок ${gridConfirmModal?.cellRef}?`} confirmLabel={gridConfirmModal?.mode === 'buy' ? 'Приобрести участок' : 'Зарегистрироваться на аукцион'} cancelLabel="Отмена">
         {gridConfirmModal?.mode === 'buy' && (
           <div className="confirm-purchase-details">
             <div className="confirm-cell-ref">{gridConfirmModal.cellRef}</div>
             <p>Вы выбираете лицензионный участок <strong>{gridConfirmModal.cellRef}</strong></p>
-            <div className="confirm-stats-row">
-              <div className="confirm-stat"><span className="confirm-stat-label">Участков:</span><span className="confirm-stat-value">{ownedCount + 1} / {MAX_LUS_PER_TEAM}</span></div>
-            </div>
+            <div className="confirm-stats-row"><div className="confirm-stat"><span className="confirm-stat-label">Участков:</span><span className="confirm-stat-value">{ownedCount + 1} / {MAX_LUS_PER_TEAM}</span></div></div>
           </div>
         )}
         {gridConfirmModal?.mode === 'auction' && (
@@ -1118,33 +857,17 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         )}
       </ConfirmModal>
 
-      <ConfirmModal
-        isOpen={!!gridConfirmModal && gridConfirmModal.mode === 'leave'}
-        onClose={() => setGridConfirmModal(null)}
-        onConfirm={confirmLeaveAuction}
-        title={`Покинуть аукцион за участок ${gridConfirmModal?.cellRef}?`}
-        confirmLabel="Покинуть аукцион"
-        cancelLabel="Остаться"
-        confirmVariant="danger"
-      >
+      <ConfirmModal isOpen={!!gridConfirmModal && gridConfirmModal.mode === 'leave'} onClose={() => setGridConfirmModal(null)} onConfirm={confirmLeaveAuction} title={`Покинуть аукцион за участок ${gridConfirmModal?.cellRef}?`} confirmLabel="Покинуть аукцион" cancelLabel="Остаться" confirmVariant="danger">
         {gridConfirmModal?.mode === 'leave' && (
           <div className="confirm-purchase-details">
-            {gridConfirmModal.weAreLeading && (
-              <div className="confirm-warning-box">⚠️ Вы сейчас <strong>лидируете</strong> в этом аукционе!</div>
-            )}
+            {gridConfirmModal.weAreLeading && <div className="confirm-warning-box">⚠️ Вы сейчас <strong>лидируете</strong> в этом аукционе!</div>}
             <p>{gridConfirmModal.message}</p>
           </div>
         )}
       </ConfirmModal>
 
-      <NoInfoCardModal
-        isOpen={noCardModal}
-        onClose={() => setNoCardModal(false)}
-        onGoToBuyCard={() => setNoCardModal(false)}
-      />
-      <AlertModal isOpen={!!alertModal} onClose={() => setAlertModal(null)} title={alertModal?.title || 'Внимание'}>
-        <p>{alertModal?.message}</p>
-      </AlertModal>
+      <NoInfoCardModal isOpen={noCardModal} onClose={() => setNoCardModal(false)} onGoToBuyCard={() => setNoCardModal(false)} />
+      <AlertModal isOpen={!!alertModal} onClose={() => setAlertModal(null)} title={alertModal?.title || 'Внимание'}><p>{alertModal?.message}</p></AlertModal>
 
     </div>
   );

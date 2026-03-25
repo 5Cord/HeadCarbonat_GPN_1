@@ -1,10 +1,10 @@
-// lol EventsZone.jsx — таймер читается из globalTimer store, локального setInterval нет
-import React, { useState, useEffect } from 'react';
+// EventsZone.jsx — таймер читается из globalTimer store, локального setInterval нет
+import React, { useState, useEffect, useRef } from 'react';
 import { generateEventLine, CARD_TYPES } from './Eventsdata.js';
 import useGameStore from '../../store/gameStore';
 import styles from './EventsZone.module.css';
 import BudgetBar from '../Budgetbar.jsx';
-import EventsZoneTour from './Eventszonetour';
+import { getSocket } from '../apiHelpers';
 
 const formatTime = (totalSeconds) => {
   const s = Math.max(0, Math.floor(totalSeconds));
@@ -33,6 +33,58 @@ const effectIsPositive = (effect) => {
   return effect.value > 0;
 };
 
+// Компонент модалки подтверждения пропуска
+const SkipConfirmModal = ({ lineName, stats, onConfirm, onCancel }) => {
+  return (
+    <div className={styles.modalOverlay} onClick={onCancel}>
+      <div className={styles.skipConfirmModal} onClick={e => e.stopPropagation()}>
+        <div className={styles.skipConfirmIcon}></div>
+        <div className={styles.skipConfirmContent}>
+          <h3 className={styles.skipConfirmTitle}>Пропустить линию событий?</h3>
+          <p className={styles.skipConfirmLine}>{lineName}</p>
+
+          <div className={styles.skipConfirmStats}>
+            <div className={styles.skipStatRow}>
+              <span className={styles.skipStatLabel}>Текущий счёт:</span>
+              <span className={styles.skipStatValue}>{stats.score} очков</span>
+            </div>
+            <div className={styles.skipStatRow}>
+              <span className={styles.skipStatLabel}>Правильных ответов:</span>
+              <span className={styles.skipStatValue}>{stats.correct}</span>
+            </div>
+            <div className={styles.skipStatRow}>
+              <span className={styles.skipStatLabel}>Неправильных ответов:</span>
+              <span className={styles.skipStatValue}>{stats.wrong}</span>
+            </div>
+            {stats.moneyDelta !== 0 && (
+              <div className={styles.skipStatRow}>
+                <span className={styles.skipStatLabel}>Изменение бюджета:</span>
+                <span className={styles.skipStatValue} style={{ color: stats.moneyDelta > 0 ? '#4ade80' : '#f87171' }}>
+                  {stats.moneyDelta > 0 ? '+' : ''}{stats.moneyDelta} млн
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className={styles.skipConfirmWarning}>
+            <span></span>
+            <span>Неотвеченные карточки будут пропущены без начисления очков</span>
+          </div>
+
+          <div className={styles.skipConfirmActions}>
+            <button className={styles.skipConfirmCancel} onClick={onCancel}>
+              Отмена
+            </button>
+            <button className={styles.skipConfirmConfirm} onClick={onConfirm}>
+              Подтвердить пропуск
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const EventsZone = ({ onComplete, onBack, onMenu }) => {
   const {
     gridCells, research, events, player,
@@ -41,15 +93,18 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     pauseGlobalTimer, resumeGlobalTimer, setGlobalPhase,
   } = useGameStore();
 
-  // ── ГЛОБАЛЬНЫЙ ТАЙМЕР (только чтение) ────────────────────────────────────
-  // Интервал живёт в useGlobalTimer() на уровне App/GameRoot.
-  // Здесь мы только объявляем фазу и читаем timeRemaining.
   const globalTimer = useGameStore(s => s.globalTimer);
   const globalYear = useGameStore(s => s.game.currentYear);
 
   const [selectedCard, setSelectedCard] = useState(null);
+  const [selectedAnswers, setSelectedAnswers] = useState([]);
   const [cancelPickMode, setCancelPickMode] = useState(false);
   const [cancelSource, setCancelSource] = useState(null);
+  const [skipConfirmData, setSkipConfirmData] = useState(null);
+
+  // lineStatsRef — трекер ответов/денег по каждому ЛУ за текущий вызов компонента
+  // Добавлено поле cardAnswers — массив детальных ответов для передачи на сервер
+  const lineStatsRef = useRef({});
 
   const ownedLUs = Object.values(gridCells.owned).map(cell => ({
     id: cell.cellRef, cellRef: cell.cellRef,
@@ -59,13 +114,23 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
   const [activeLUId, setActiveLUId] = useState(() => ownedLUs[0]?.cellRef || null);
   const activeLU = ownedLUs.find(l => l.cellRef === activeLUId) || ownedLUs[0] || null;
 
-  // Объявляем фазу при монтировании → таймер сбросится на yearDurations[year]
+  // Инициализируем трекер для каждого ЛУ
+  useEffect(() => {
+    ownedLUs.forEach(lu => {
+      if (!lineStatsRef.current[lu.cellRef]) {
+        lineStatsRef.current[lu.cellRef] = {
+          correct: 0, wrong: 0, moneyDelta: 0,
+          cardAnswers: [], // детальные ответы на карточки
+          _saved: false,
+        };
+      }
+    });
+  }, [ownedLUs.length]);
+
   useEffect(() => {
     setGlobalPhase('EVENTS');
-    // Нет setInterval — тик идёт из useGlobalTimer() на уровне App
   }, []);
 
-  // Пауза при открытом модальном окне
   useEffect(() => {
     if (selectedCard || cancelPickMode) pauseGlobalTimer();
     else resumeGlobalTimer();
@@ -107,6 +172,13 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
             if (effect.type === 'money') riskMoneyTotal += effect.value;
           }
         });
+
+        if (!lineStatsRef.current[lu.id]) {
+          lineStatsRef.current[lu.id] = { correct: 0, wrong: 0, moneyDelta: 0, cardAnswers: [], _saved: false };
+        }
+        if (riskMoneyTotal !== 0) {
+          lineStatsRef.current[lu.id].moneyDelta += riskMoneyTotal;
+        }
 
         useGameStore.setState(state => {
           const newState = { events: { ...state.events } };
@@ -182,6 +254,47 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     return nonResearchLines.length > 0 || eventLines.length === 0;
   };
 
+  // ── Сохранение линии на сервер (с детальными ответами) ────────────────────
+  const saveLineToServer = (luId, options = {}) => {
+    const socket = getSocket();
+    if (!socket?.connected || !player.sessionId) return;
+
+    const stats = lineStatsRef.current[luId] || { correct: 0, wrong: 0, moneyDelta: 0, cardAnswers: [] };
+    const score = events.lineScores?.[luId] ?? 0;
+    const currentBudget = useGameStore.getState().player.budget;
+
+    socket.emit('events:save', {
+      luId,
+      year: globalYear,
+      data: {
+        score,
+        moneyDelta:     stats.moneyDelta,
+        correctAnswers: stats.correct,
+        wrongAnswers:   stats.wrong,
+        budgetAfter:    currentBudget,
+        line:           events.linesByLU[luId] || {},
+        completed:      options.completed || false,
+        skipped:        options.skipped   || false,
+        // Детальные ответы для AdminPanel
+        cardAnswers:    stats.cardAnswers || [],
+      },
+    }, (res) => {
+      if (!res?.ok) console.warn('events:save failed:', res?.error);
+    });
+  };
+
+  useEffect(() => {
+    playableLines.forEach((line, li) => {
+      if (isLineComplete(li) || isLineSkipped(li)) {
+        const stats = lineStatsRef.current[line.luId];
+        if (stats && !stats._saved) {
+          stats._saved = true;
+          saveLineToServer(line.luId, { completed: true });
+        }
+      }
+    });
+  });
+
   const handleCardClick = (lineIndex, cardIndex, card) => {
     const line = playableLines[lineIndex];
     if (!line) return;
@@ -195,21 +308,76 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     if (rev[cardKey]?.revealed) return;
     if ((events.skippedLines[luId] || []).length > 0) return;
     setSelectedCard({ lineIndex, cardIndex, card, cardKey, luId });
+    setSelectedAnswers([]);
   };
 
-  const handleAnswerQuestion = (answerIndex) => {
+  // Обработка выбора варианта ответа (с ограничением по количеству)
+  const handleSelectAnswer = (answerIndex) => {
     if (!selectedCard || selectedCard.card.type !== CARD_TYPES.OPPORTUNITY) return;
-    const { cardKey, card, luId } = selectedCard;
-    const isCorrect = answerIndex === card.data.correctAnswer;
+
+    const { card } = selectedCard;
+    const isMultipleChoice = card.data.correctAnswer && Array.isArray(card.data.correctAnswer);
+    const maxSelections = isMultipleChoice ? card.data.correctAnswer.length : 1;
+
+    if (selectedAnswers.includes(answerIndex)) {
+      setSelectedAnswers(selectedAnswers.filter(idx => idx !== answerIndex));
+    } else {
+      if (selectedAnswers.length < maxSelections) {
+        setSelectedAnswers([...selectedAnswers, answerIndex]);
+      }
+    }
+  };
+
+  // ── Подтверждение ответа — записываем детальный ответ в lineStatsRef ──────
+  const handleConfirmAnswer = () => {
+    if (!selectedCard || selectedCard.card.type !== CARD_TYPES.OPPORTUNITY) return;
+
+    const { cardKey, card, luId, cardIndex } = selectedCard;
+    const isMultipleChoice = card.data.correctAnswer && Array.isArray(card.data.correctAnswer);
+
+    const expectedCount = isMultipleChoice ? card.data.correctAnswer.length : 1;
+    if (selectedAnswers.length !== expectedCount) return;
+
+    let isCorrect = false;
+    if (isMultipleChoice) {
+      isCorrect = card.data.correctAnswer.every(correctIdx =>
+        selectedAnswers.includes(correctIdx)
+      ) && selectedAnswers.length === card.data.correctAnswer.length;
+    } else {
+      isCorrect = selectedAnswers[0] === card.data.correctAnswer;
+    }
+
     const pts = isCorrect ? card.data.points : 0;
+
+    if (!lineStatsRef.current[luId]) {
+      lineStatsRef.current[luId] = { correct: 0, wrong: 0, moneyDelta: 0, cardAnswers: [], _saved: false };
+    }
+    lineStatsRef.current[luId]._saved = false;
+    if (isCorrect) lineStatsRef.current[luId].correct += 1;
+    else           lineStatsRef.current[luId].wrong   += 1;
+
+    // ── Детальная запись ответа ───────────────────────────────────────────
+    lineStatsRef.current[luId].cardAnswers.push({
+      cardIndex,
+      cardType:        'opportunity',
+      question:        card.data.question  || '',
+      options:         card.data.options   || [],
+      selectedAnswers: [...selectedAnswers],
+      correctAnswer:   card.data.correctAnswer,
+      isCorrect,
+      points:          pts,
+      skipped:         false,
+    });
+
     revealEventCard(luId, cardKey, { revealed: true, correct: isCorrect, points: pts });
     updateEventLineScore(luId, pts);
     setSelectedCard(null);
+    setSelectedAnswers([]);
   };
 
   const handlePlayRandom = (play) => {
     if (!selectedCard || selectedCard.card.type !== CARD_TYPES.RANDOM) return;
-    const { cardKey, card, luId } = selectedCard;
+    const { cardKey, card, luId, cardIndex } = selectedCard;
     const effect = card.data.effect
       || (typeof card.data.points === 'number' ? { type: 'points', value: card.data.points } : { type: 'points', value: 0 });
 
@@ -218,6 +386,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
       setSelectedCard(null);
       return;
     }
+
     if (effect.type === 'cancel') {
       revealEventCard(luId, cardKey, { revealed: true, played: true, points: 0 });
       setSelectedCard(null);
@@ -225,15 +394,24 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
       setCancelPickMode(true);
       return;
     }
+
+    if (!lineStatsRef.current[luId]) {
+      lineStatsRef.current[luId] = { correct: 0, wrong: 0, moneyDelta: 0, cardAnswers: [], _saved: false };
+    }
+    lineStatsRef.current[luId]._saved = false;
+
     if (effect.type === 'points') {
       revealEventCard(luId, cardKey, { revealed: true, played: true, points: effect.value });
       updateEventLineScore(luId, effect.value);
     }
+
     if (effect.type === 'money') {
       revealEventCard(luId, cardKey, { revealed: true, played: true, money: effect.value });
       useGameStore.setState(st => ({ player: { ...st.player, budget: st.player.budget + effect.value } }));
-      updateEventMoneySpent(effect.value); // записывает в счётчик только отрицательные суммы
+      updateEventMoneySpent(effect.value);
+      lineStatsRef.current[luId].moneyDelta += effect.value;
     }
+
     setSelectedCard(null);
   };
 
@@ -242,12 +420,24 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     const luId = cancelSource.luId;
     const cardKey = `${lineIndex}-${cardIndex}`;
     const effect = card.data.effect;
+
+    if (!lineStatsRef.current[luId]) {
+      lineStatsRef.current[luId] = { correct: 0, wrong: 0, moneyDelta: 0, cardAnswers: [], _saved: false };
+    }
+    lineStatsRef.current[luId]._saved = false;
+
     if (effect?.type === 'points' && effect.value < 0) {
       updateEventLineScore(luId, -effect.value);
       useGameStore.setState(st => ({
         events: {
           ...st.events,
-          revealedCards: { ...st.events.revealedCards, [luId]: { ...(st.events.revealedCards[luId] || {}), [cardKey]: { revealed: true, cancelled: true, points: 0 } } },
+          revealedCards: {
+            ...st.events.revealedCards,
+            [luId]: {
+              ...(st.events.revealedCards[luId] || {}),
+              [cardKey]: { revealed: true, cancelled: true, points: 0 },
+            },
+          },
         },
       }));
     } else if (effect?.type === 'money' && effect.value < 0) {
@@ -255,10 +445,18 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
         player: { ...st.player, budget: st.player.budget - effect.value },
         events: {
           ...st.events,
-          revealedCards: { ...st.events.revealedCards, [luId]: { ...(st.events.revealedCards[luId] || {}), [cardKey]: { revealed: true, cancelled: true, money: 0 } } },
+          revealedCards: {
+            ...st.events.revealedCards,
+            [luId]: {
+              ...(st.events.revealedCards[luId] || {}),
+              [cardKey]: { revealed: true, cancelled: true, money: 0 },
+            },
+          },
         },
       }));
+      lineStatsRef.current[luId].moneyDelta -= effect.value;
     }
+
     setCancelPickMode(false);
     setCancelSource(null);
   };
@@ -266,17 +464,107 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
   const handleSkipLine = (lineIndex) => {
     const line = playableLines[lineIndex];
     if (!line) return;
-    if (window.confirm(`Пропустить линию для ЛУ "${line.luName}"?`)) {
-      skipEventLine(line.luId);
-      line.cards.forEach((_, ci) => {
-        const key = `${lineIndex}-${ci}`;
-        const rev = events.revealedCards[line.luId] || {};
-        if (!rev[key]) revealEventCard(line.luId, key, { revealed: true, skipped: true, points: 0 });
-      });
-    }
+
+    const currentStats = lineStatsRef.current[line.luId] || { correct: 0, wrong: 0, moneyDelta: 0, cardAnswers: [], _saved: false };
+    const currentScore = events.lineScores?.[line.luId] || 0;
+
+    setSkipConfirmData({
+      lineIndex,
+      line,
+      stats: {
+        score: currentScore,
+        correct: currentStats.correct,
+        wrong:   currentStats.wrong,
+        moneyDelta: currentStats.moneyDelta,
+      }
+    });
   };
 
-  const handleComplete = () => { completeEvents(); onComplete(); };
+  const confirmSkipLine = () => {
+    if (!skipConfirmData) return;
+
+    const { lineIndex, line, stats } = skipConfirmData;
+
+    // Помечаем все ещё не открытые карточки-вопросы как пропущенные в детальных ответах
+    if (!lineStatsRef.current[line.luId]) {
+      lineStatsRef.current[line.luId] = { correct: 0, wrong: 0, moneyDelta: 0, cardAnswers: [], _saved: false };
+    }
+    const lineData = events.linesByLU[line.luId];
+    if (lineData?.cards) {
+      const rev = events.revealedCards[line.luId] || {};
+      lineData.cards.forEach((card, ci) => {
+        if (card.type !== CARD_TYPES.OPPORTUNITY) return;
+        const key = `${lineIndex}-${ci}`;
+        if (rev[key]?.revealed) return; // уже отвечено — не дублируем
+        lineStatsRef.current[line.luId].cardAnswers.push({
+          cardIndex:       ci,
+          cardType:        'opportunity',
+          question:        card.data?.question || '',
+          options:         card.data?.options  || [],
+          selectedAnswers: [],
+          correctAnswer:   card.data?.correctAnswer ?? null,
+          isCorrect:       false,
+          points:          0,
+          skipped:         true,
+        });
+      });
+    }
+
+    const socket = getSocket();
+    if (socket?.connected && player.sessionId) {
+      socket.emit('events:save', {
+        luId: line.luId,
+        year: globalYear,
+        data: {
+          score:          stats.score,
+          moneyDelta:     stats.moneyDelta,
+          correctAnswers: stats.correct,
+          wrongAnswers:   stats.wrong,
+          budgetAfter:    useGameStore.getState().player.budget,
+          line:           events.linesByLU[line.luId] || {},
+          completed:      false,
+          skipped:        true,
+          cardAnswers:    lineStatsRef.current[line.luId]?.cardAnswers || [],
+        },
+      }, (res) => {
+        if (!res?.ok) console.warn('events:save failed before skip:', res?.error);
+      });
+    }
+
+    skipEventLine(line.luId);
+
+    line.cards.forEach((card, ci) => {
+      const key = `${lineIndex}-${ci}`;
+      const rev = events.revealedCards[line.luId] || {};
+      if (rev[key]?.revealed) return;
+      revealEventCard(line.luId, key, {
+        revealed: true, skipped: true, points: 0, timestamp: Date.now()
+      });
+    });
+
+    if (lineStatsRef.current[line.luId]) {
+      lineStatsRef.current[line.luId]._saved = false;
+      lineStatsRef.current[line.luId].skipped = true;
+    }
+
+    setSkipConfirmData(null);
+  };
+
+  const cancelSkipLine = () => {
+    setSkipConfirmData(null);
+  };
+
+  const handleComplete = () => {
+    playableLines.forEach(line => {
+      const stats = lineStatsRef.current[line.luId];
+      if (stats) {
+        stats._saved = false;
+        saveLineToServer(line.luId, { completed: true });
+      }
+    });
+    completeEvents();
+    onComplete();
+  };
 
   const renderCard = (card, cardIndex, lineIndex, line) => {
     const luId = line.luId;
@@ -284,6 +572,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     const rev = (events.revealedCards[luId] || {})[cardKey];
     const skipped = isLineSkipped(lineIndex);
     const cancelled = rev?.cancelled;
+
     const normalizeEffect = (data) => {
       if (data?.effect) return data.effect;
       if (typeof data?.points === 'number') return { type: 'points', value: data.points };
@@ -331,7 +620,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
               </div>
             ) : (
               <div className={styles.opportunityPreview}>
-                <span style={{ fontSize: '2rem' }}>❓</span>
+                <span style={{ fontSize: '2rem' }}></span>
                 <span className={styles.points} style={{ color: '#2e7d32', fontSize: '1.5rem' }}>+{card.data.points}</span>
                 <span style={{ fontSize: '0.75rem', color: '#666', marginTop: '5px' }}>Нажмите</span>
               </div>
@@ -340,6 +629,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
         </div>
       );
     }
+
     const effect = normalizeEffect(card.data);
     const isPos = effectIsPositive(effect);
     const effLabel = fmtEffect(effect);
@@ -377,8 +667,6 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
 
   return (
     <div className={styles.eventsZone}>
-      {/* <EventsZoneTour globalYear={globalYear} onDone={() => { }} /> */}
-      {/* ── ГЛОБАЛЬНЫЙ ТАЙМЕР (только чтение из store) ─────────────────── */}
       <div className={styles.timer}>
         <div className={styles.timerLabel}>Время на события</div>
         <div className={styles.timerValue}>{formatTime(globalTimer.timeRemaining)}</div>
@@ -403,6 +691,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
             const score = events.lineScores?.[lu.cellRef] ?? 0;
             const line = events.linesByLU[lu.cellRef];
             const hasRes = hasResearchForLU(lu.cellRef);
+            const stats = lineStatsRef.current[lu.cellRef] || { correct: 0, wrong: 0 };
             return (
               <div key={lu.cellRef} onClick={() => setActiveLUId(lu.cellRef)}
                 className={[styles.luCard, isActive ? styles.luCardActive : '', styles['luSt_' + status]].join(' ')}>
@@ -431,15 +720,6 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
         />
       </div>
 
-      {/* {cancelPickMode && (
-        <div className={styles.cancelBanner}>
-          <span>🎯 Выберите карточку риска, которую хотите отменить</span>
-          <button className={styles.cancelBannerAbort} onClick={() => { setCancelPickMode(false); setCancelSource(null); }}>
-            Отказаться
-          </button>
-        </div>
-      )} */}
-
       <div className={styles.activeLineArea}>
         {!activeLU ? (
           <div className={styles.emptyMsg}>Нет купленных участков</div>
@@ -458,6 +738,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
                 <span className={`${styles.lineScore} ${getLineScore(activeLineIndex) >= 0 ? styles.positive : styles.negative}`}>
                   Счёт: {getLineScore(activeLineIndex) >= 0 ? '+' : ''}{getLineScore(activeLineIndex)}
                 </span>
+
                 {isLineSkipped(activeLineIndex) && <span className={`${styles.lineStatus} ${styles.skipped}`}>⏭️ Пропущено</span>}
                 {isLineComplete(activeLineIndex) && !isLineSkipped(activeLineIndex) && (
                   <span className={styles.lineStatus}>
@@ -490,26 +771,58 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
       {selectedCard && (
         <div className={styles.cardModalOverlay}>
           <div className={styles.cardModal} onClick={e => e.stopPropagation()}>
-            {selectedCard.card.type === CARD_TYPES.OPPORTUNITY && (
-              <div className={styles.opportunityModal}>
-                <h3>❓ Карточка возможности</h3>
-                <div className={styles.mustAnswerHint}>Необходимо выбрать ответ, чтобы продолжить</div>
-                <div className={styles.cardContent}>
-                  {selectedCard.card.data.image && (
-                    <div className={styles.modalImageWrap}>
-                      <CardImage src={selectedCard.card.data.image} alt="Иллюстрация" className={styles.modalImage} />
-                    </div>
-                  )}
-                  <p className={styles.question}>{selectedCard.card.data.question}</p>
-                  <div className={styles.options}>
-                    {selectedCard.card.data.options.map((opt, i) => (
-                      <button key={i} className={styles.optionBtn} onClick={() => handleAnswerQuestion(i)}>{opt}</button>
-                    ))}
+            {selectedCard.card.type === CARD_TYPES.OPPORTUNITY && (() => {
+              const isMultipleChoice = selectedCard.card.data.correctAnswer &&
+                Array.isArray(selectedCard.card.data.correctAnswer);
+              const maxSelections = isMultipleChoice ? selectedCard.card.data.correctAnswer.length : 1;
+              const canConfirm = selectedAnswers.length === maxSelections;
+
+              return (
+                <div className={styles.opportunityModal}>
+                  <h3>❓ Карточка возможности</h3>
+                  <div className={styles.mustAnswerHint}>
+                    {isMultipleChoice
+                      ? `Выберите ${maxSelections} варианта ответа, затем нажмите "Подтвердить ответ"`
+                      : 'Выберите ответ, затем нажмите "Подтвердить ответ"'}
                   </div>
-                  <p className={styles.pointsInfo}>За правильный ответ: +{selectedCard.card.data.points}</p>
+                  <div className={styles.cardContent}>
+                    {selectedCard.card.data.image && (
+                      <div className={styles.modalImageWrap}>
+                        <CardImage src={selectedCard.card.data.image} alt="Иллюстрация" className={styles.modalImage} />
+                      </div>
+                    )}
+                    <p className={styles.question}>{selectedCard.card.data.question}</p>
+                    <div className={styles.options}>
+                      {selectedCard.card.data.options.map((opt, i) => (
+                        <button
+                          key={i}
+                          className={`${styles.optionBtn} ${selectedAnswers.includes(i) ? styles.optionBtnSelected : ''}`}
+                          onClick={() => handleSelectAnswer(i)}
+                        >
+                          {opt}
+                          {selectedAnswers.includes(i) && <span className={styles.checkmark}></span>}
+                        </button>
+                      ))}
+                    </div>
+                    <div className={styles.selectionInfo}>
+                      <span className={styles.selectionCount}>
+                        Выбрано: {selectedAnswers.length} из {maxSelections}
+                      </span>
+                    </div>
+                    <div className={styles.confirmButtonContainer}>
+                      <button
+                        className={`${styles.confirmAnswerBtn} ${canConfirm ? styles.confirmActive : styles.confirmDisabled}`}
+                        onClick={handleConfirmAnswer}
+                        disabled={!canConfirm}
+                      >
+                        Подтвердить ответ
+                      </button>
+                    </div>
+                    <p className={styles.pointsInfo}>За правильный ответ: +{selectedCard.card.data.points}</p>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
             {selectedCard.card.type === CARD_TYPES.RANDOM && (() => {
               const effect = selectedCard.card.data.effect
                 || (typeof selectedCard.card.data.points === 'number' ? { type: 'points', value: selectedCard.card.data.points } : { type: 'points', value: 0 });
@@ -539,6 +852,15 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
             })()}
           </div>
         </div>
+      )}
+
+      {skipConfirmData && (
+        <SkipConfirmModal
+          lineName={skipConfirmData.line.luName}
+          stats={skipConfirmData.stats}
+          onConfirm={confirmSkipLine}
+          onCancel={cancelSkipLine}
+        />
       )}
     </div>
   );
