@@ -430,8 +430,8 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         } else {
           showAlert('Ошибка',
             res?.error === 'INSUFFICIENT_FUNDS' ? 'Недостаточно средств на счёте.' :
-            res?.error === 'ALREADY_PURCHASED'  ? 'Эта карточка уже куплена.' :
-            `Ошибка покупки: ${res?.error || 'неизвестная ошибка'}`
+              res?.error === 'ALREADY_PURCHASED' ? 'Эта карточка уже куплена.' :
+                `Ошибка покупки: ${res?.error || 'неизвестная ошибка'}`
           );
         }
       });

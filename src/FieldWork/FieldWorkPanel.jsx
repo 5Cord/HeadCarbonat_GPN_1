@@ -4,7 +4,7 @@ import { FIELD_WORK_BLOCKS, calculateTotalCost, calculateQualityScore, prepareFi
 import useGameStore from '../../store/gameStore';
 import styles from './FieldWorkPanel.module.css';
 import BudgetBar from '../Budgetbar.jsx';
-import FieldWorkPanelTour from './Fieldworkpaneltour';
+import { getSocket } from '../apiHelpers';
 
 // ─── Утилиты ─────────────────────────────────────────────────────────────────
 
@@ -13,13 +13,6 @@ const fmtTime = (totalSeconds) => {
   const m = Math.floor(s / 60);
   const sec = s % 60;
   return String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
-};
-
-const yearLabel = (y) => {
-  if (y <= 4) return 'Геологоразведочные работы — год ' + y;
-  if (y === 5) return 'Разведочное бурение — год 5';
-  if (y <= 8) return 'Бурение скважин — год ' + y;
-  return 'Добыча — год ' + y;
 };
 
 const GRP_LBL = {
@@ -137,9 +130,69 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
 
   const doSelect = (cardId, rank) => setSelections(prev => ({ ...prev, [cardId]: rank }));
 
+  // ── Сохранение на сервер ─────────────────────────────────────────────────
+  // Формируем детальные данные карточек для AdminPanel
+  const buildDetailedSelections = (sel, blocks) => {
+    const details = [];
+    blocks.forEach(block => {
+      block.cards.forEach(card => {
+        const chosenRank = sel[card.cardId];
+        // Записываем все карточки: выбранные и нет
+        const chosen = chosenRank != null
+          ? card.options.find(o => o.rank === chosenRank)
+          : null;
+        details.push({
+          blockId:      block.blockId,
+          blockTitle:   block.title,
+          groupColor:   block.groupColor,
+          mobWorkId:    block.mobWorkId,
+          cardId:       card.cardId,
+          cardTitle:    card.cardTitle,
+          chosenRank:   chosenRank ?? null,
+          chosenParam:  chosen?.param  ?? null,
+          cost:         chosen?.cost   ?? 0,
+          skipped:      chosenRank == null,
+          allOptions:   card.options.map(o => ({ rank: o.rank, param: o.param, cost: o.cost })),
+        });
+      });
+    });
+    return details;
+  };
+
+  const saveToServer = (sel, blocks, budgetAfter) => {
+    const socket = getSocket();
+    if (!socket?.connected || !player.sessionId) return;
+
+    const totalCost     = calculateTotalCost(sel, blocks);
+    const qualityScore  = calculateQualityScore(sel, blocks);
+    const avgR          = calcAvgRank(sel, blocks);
+    const detailedCards = buildDetailedSelections(sel, blocks);
+
+    socket.emit('fieldwork:save', {
+      luId,
+      year: globalYear,
+      data: {
+        selections:     detailedCards,   // детальные данные для AdminPanel
+        selectionsRaw:  sel,             // { cardId: rank } — быстрый доступ
+        totalCost,
+        qualityScore,
+        avgRank:        avgR,
+        budgetAfter:    budgetAfter ?? useGameStore.getState().player.budget,
+        availableBlocks: blocks.map(b => b.blockId),
+        completed:      true,
+      },
+    }, (res) => {
+      if (!res?.ok) console.warn('fieldwork:save failed:', res?.error);
+      else console.log(`🏕 fieldwork:save ok — год ${globalYear} ЛУ ${luId} cost=${totalCost}`);
+    });
+  };
+
   const doConfirm = () => {
     if (!canAfford || selCards === 0) return;
-    useGameStore.setState(st => ({ player: { ...st.player, budget: st.player.budget - tc } }));
+
+    const newBudget = player.budget - tc;
+    useGameStore.setState(st => ({ player: { ...st.player, budget: newBudget } }));
+
     const luStore = fieldWork.selectionsByLU[luId] || {};
     const apiPayload = {
       ...prepareFieldWorkForAPI(player.id, luId, selections, avail),
@@ -148,6 +201,10 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
       metaByYear: luStore.metaByYear || {},
     };
     console.log('[FieldWork API]', apiPayload);
+
+    // Сохранить на сервер
+    saveToServer(selections, avail, newBudget);
+
     onComplete();
   };
 
@@ -200,9 +257,7 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
 
   return (
     <div className={styles.panel}>
-      {/* <FieldWorkPanelTour globalYear={globalYear} onDone={() => { }} /> */}
-
-      {/* ── КНОПКИ НАВИГАЦИИ (фиксированные слева, как в ResearchPanel) ── */}
+      {/* ── КНОПКИ НАВИГАЦИИ ── */}
       <div className={styles.researchMapControls}>
         <button className={`${styles.researchControlBtn} ${styles.researchBackBtn}`} onClick={handleBack}>
           ← Назад
@@ -215,7 +270,7 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
         </button>
       </div>
 
-      {/* ── ГЛОБАЛЬНЫЙ ТАЙМЕР (только чтение из store) ──────────────────── */}
+      {/* ── ГЛОБАЛЬНЫЙ ТАЙМЕР ── */}
       <div className={timerCls()}>
         {isTimerFinished ? (
           <>
@@ -231,7 +286,7 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
         )}
       </div>
 
-      {/* ── ВЫБОР УЧАСТКА ───────────────────────────────────────────────── */}
+      {/* ── ВЫБОР УЧАСТКА ── */}
       <div className={styles.luSection}>
         <div className={styles.luSectionLabel}>Шаг 1. Выберите участок:</div>
         <div className={styles.luCardsRow}>
@@ -291,7 +346,7 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
         )}
       </div>
 
-      {/* ── ОБЛАСТЬ КАРТОЧЕК ────────────────────────────────────────────── */}
+      {/* ── ОБЛАСТЬ КАРТОЧЕК ── */}
       <div className={styles.fieldArea}>
         {!activeLU ? (
           <div className={styles.emptyMsg}>Выберите участок выше</div>
@@ -343,7 +398,7 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
         )}
       </div>
 
-      {/* ── НИЖНЯЯ ПАНЕЛЬ ПОДТВЕРЖДЕНИЯ ─────────────────────────────────── */}
+      {/* ── НИЖНЯЯ ПАНЕЛЬ ПОДТВЕРЖДЕНИЯ ── */}
       {activeLU && avail.length > 0 && (
         <div className={styles.bottomBar}>
           <div className={styles.bottomInfo}>

@@ -677,6 +677,11 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   const multiMode = selectedLUs.length > 0;
   const canSkipAny = selectedLUs.some(luId => (getProgress(luId).purchasedWorksByYear?.[globalYear] || []).length === 0);
 
+  const allLUsDoneThisYear = useMemo(() => {
+    if (ownedLUs.length === 0) return false;
+    return ownedLUs.every(lu => isLUDone(lu.cellRef));
+  }, [ownedLUs, isLUDone]);
+
   // ── colRateActive — исправлен для мульти-режима ──────────────────────────
   const colRateActive = useCallback((colId) => {
     const targetProgs = multiMode && selectedLUs.length > 0
@@ -729,7 +734,15 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       <div className={styles.researchMapControls}>
         <button className={`${styles.researchControlBtn} ${styles.researchBackBtn}`} onClick={onBack}>← Назад</button>
         <button className={`${styles.researchControlBtn} ${styles.researchBackBtn}`} onClick={onMenu}>В меню</button>
-        <button className={`${styles.researchControlBtn} ${styles.researchNextBtn}`} onClick={onComplete}>Далее — К зоне событий</button>
+        <button
+          className={`${styles.researchControlBtn} ${styles.researchNextBtn}`}
+          onClick={allLUsDoneThisYear ? onComplete : undefined}
+          disabled={!allLUsDoneThisYear}
+          title={!allLUsDoneThisYear ? 'Завершите или пропустите НИРы для всех участков' : ''}
+          style={!allLUsDoneThisYear ? { opacity: 0.45, cursor: 'not-allowed' } : {}}
+        >
+          {allLUsDoneThisYear ? 'Далее — К зоне событий' : `Осталось: ${ownedLUs.filter(lu => !isLUDone(lu.cellRef)).length} уч.`}
+        </button>
       </div>
 
       {/* ── ПАНЕЛЬ УЧАСТКОВ ────────────────────────────────────────────── */}
@@ -793,10 +806,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
 
             {multiMode && (
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 8, alignItems: 'center' }}>
-                <div style={{ padding: '7px 14px', background: '#e8f5e9', border: '2px solid #4caf50', borderRadius: 8, fontSize: '0.9rem' }}>
-                  <span style={{ color: '#2e7d32', fontWeight: 700 }}>Выбрано: {selectedLUs.length} уч.</span>
-                  {selectedCol && <span style={{ marginLeft: 8, color: '#ff9800', fontWeight: 700 }}>| Столбец: {MOBILIZATION_WORKS.find(m => m.id === selectedCol)?.name}</span>}
-                </div>
                 {sessionCount > 0 && (
                   <button onClick={confirmSession} style={{ padding: '8px 18px', background: 'linear-gradient(135deg,#2fa394,#1a7a6e)', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 800, cursor: 'pointer', fontSize: '0.9rem' }}>
                     ✓ Подтвердить НИРы ({sessionCount}) — завершить
@@ -813,6 +822,13 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
             {!multiMode && !activeLU && <div style={{ padding: '6px 12px', background: '#f3f8ff', borderRadius: 7, border: '1px solid #b3d0f5', color: '#1565c0', fontSize: '0.85rem' }}>Выберите один или несколько участков выше, чтобы начать</div>}
             {multiMode && !selectedCol && <div style={{ padding: '6px 12px', background: '#fff8e1', borderRadius: 7, border: '1px solid #ffe082', color: '#795548', fontSize: '0.85rem' }}><strong>Шаг 2:</strong> кликните на заголовок столбца в таблице ниже</div>}
             {multiMode && selectedCol && sessionCount === 0 && <div style={{ padding: '6px 12px', background: '#fff8e1', borderRadius: 7, border: '1px solid #ffe082', color: '#795548', fontSize: '0.85rem' }}><strong>Шаг 3:</strong> кликайте по ячейкам столбца. После покупок нажмите «Подтвердить».</div>}
+            {!multiMode && !activeLU && !allLUsDoneThisYear && ownedLUs.length > 0 && (
+              <div style={{ padding: '6px 12px', background: '#fff3e0', borderRadius: 7, border: '1px solid #ffe082', color: '#e65100', fontSize: '0.85rem', marginTop: 4 }}>
+                <strong>Не все участки обработаны:</strong>{' '}
+                {ownedLUs.filter(lu => !isLUDone(lu.cellRef)).map(lu => lu.name).join(', ')}
+              </div>
+            )}
+
           </div>
         )}
 
@@ -849,21 +865,29 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
 
           return (
             <div style={{
-              marginTop: 10, padding: '7px 12px', background: '#e8f5e9',
+              marginTop: 10, padding: '8px 14px', background: '#e8f5e9',
               borderRadius: 8, border: '1px solid #a5d6a7',
-              display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center',
+              display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
             }}>
-              <span style={{ fontWeight: 600, color: '#555', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
-                {shortColName}:
+              <span style={{ fontSize: '0.78rem', color: '#888', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                {shortColName}
               </span>
-              {items.map(({ luId, luName, rate }) => (
-                <span key={luId} style={{
-                  fontSize: '0.82rem', fontWeight: 700,
-                  color: rate >= 70 ? '#2e7d32' : rate >= 40 ? '#f57c00' : rate > 0 ? '#c62828' : '#999',
-                }}>
-                  {luName} — {rate > 0 ? `${rate}%` : '—'}
-                </span>
-              ))}
+              <span style={{ fontSize: '0.85rem', color: '#555' }}>
+                {items.map(i => i.luName).join(', ')}
+              </span>
+              <span style={{ fontSize: '0.85rem', color: '#555' }}>
+               Успешность
+              </span>
+              
+              <span style={{
+                fontSize: '1.2rem', fontWeight: 800, lineHeight: 1,
+                color: (() => {
+                  const maxRate = Math.max(...items.map(i => i.rate));
+                  return maxRate >= 70 ? '#2e7d32' : maxRate >= 40 ? '#f57c00' : maxRate > 0 ? '#c62828' : '#bbb';
+                })(),
+              }}>
+                {items[0]?.rate > 0 ? `${items[0].rate}%` : '—'}
+              </span>
             </div>
           );
         })()}

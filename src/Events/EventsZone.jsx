@@ -779,7 +779,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
 
               return (
                 <div className={styles.opportunityModal}>
-                  <h3>❓ Карточка возможности</h3>
+                  <h3>Карточка возможности</h3>
                   <div className={styles.mustAnswerHint}>
                     {isMultipleChoice
                       ? `Выберите ${maxSelections} варианта ответа, затем нажмите "Подтвердить ответ"`

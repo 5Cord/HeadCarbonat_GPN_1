@@ -28,13 +28,26 @@ const PHASE_LABELS = {
     RESEARCH: 'Основная игра (НИР / события / полевые / результаты)',
 };
 
+const GROUP_COLOR_STYLES = {
+    gray: { bg: '#f1f5f9', border: '#94a3b8', text: '#475569', label: 'СРР' },
+    orange: { bg: '#fff7ed', border: '#fb923c', text: '#c2410c', label: 'ГРР' },
+    beige: { bg: '#fef9ee', border: '#d4a853', text: '#92400e', label: 'Бурение' },
+    blue: { bg: '#eff6ff', border: '#60a5fa', text: '#1d4ed8', label: 'Добыча' },
+};
+
+const RANK_COLORS = { 1: '#16a34a', 2: '#d97706', 3: '#64748b' };
+const RANK_LABELS = { 1: 'Лучший', 2: 'Средний', 3: 'Базовый' };
+
 const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3001';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const fmt = (sec) => { const s = Math.max(0, Math.floor(sec ?? 0)); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
 const fmtMln = (n) => Number(n || 0).toLocaleString('ru-RU', { maximumFractionDigits: 0 });
 
-const getSavedToken = () => localStorage.getItem('auth_token') || null;
+const getSavedToken = () => {
+    const token = localStorage.getItem('auth_token');
+    return token && token.length > 0 ? token : null;
+};
 
 const apiAction = async (path, method = 'POST', body) => {
     const token = getSavedToken();
@@ -46,6 +59,7 @@ const apiAction = async (path, method = 'POST', body) => {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
 };
+
 
 function useAdminFetch(url, deps = []) {
     const [data, setData] = useState(null);
@@ -149,7 +163,7 @@ const TimersForm = ({ timers, onChange }) => {
                 ))}
             </div>
             <div className="tf-section">
-                <div className="tf-section-title">📅 НИР · События · Полевые · Результаты (по годам)</div>
+                <div className="tf-section-title"> НИР · События · Полевые · Результаты (по годам)</div>
                 <div className="tf-years-grid">
                     {YEARS.map(y => (
                         <div key={y} className="tf-year-cell">
@@ -344,7 +358,7 @@ const CreateSessionTab = () => {
                     <div className="code-label">Код для команд</div>
                     <div className="code-value">{created.sessionCode}</div>
                     <button className="copy-btn" onClick={() => { navigator.clipboard.writeText(created.sessionCode); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
-                        {copied ? '✅ Скопировано' : '📋 Копировать'}
+                        {copied ? '✅ Скопировано' : ' Копировать'}
                     </button>
                 </div>
                 <p className="created-hint">Таймер → выберите сессию → нажмите «Старт сессии»</p>
@@ -414,28 +428,22 @@ const CreateSessionTab = () => {
     );
 };
 
+// ── Вспомогательные компоненты мониторинга ────────────────────────────────────
 
 const fmtNumber = (n) => (n ?? 0).toLocaleString('ru-RU');
-const fmtSigned = (n) => {
-    const v = n ?? 0;
-    return (v >= 0 ? '+' : '') + fmtNumber(v);
-};
+const fmtSigned = (n) => { const v = n ?? 0; return (v >= 0 ? '+' : '') + fmtNumber(v); };
 
-const MetricCard = ({ label, value, sub, color = '#334155', accent = false }) => {
-    return (
-        <div style={{
-            background: accent ? '#1e3a5f' : '#f8fafc',
-            border: `1.5px solid ${accent ? '#3b82f6' : '#e2e8f0'}`,
-            borderRadius: 10,
-            padding: '14px 18px',
-            minWidth: 140,
-        }}>
-            <div style={{ fontSize: 11, color: accent ? '#93c5fd' : '#64748b', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: accent ? '#fff' : color }}>{value}</div>
-            {sub && <div style={{ fontSize: 11, color: accent ? '#93c5fd' : '#94a3b8', marginTop: 2 }}>{sub}</div>}
-        </div>
-    );
-};
+const MetricCard = ({ label, value, sub, color = '#334155', accent = false }) => (
+    <div style={{
+        background: accent ? '#1e3a5f' : '#f8fafc',
+        border: `1.5px solid ${accent ? '#3b82f6' : '#e2e8f0'}`,
+        borderRadius: 10, padding: '14px 18px', minWidth: 140,
+    }}>
+        <div style={{ fontSize: 11, color: accent ? '#93c5fd' : '#64748b', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: accent ? '#fff' : color }}>{value}</div>
+        {sub && <div style={{ fontSize: 11, color: accent ? '#93c5fd' : '#94a3b8', marginTop: 2 }}>{sub}</div>}
+    </div>
+);
 
 const AccuracyBadge = ({ correct, wrong }) => {
     const total = correct + wrong;
@@ -450,78 +458,47 @@ const AccuracyBadge = ({ correct, wrong }) => {
     );
 };
 
+// ── Модалка детального просмотра карточки события ─────────────────────────────
 const CardAnswerModal = ({ card, onClose }) => {
     if (!card) return null;
     const { question, options, selectedAnswers, correctAnswer, isCorrect, points, skipped, cardType } = card;
-
     const correctArr = Array.isArray(correctAnswer) ? correctAnswer : (correctAnswer != null ? [correctAnswer] : []);
     const selectedArr = Array.isArray(selectedAnswers) ? selectedAnswers : [];
 
     return (
-        <div
-            onClick={onClose}
-            style={{
-                position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
-                zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-        >
-            <div
-                onClick={e => e.stopPropagation()}
-                style={{
-                    background: '#fff', borderRadius: 14, padding: 28, maxWidth: 560, width: '90%',
-                    boxShadow: '0 20px 60px rgba(0,0,0,0.25)', maxHeight: '85vh', overflowY: 'auto',
-                }}
-            >
+        <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: 28, maxWidth: 560, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', maxHeight: '85vh', overflowY: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                     <div>
-                        <span style={{
-                            fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
-                            color: cardType === 'opportunity' ? '#2563eb' : '#7c3aed',
-                            background: cardType === 'opportunity' ? '#dbeafe' : '#ede9fe',
-                            padding: '2px 8px', borderRadius: 4,
-                        }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#2563eb', background: '#dbeafe', padding: '2px 8px', borderRadius: 4 }}>
                             {cardType === 'opportunity' ? 'Возможность' : cardType === 'random' ? 'Случайность' : 'Риск'}
                         </span>
                         {skipped && <span style={{ marginLeft: 8, fontSize: 11, color: '#64748b', background: '#f1f5f9', padding: '2px 8px', borderRadius: 4 }}>пропущено</span>}
                     </div>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#64748b', lineHeight: 1 }}>✕</button>
                 </div>
-
-                {question && (
-                    <div style={{ fontSize: 15, fontWeight: 600, color: '#1e293b', marginBottom: 18, lineHeight: 1.5 }}>
-                        {question}
-                    </div>
-                )}
-
+                {question && <div style={{ fontSize: 15, fontWeight: 600, color: '#1e293b', marginBottom: 18, lineHeight: 1.5 }}>{question}</div>}
                 {options && options.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
                         {options.map((opt, i) => {
-                            const isSelected = selectedArr.includes(i);
-                            const isCorrectOpt = correctArr.includes(i);
-                            let bg = '#f8fafc';
-                            let border = '#e2e8f0';
-                            let textColor = '#334155';
-                            if (isSelected && isCorrectOpt) { bg = '#dcfce7'; border = '#16a34a'; textColor = '#15803d'; }
-                            else if (isSelected && !isCorrectOpt) { bg = '#fee2e2'; border = '#dc2626'; textColor = '#b91c1c'; }
-                            else if (!isSelected && isCorrectOpt) { bg = '#f0fdf4'; border = '#86efac'; textColor = '#166534'; }
-
+                            const isSel = selectedArr.includes(i);
+                            const isCorr = correctArr.includes(i);
+                            let bg = '#f8fafc', border = '#e2e8f0', textColor = '#334155';
+                            if (isSel && isCorr) { bg = '#dcfce7'; border = '#16a34a'; textColor = '#15803d'; }
+                            else if (isSel && !isCorr) { bg = '#fee2e2'; border = '#dc2626'; textColor = '#b91c1c'; }
+                            else if (!isSel && isCorr) { bg = '#f0fdf4'; border = '#86efac'; textColor = '#166534'; }
                             return (
-                                <div key={i} style={{
-                                    padding: '10px 14px', borderRadius: 8, border: `1.5px solid ${border}`,
-                                    background: bg, color: textColor, fontSize: 14,
-                                    display: 'flex', alignItems: 'center', gap: 8,
-                                }}>
+                                <div key={i} style={{ padding: '10px 14px', borderRadius: 8, border: `1.5px solid ${border}`, background: bg, color: textColor, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <span style={{ fontWeight: 700, minWidth: 20 }}>{i + 1}.</span>
                                     <span style={{ flex: 1 }}>{opt}</span>
-                                    {isSelected && isCorrectOpt && <span style={{ fontSize: 16 }}>✅</span>}
-                                    {isSelected && !isCorrectOpt && <span style={{ fontSize: 16 }}>❌</span>}
-                                    {!isSelected && isCorrectOpt && <span style={{ fontSize: 13, color: '#15803d', fontWeight: 600 }}>← правильный</span>}
+                                    {isSel && isCorr && <span style={{ fontSize: 16 }}>✅</span>}
+                                    {isSel && !isCorr && <span style={{ fontSize: 16 }}>❌</span>}
+                                    {!isSel && isCorr && <span style={{ fontSize: 13, color: '#15803d', fontWeight: 600 }}>← правильный</span>}
                                 </div>
                             );
                         })}
                     </div>
                 )}
-
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center', paddingTop: 12, borderTop: '1px solid #e2e8f0' }}>
                     <span style={{ fontSize: 14, fontWeight: 600, color: isCorrect ? '#16a34a' : skipped ? '#64748b' : '#dc2626' }}>
                         {skipped ? '⏭ Пропущено' : isCorrect ? '✅ Правильно' : '❌ Неправильно'}
@@ -533,50 +510,27 @@ const CardAnswerModal = ({ card, onClose }) => {
     );
 };
 
+// ── Строка с карточками-ответами одного ЛУ (события) ─────────────────────────
 const EventLineDetail = ({ line }) => {
     const [openCard, setOpenCard] = useState(null);
-
     return (
         <div style={{ marginBottom: 16 }}>
-            <div style={{
-                display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10,
-                padding: '8px 12px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0',
-            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, padding: '8px 12px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
                 <span style={{ fontWeight: 700, color: '#1e293b', fontSize: 14 }}>Участок {line.luId}</span>
                 <AccuracyBadge correct={line.correctAnswers} wrong={line.wrongAnswers} />
-                <span style={{ fontSize: 13, color: '#64748b' }}>
-                    Счёт: <strong style={{ color: line.score >= 0 ? '#16a34a' : '#dc2626' }}>{fmtSigned(line.score)}</strong>
-                </span>
-                {line.moneyDelta !== 0 && (
-                    <span style={{ fontSize: 13, color: '#64748b' }}>
-                        Деньги: <strong style={{ color: line.moneyDelta >= 0 ? '#16a34a' : '#dc2626' }}>{fmtSigned(line.moneyDelta)} млн</strong>
-                    </span>
-                )}
+                <span style={{ fontSize: 13, color: '#64748b' }}>Счёт: <strong style={{ color: line.score >= 0 ? '#16a34a' : '#dc2626' }}>{fmtSigned(line.score)}</strong></span>
+                {line.moneyDelta !== 0 && <span style={{ fontSize: 13, color: '#64748b' }}>Деньги: <strong style={{ color: line.moneyDelta >= 0 ? '#16a34a' : '#dc2626' }}>{fmtSigned(line.moneyDelta)} млн</strong></span>}
                 {line.skipped && <span style={{ fontSize: 12, background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 4 }}>Пропущено</span>}
                 {line.completed && !line.skipped && <span style={{ fontSize: 12, background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 4 }}>Завершено</span>}
             </div>
-
             {line.cards && line.cards.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingLeft: 8 }}>
-                    {line.cards.map((card, i) => {
-                        const isOpp = card.cardType === 'opportunity';
-                        if (!isOpp) return null;
+                    {line.cards.filter(c => c.cardType === 'opportunity').map((card, i) => {
                         const bg = card.skipped ? '#f1f5f9' : card.isCorrect ? '#dcfce7' : '#fee2e2';
                         const border = card.skipped ? '#cbd5e1' : card.isCorrect ? '#86efac' : '#fca5a5';
                         const icon = card.skipped ? '⏭' : card.isCorrect ? '✅' : '❌';
                         return (
-                            <button
-                                key={i}
-                                onClick={() => setOpenCard(card)}
-                                title="Нажмите для просмотра вопроса и ответа"
-                                style={{
-                                    background: bg, border: `1.5px solid ${border}`,
-                                    borderRadius: 8, padding: '6px 10px', cursor: 'pointer',
-                                    fontSize: 12, fontWeight: 600, color: '#1e293b',
-                                    transition: 'transform 0.1s',
-                                    display: 'flex', alignItems: 'center', gap: 5,
-                                }}
-                            >
+                            <button key={i} onClick={() => setOpenCard(card)} title="Нажмите для просмотра" style={{ background: bg, border: `1.5px solid ${border}`, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 5 }}>
                                 <span>{icon}</span>
                                 <span>Карт. {card.cardIndex + 1}</span>
                                 {card.points > 0 && <span style={{ color: '#16a34a' }}>+{card.points}</span>}
@@ -588,29 +542,142 @@ const EventLineDetail = ({ line }) => {
                     )}
                 </div>
             )}
-
             {openCard && <CardAnswerModal card={openCard} onClose={() => setOpenCard(null)} />}
         </div>
     );
 };
 
+// ── Блок полевых работ одного ЛУ ─────────────────────────────────────────────
+const FieldworkLUDetail = ({ lu }) => {
+    const [expanded, setExpanded] = useState(false);
+
+    const rankColor = (rank) => rank ? RANK_COLORS[rank] || '#64748b' : '#94a3b8';
+    const rankLabel = (rank) => rank ? (RANK_LABELS[rank] || `Ранг ${rank}`) : 'Не выбрано';
+
+    const totalSelected = lu.blocks
+        ? lu.blocks.reduce((s, b) => s + b.cards.filter(c => !c.skipped && c.chosenRank != null).length, 0)
+        : 0;
+    const totalCards = lu.blocks
+        ? lu.blocks.reduce((s, b) => s + b.cards.length, 0)
+        : 0;
+
+    return (
+        <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden', marginBottom: 12 }}>
+            {/* Заголовок ЛУ */}
+            <div
+                onClick={() => setExpanded(e => !e)}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: '#f8fafc', cursor: 'pointer', userSelect: 'none' }}
+            >
+                <span style={{ fontWeight: 700, color: '#1e293b', fontSize: 14 }}>Участок {lu.luId}</span>
+                <span style={{ fontSize: 12, color: '#64748b' }}>{fmtNumber(lu.totalCost)} млн</span>
+                {lu.qualityScore > 0 && (
+                    <span style={{ fontSize: 12, background: '#dcfce7', color: '#15803d', padding: '1px 8px', borderRadius: 4, fontWeight: 600 }}>
+                        ★ Качество {lu.qualityScore}
+                    </span>
+                )}
+                {lu.avgRank && (
+                    <span style={{ fontSize: 12, color: rankColor(Math.round(lu.avgRank)), background: rankColor(Math.round(lu.avgRank)) + '18', padding: '1px 8px', borderRadius: 4 }}>
+                        Ср. ранг {lu.avgRank?.toFixed(1)}
+                    </span>
+                )}
+                {totalCards > 0 && (
+                    <span style={{ fontSize: 12, color: '#64748b' }}>
+                        {totalSelected}/{totalCards} карточек
+                    </span>
+                )}
+                {lu.completed && <span style={{ fontSize: 12, background: '#dcfce7', color: '#15803d', padding: '1px 8px', borderRadius: 4 }}>✓ Подтверждено</span>}
+                <span style={{ marginLeft: 'auto', color: '#94a3b8', fontSize: 14 }}>{expanded ? '▲' : '▼'}</span>
+            </div>
+
+            {/* Детальные блоки карточек */}
+            {expanded && lu.blocks && lu.blocks.length > 0 && (
+                <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {lu.blocks.map(block => {
+                        const style = GROUP_COLOR_STYLES[block.groupColor] || GROUP_COLOR_STYLES.gray;
+                        return (
+                            <div key={block.blockId} style={{ border: `1px solid ${style.border}`, borderRadius: 8, overflow: 'hidden' }}>
+                                {/* Заголовок блока */}
+                                <div style={{ padding: '6px 12px', background: style.bg, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span style={{ fontSize: 11, fontWeight: 700, color: style.text, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                        {style.label}
+                                    </span>
+                                    <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>{block.blockTitle}</span>
+                                    <span style={{ fontSize: 11, color: '#94a3b8' }}>{block.groupLabel}</span>
+                                </div>
+                                {/* Карточки блока */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                    {block.cards.map((card, ci) => (
+                                        <div key={card.cardId} style={{
+                                            padding: '8px 12px',
+                                            borderTop: ci > 0 ? '1px solid #f1f5f9' : 'none',
+                                            display: 'flex', alignItems: 'flex-start', gap: 12,
+                                            background: card.skipped ? '#fafafa' : '#fff',
+                                        }}>
+                                            {/* Название карточки */}
+                                            <div style={{ minWidth: 140, fontSize: 12, color: '#64748b', paddingTop: 2 }}>
+                                                {card.cardTitle}
+                                            </div>
+                                            {/* Выбранный вариант */}
+                                            <div style={{ flex: 1 }}>
+                                                {card.skipped || card.chosenRank == null ? (
+                                                    <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>Не выбрано</span>
+                                                ) : (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                        <span style={{
+                                                            fontSize: 11, fontWeight: 700,
+                                                            color: rankColor(card.chosenRank),
+                                                            background: rankColor(card.chosenRank) + '18',
+                                                            padding: '1px 7px', borderRadius: 4,
+                                                        }}>
+                                                            {rankLabel(card.chosenRank)}
+                                                        </span>
+                                                        <span style={{ fontSize: 13, color: '#1e293b' }}>{card.chosenParam}</span>
+                                                        <span style={{ fontSize: 12, color: card.cost > 0 ? '#dc2626' : '#16a34a', marginLeft: 4 }}>
+                                                            {card.cost > 0 ? `${fmtNumber(card.cost)} млн` : 'Бесплатно'}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                {/* Остальные варианты (свёрнуто) */}
+                                                {card.allOptions && card.allOptions.length > 1 && card.chosenRank != null && (
+                                                    <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                                        {card.allOptions
+                                                            .filter(o => o.rank !== card.chosenRank)
+                                                            .map(o => (
+                                                                <span key={o.rank} style={{ fontSize: 11, color: '#94a3b8', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '1px 6px', borderRadius: 4 }}>
+                                                                    {rankLabel(o.rank)}: {o.param} {o.cost > 0 ? `(${o.cost} млн)` : '(бесплатно)'}
+                                                                </span>
+                                                            ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+            {expanded && (!lu.blocks || lu.blocks.length === 0) && (
+                <div style={{ padding: '12px 14px', fontSize: 13, color: '#94a3b8' }}>Детальные данные карточек не сохранены</div>
+            )}
+        </div>
+    );
+};
+
+// ── НИРы за год ───────────────────────────────────────────────────────────────
 const ResearchYearSection = ({ research }) => {
     if (!research) return null;
     return (
         <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
                 <h4 style={{ margin: 0, fontSize: 14, color: '#1e293b' }}>Научные исследования (НИР)</h4>
-                <span style={{ fontSize: 13, color: '#64748b' }}>
-                    Итого: <strong style={{ color: '#dc2626' }}>{fmtNumber(research.totalSpent)} млн</strong>
-                </span>
+                <span style={{ fontSize: 13, color: '#64748b' }}>Итого: <strong style={{ color: '#dc2626' }}>{fmtNumber(research.totalSpent)} млн</strong></span>
             </div>
             {research.lus && research.lus.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {research.lus.map(lu => (
-                        <div key={lu.luId} style={{
-                            background: '#f8fafc', border: '1px solid #e2e8f0',
-                            borderRadius: 8, padding: '10px 14px',
-                        }}>
+                        <div key={lu.luId} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 14px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: lu.purchases?.length ? 8 : 0 }}>
                                 <span style={{ fontWeight: 700, color: '#1e293b', fontSize: 13 }}>Участок {lu.luId}</span>
                                 <span style={{ fontSize: 12, color: '#64748b' }}>{fmtNumber(lu.totalSpent)} млн</span>
@@ -620,10 +687,7 @@ const ResearchYearSection = ({ research }) => {
                             {lu.purchases && lu.purchases.length > 0 && (
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                                     {lu.purchases.map((p, i) => (
-                                        <span key={i} style={{
-                                            fontSize: 11, background: '#ede9fe', color: '#5b21b6',
-                                            padding: '2px 8px', borderRadius: 4,
-                                        }}>
+                                        <span key={i} style={{ fontSize: 11, background: '#ede9fe', color: '#5b21b6', padding: '2px 8px', borderRadius: 4 }}>
                                             {p.work_name || p.workName} — {fmtNumber(p.cost)} млн
                                         </span>
                                     ))}
@@ -639,24 +703,17 @@ const ResearchYearSection = ({ research }) => {
     );
 };
 
+const sectionTitleStyle = { margin: '0 0 12px 0', fontSize: 15, fontWeight: 700, color: '#1e293b', paddingBottom: 6, borderBottom: '2px solid #e2e8f0' };
+
+// ── Вкладка: Сводка за сессию ─────────────────────────────────────────────────
 const SummaryTab = ({ summary }) => {
     if (!summary) return <div style={{ color: '#94a3b8', padding: 20 }}>Нет данных</div>;
-
-    const { spentByType, incomeByType, cells, luCards, eventStats, research } = summary;
-
-    const sectionTitle = {
-        margin: '0 0 12px 0',
-        fontSize: 15,
-        fontWeight: 700,
-        color: '#1e293b',
-        paddingBottom: 6,
-        borderBottom: '2px solid #e2e8f0',
-    };
+    const { spentByType, incomeByType, cells, luCards, eventStats, research, fieldwork } = summary;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <section>
-                <h3 style={sectionTitle}>Бюджет</h3>
+                <h3 style={sectionTitleStyle}> Бюджет</h3>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                     <MetricCard label="Начальный бюджет" value={`${fmtNumber(summary.initialBudget)} млн`} />
                     <MetricCard label="Текущий бюджет" value={`${fmtNumber(summary.currentBudget)} млн`} accent />
@@ -666,34 +723,31 @@ const SummaryTab = ({ summary }) => {
             </section>
 
             <section>
-                <h3 style={sectionTitle}>📊 Расходы по категориям</h3>
+                <h3 style={sectionTitleStyle}> Расходы по категориям</h3>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                     {[
-                        { key: 'luCard', label: 'Карточки ЛУ', icon: '' },
-                        { key: 'auction', label: 'Аукционы', icon: '' },
-                        { key: 'research', label: 'НИР', icon: '' },
-                        { key: 'fieldwork', label: 'Полевые работы', icon: '' },
-                        { key: 'events', label: 'События (расходы)', icon: '' },
-                    ].map(({ key, label, icon }) => (
-                        <MetricCard key={key} label={`${icon} ${label}`} value={`${fmtNumber(spentByType[key])} млн`} />
+                        { key: 'luCard', label: 'Карточки ЛУ' },
+                        { key: 'auction', label: 'Аукционы' },
+                        { key: 'research', label: 'НИР' },
+                        { key: 'fieldwork', label: 'Полевые работы' },
+                        { key: 'events', label: 'События (расходы)' },
+                    ].map(({ key, label }) => (
+                        <MetricCard key={key} label={label} value={`${fmtNumber(spentByType[key])} млн`} />
                     ))}
                 </div>
                 {incomeByType?.events > 0 && (
                     <div style={{ marginTop: 10 }}>
-                        <MetricCard label="⚡ События (доходы)" value={`${fmtNumber(incomeByType.events)} млн`} color="#16a34a" />
+                        <MetricCard label="События (доходы)" value={`${fmtNumber(incomeByType.events)} млн`} color="#16a34a" />
                     </div>
                 )}
             </section>
 
             {luCards && luCards.length > 0 && (
                 <section>
-                    <h3 style={sectionTitle}>Купленные карточки информации</h3>
+                    <h3 style={sectionTitleStyle}> Купленные карточки информации</h3>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                         {luCards.map((c, i) => (
-                            <div key={i} style={{
-                                background: '#f0f9ff', border: '1px solid #bae6fd',
-                                borderRadius: 8, padding: '6px 12px', fontSize: 12,
-                            }}>
+                            <div key={i} style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '6px 12px', fontSize: 12 }}>
                                 <span style={{ color: '#0369a1', fontWeight: 600 }}>{c.description?.replace('Карточка ЛУ: ', '') || `Карточка ${i + 1}`}</span>
                             </div>
                         ))}
@@ -703,15 +757,10 @@ const SummaryTab = ({ summary }) => {
 
             {cells && cells.length > 0 && (
                 <section>
-                    <h3 style={sectionTitle}>📍 Лицензионные участки ({cells.length})</h3>
+                    <h3 style={sectionTitleStyle}> Лицензионные участки ({cells.length})</h3>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                         {cells.map(c => (
-                            <div key={c.cellRef} style={{
-                                background: c.isAutoAssigned ? '#fef3c7' : '#dcfce7',
-                                border: `1px solid ${c.isAutoAssigned ? '#fcd34d' : '#86efac'}`,
-                                borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600,
-                                color: c.isAutoAssigned ? '#92400e' : '#15803d',
-                            }}>
+                            <div key={c.cellRef} style={{ background: c.isAutoAssigned ? '#fef3c7' : '#dcfce7', border: `1px solid ${c.isAutoAssigned ? '#fcd34d' : '#86efac'}`, borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, color: c.isAutoAssigned ? '#92400e' : '#15803d' }}>
                                 {c.cellRef}
                                 {c.auctionPrice > 0 && <span style={{ fontWeight: 400, marginLeft: 4 }}>({fmtNumber(c.auctionPrice)} млн)</span>}
                                 {c.isAutoAssigned && <span style={{ marginLeft: 4 }}>🎲</span>}
@@ -723,8 +772,8 @@ const SummaryTab = ({ summary }) => {
 
             {eventStats && (
                 <section>
-                    <h3 style={sectionTitle}>🎲 Статистика событий (все годы)</h3>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+                    <h3 style={sectionTitleStyle}>🎲 Статистика событий (все годы)</h3>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                         <MetricCard label="Правильных ответов" value={eventStats.correctAnswers} color="#16a34a" />
                         <MetricCard label="Неправильных ответов" value={eventStats.wrongAnswers} color="#dc2626" />
                         <MetricCard label="Точность" value={eventStats.accuracy != null ? `${eventStats.accuracy}%` : '—'} />
@@ -736,17 +785,32 @@ const SummaryTab = ({ summary }) => {
 
             {research && research.totalSpent > 0 && (
                 <section>
-                    <h3 style={sectionTitle}> НИРы — итого</h3>
+                    <h3 style={sectionTitleStyle}> НИРы — итого</h3>
                     <MetricCard label="Потрачено на НИР" value={`${fmtNumber(research.totalSpent)} млн`} color="#7c3aed" />
                     {research.byYear && research.byYear.length > 0 && (
                         <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                             {research.byYear.map(y => (
-                                <div key={y.year} style={{
-                                    background: '#faf5ff', border: '1px solid #e9d5ff',
-                                    borderRadius: 8, padding: '8px 14px', fontSize: 13,
-                                }}>
+                                <div key={y.year} style={{ background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: 8, padding: '8px 14px', fontSize: 13 }}>
                                     <span style={{ fontWeight: 700, color: '#6b21a8' }}>Год {y.year}</span>
                                     <span style={{ color: '#7c3aed', marginLeft: 8 }}>{fmtNumber(y.totalSpent)} млн</span>
+                                    <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: 11 }}>({y.lus?.length || 0} ЛУ)</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </section>
+            )}
+
+            {fieldwork && fieldwork.totalSpent > 0 && (
+                <section>
+                    <h3 style={sectionTitleStyle}> Полевые работы — итого</h3>
+                    <MetricCard label="Потрачено на полевые работы" value={`${fmtNumber(fieldwork.totalSpent)} млн`} color="#0369a1" />
+                    {fieldwork.byYear && fieldwork.byYear.length > 0 && (
+                        <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                            {fieldwork.byYear.map(y => (
+                                <div key={y.year} style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '8px 14px', fontSize: 13 }}>
+                                    <span style={{ fontWeight: 700, color: '#0369a1' }}>Год {y.year}</span>
+                                    <span style={{ color: '#0284c7', marginLeft: 8 }}>{fmtNumber(y.totalCost)} млн</span>
                                     <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: 11 }}>({y.lus?.length || 0} ЛУ)</span>
                                 </div>
                             ))}
@@ -758,6 +822,7 @@ const SummaryTab = ({ summary }) => {
     );
 };
 
+// ── Вкладка: Статистика за год ────────────────────────────────────────────────
 const YearTab = ({ sessionId, teamId, availableYears }) => {
     const [selectedYear, setSelectedYear] = useState(availableYears[0] ?? 1);
     const { data, loading, error } = useAdminFetch(
@@ -765,30 +830,18 @@ const YearTab = ({ sessionId, teamId, availableYears }) => {
         [selectedYear]
     );
 
-    const sectionTitle = {
-        margin: '0 0 12px 0',
-        fontSize: 15,
-        fontWeight: 700,
-        color: '#1e293b',
-        paddingBottom: 6,
-        borderBottom: '2px solid #e2e8f0',
-    };
-
     return (
         <div>
+            {/* Выбор года */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
                 {availableYears.map(y => (
-                    <button
-                        key={y}
-                        onClick={() => setSelectedYear(y)}
-                        style={{
-                            padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                            fontSize: 13, fontWeight: 600,
-                            background: y === selectedYear ? '#1e40af' : '#e2e8f0',
-                            color: y === selectedYear ? '#fff' : '#374151',
-                            transition: 'background 0.15s',
-                        }}
-                    >
+                    <button key={y} onClick={() => setSelectedYear(y)} style={{
+                        padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                        fontSize: 13, fontWeight: 600,
+                        background: y === selectedYear ? '#1e40af' : '#e2e8f0',
+                        color: y === selectedYear ? '#fff' : '#374151',
+                        transition: 'background 0.15s',
+                    }}>
                         Год {y}
                     </button>
                 ))}
@@ -799,23 +852,24 @@ const YearTab = ({ sessionId, teamId, availableYears }) => {
 
             {data && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                    {/* Расходы */}
                     <section>
-                        <h3 style={sectionTitle}> Расходы за год {selectedYear}</h3>
+                        <h3 style={sectionTitleStyle}> Расходы за год {selectedYear}</h3>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                             <MetricCard label="Всего за год" value={`${fmtNumber(data.budget.totalSpentThisYear)} млн`} color="#dc2626" accent />
                             {Object.entries(data.budget.spentByType).filter(([, v]) => v > 0).map(([k, v]) => {
-                                const labels = { research: ' НИРы', events: '⚡ События', fieldwork: '🏕 Полевые', other: 'Прочее' };
+                                const labels = { research: 'НИРы', events: 'События', fieldwork: 'Полевые', other: 'Прочее' };
                                 return <MetricCard key={k} label={labels[k] || k} value={`${fmtNumber(v)} млн`} />;
                             })}
                         </div>
                     </section>
 
-                    <section>
-                        <ResearchYearSection research={data.research} />
-                    </section>
+                    {/* НИРы */}
+                    <section><ResearchYearSection research={data.research} /></section>
 
+                    {/* События */}
                     <section>
-                        <h3 style={sectionTitle}>🎲 События за год {selectedYear}</h3>
+                        <h3 style={sectionTitleStyle}>События за год {selectedYear}</h3>
                         {data.events.lines.length > 0 ? (
                             <>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
@@ -829,9 +883,7 @@ const YearTab = ({ sessionId, teamId, availableYears }) => {
                                     <MetricCard label="Денег" value={`${fmtSigned(data.events.totalMoney)} млн`} color={data.events.totalMoney >= 0 ? '#16a34a' : '#dc2626'} />
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                    {data.events.lines.map((line, i) => (
-                                        <EventLineDetail key={line.luId || i} line={line} />
-                                    ))}
+                                    {data.events.lines.map((line, i) => <EventLineDetail key={line.luId || i} line={line} />)}
                                 </div>
                             </>
                         ) : (
@@ -839,29 +891,35 @@ const YearTab = ({ sessionId, teamId, availableYears }) => {
                         )}
                     </section>
 
-                    {data.fieldwork?.lus?.length > 0 && (
-                        <section>
-                            <h3 style={sectionTitle}>🏕 Полевые работы за год {selectedYear}</h3>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                                {data.fieldwork.lus.map(f => (
-                                    <div key={f.luId} style={{
-                                        background: '#f0fdf4', border: '1px solid #86efac',
-                                        borderRadius: 8, padding: '8px 14px', fontSize: 13,
-                                    }}>
-                                        <span style={{ fontWeight: 700, color: '#15803d' }}>Участок {f.luId}</span>
-                                        <span style={{ color: '#64748b', marginLeft: 8 }}>{fmtNumber(f.totalCost)} млн</span>
-                                        {f.qualityScore > 0 && <span style={{ color: '#16a34a', marginLeft: 8 }}>★ {f.qualityScore}</span>}
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-                    )}
+                    {/* Полевые работы */}
+                    <section>
+                        <h3 style={sectionTitleStyle}> Полевые работы за год {selectedYear}</h3>
+                        {data.fieldwork?.lus?.length > 0 ? (
+                            <>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+                                    <MetricCard label="Итого стоимость" value={`${fmtNumber(data.fieldwork.totalCost)} млн`} color="#0369a1" accent />
+                                    {(() => {
+                                        const lus = data.fieldwork.lus.filter(f => f.qualityScore > 0);
+                                        if (!lus.length) return null;
+                                        const avg = Math.round(lus.reduce((s, f) => s + f.qualityScore, 0) / lus.length);
+                                        return <MetricCard label="Ср. качество" value={`${avg} / 100`} color={avg >= 70 ? '#16a34a' : avg >= 40 ? '#d97706' : '#dc2626'} />;
+                                    })()}
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    {data.fieldwork.lus.map((lu, i) => <FieldworkLUDetail key={lu.luId || i} lu={lu} />)}
+                                </div>
+                            </>
+                        ) : (
+                            <div style={{ fontSize: 13, color: '#94a3b8' }}>Полевые работы за этот год не проводились</div>
+                        )}
+                    </section>
                 </div>
             )}
         </div>
     );
 };
 
+// ── Модалка детального мониторинга команды ────────────────────────────────────
 const AdminMonitoring = ({ sessionId, teamId, teamName, onClose }) => {
     const [activeTab, setActiveTab] = useState('summary');
 
@@ -870,87 +928,47 @@ const AdminMonitoring = ({ sessionId, teamId, teamName, onClose }) => {
 
     const availableYears = React.useMemo(() => {
         const years = new Set();
-        if (summary?.eventStats?.byYear) {
-            summary.eventStats.byYear.forEach(y => years.add(y.year));
-        }
-        if (summary?.research?.byYear) {
-            summary.research.byYear.forEach(y => years.add(y.year));
-        }
+        if (summary?.eventStats?.byYear) summary.eventStats.byYear.forEach(y => years.add(y.year));
+        if (summary?.research?.byYear) summary.research.byYear.forEach(y => years.add(y.year));
+        if (summary?.fieldwork?.byYear) summary.fieldwork.byYear.forEach(y => years.add(y.year));
         const arr = Array.from(years).sort((a, b) => a - b);
         return arr.length > 0 ? arr : [1, 2, 3];
     }, [summary]);
 
     const tabs = [
-        { id: 'summary', label: 'Сводка за сессию' },
-        { id: 'year', label: 'По годам' },
+        { id: 'summary', label: ' Сводка за сессию' },
+        { id: 'year', label: ' По годам' },
     ];
 
     return (
-        <div style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
-            zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-            <div style={{
-                background: '#fff', borderRadius: 16, width: '95%', maxWidth: 860,
-                maxHeight: '92vh', display: 'flex', flexDirection: 'column',
-                boxShadow: '0 24px 80px rgba(0,0,0,0.3)',
-            }}>
-                <div style={{
-                    padding: '20px 28px', borderBottom: '1px solid #e2e8f0',
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    background: '#1e3a5f', borderRadius: '16px 16px 0 0',
-                }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: '#fff', borderRadius: 16, width: '95%', maxWidth: 900, maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
+                {/* Шапка */}
+                <div style={{ padding: '20px 28px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#1e3a5f', borderRadius: '16px 16px 0 0' }}>
                     <div>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: '#fff' }}>
-                            Мониторинг: {teamName}
-                        </div>
-                        <div style={{ fontSize: 12, color: '#93c5fd', marginTop: 2 }}>
-                            ID сессии: {sessionId}
-                        </div>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: '#fff' }}>Мониторинг: {teamName}</div>
+                        <div style={{ fontSize: 12, color: '#93c5fd', marginTop: 2 }}>ID сессии: {sessionId}</div>
                     </div>
-                    <button
-                        onClick={onClose}
-                        style={{
-                            background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8,
-                            padding: '6px 14px', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 600,
-                        }}
-                    >
+                    <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, padding: '6px 14px', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>
                         Закрыть ✕
                     </button>
                 </div>
-
-                <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                {/* Вкладки */}
+                <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
                     {tabs.map(t => (
-                        <button
-                            key={t.id}
-                            onClick={() => setActiveTab(t.id)}
-                            style={{
-                                padding: '12px 22px', border: 'none', background: 'none',
-                                cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                                color: activeTab === t.id ? '#1e40af' : '#64748b',
-                                borderBottom: activeTab === t.id ? '2.5px solid #1e40af' : '2.5px solid transparent',
-                                transition: 'all 0.15s',
-                            }}
-                        >
+                        <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ padding: '12px 22px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: activeTab === t.id ? '#1e40af' : '#64748b', borderBottom: activeTab === t.id ? '2.5px solid #1e40af' : '2.5px solid transparent', transition: 'all 0.15s' }}>
                             {t.label}
                         </button>
                     ))}
                 </div>
-
+                {/* Контент */}
                 <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
                     {summaryLoading && <div style={{ color: '#64748b', textAlign: 'center', padding: 40 }}>Загрузка данных…</div>}
                     {summaryError && <div style={{ color: '#dc2626', padding: 20 }}>Ошибка загрузки: {summaryError}</div>}
-
                     {!summaryLoading && !summaryError && (
                         <>
                             {activeTab === 'summary' && <SummaryTab summary={summary} />}
-                            {activeTab === 'year' && (
-                                <YearTab
-                                    sessionId={sessionId}
-                                    teamId={teamId}
-                                    availableYears={availableYears}
-                                />
-                            )}
+                            {activeTab === 'year' && <YearTab sessionId={sessionId} teamId={teamId} availableYears={availableYears} />}
                         </>
                     )}
                 </div>
@@ -959,42 +977,25 @@ const AdminMonitoring = ({ sessionId, teamId, teamName, onClose }) => {
     );
 };
 
-const SPENT_LABELS = {
-    lu_card: { label: 'Карточки ЛУ', icon: '🗺️', color: '#60a5fa' },
-    auction: { label: 'Аукционы', icon: '🏆', color: '#f59e0b' },
-    research: { label: 'НИР', icon: '', color: '#a78bfa' },
-    fieldwork: { label: 'Полевые работы', icon: '⛏️', color: '#34d399' },
-    events: { label: 'События (расход)', icon: '🎲', color: '#f87171' },
-    other: { label: 'Прочее', icon: '📋', color: '#9ca3af' },
-};
-
+// ── BudgetBreakdown (компактный в карточке команды) ───────────────────────────
 const BudgetBreakdown = ({ initial, current, spentByType = {}, incomeByType = {}, eventStats = null }) => {
     const spent = initial - current;
     const pct = initial > 0 ? Math.max(0, Math.min(100, (current / initial) * 100)) : 0;
     const isLow = current < initial * 0.2;
 
-    const colors = {
-        success: '#22c55e',
-        danger: '#ef4444',
-        warning: '#f59e0b',
-        primary: '#3b82f6',
-        neutral: '#64748b'
-    };
-
     const totalFromCategories = Object.values(spentByType).reduce((s, v) => s + (v || 0), 0);
     const totalIncome = Object.values(incomeByType).reduce((s, v) => s + (v || 0), 0);
     const totalAnswers = (eventStats?.correctAnswers || 0) + (eventStats?.wrongAnswers || 0);
     const accuracy = totalAnswers > 0 ? Math.round(100 * (eventStats?.correctAnswers || 0) / totalAnswers) : null;
+    const fmtV = (val) => Number(val || 0).toLocaleString(undefined, { maximumFractionDigits: 1 });
 
-    const fmt = (val) => Number(val || 0).toLocaleString(undefined, { maximumFractionDigits: 1 });
-
-    const SPENT_LABELS = {
-        'research': { label: 'НИРы', color: '#3b82f6' },
-        'equipment': { label: 'Техника', color: '#8b5cf6' },
-        'marketing': { label: 'PR', color: '#ec489a' },
-        'salaries': { label: 'Штат', color: '#f97316' },
-        'infrastructure': { label: 'База', color: '#14b8a6' },
-        'other': { label: 'Прочее', color: '#94a3b8' },
+    const CAT_META = {
+        lu_card: { label: 'Карточки ЛУ', color: '#60a5fa' },
+        auction: { label: 'Аукционы', color: '#f59e0b' },
+        research: { label: 'НИР', color: '#a78bfa' },
+        fieldwork: { label: 'Полевые работы', color: '#34d399' },
+        events: { label: 'События', color: '#f87171' },
+        other: { label: 'Прочее', color: '#9ca3af' },
     };
 
     return (
@@ -1002,33 +1003,27 @@ const BudgetBreakdown = ({ initial, current, spentByType = {}, incomeByType = {}
             <div className="tm-budget-grid">
                 <div className="tm-budget-stat">
                     <span className="tm-label">Остаток</span>
-                    <span className="tm-value" style={{ color: isLow ? colors.danger : colors.success }}>
-                        {fmt(current)} <small>млн</small>
-                    </span>
+                    <span className="tm-value" style={{ color: isLow ? '#ef4444' : '#22c55e' }}>{fmtV(current)} <small>млн</small></span>
                 </div>
                 <div className="tm-budget-stat">
                     <span className="tm-label">Расход</span>
-                    <span className="tm-value">{fmt(spent)} <small>млн</small></span>
+                    <span className="tm-value">{fmtV(spent)} <small>млн</small></span>
                 </div>
                 {totalIncome > 0 && (
                     <div className="tm-budget-stat">
                         <span className="tm-label">Доход</span>
-                        <span className="tm-value" style={{ color: colors.success }}>
-                            +{fmt(totalIncome)} <small>млн</small>
-                        </span>
+                        <span className="tm-value" style={{ color: '#22c55e' }}>+{fmtV(totalIncome)} <small>млн</small></span>
                     </div>
                 )}
             </div>
-
             <div className="tm-progress-container">
                 <div className="tm-progress-track">
-                    <div className="tm-progress-fill" style={{ width: `${pct}%`, background: isLow ? colors.danger : colors.success }} />
+                    <div className="tm-progress-fill" style={{ width: `${pct}%`, background: isLow ? '#ef4444' : '#22c55e' }} />
                 </div>
             </div>
-
             {totalFromCategories > 0 && (
                 <div className="tm-categories-grid">
-                    {Object.entries(SPENT_LABELS).map(([key, meta]) => {
+                    {Object.entries(CAT_META).map(([key, meta]) => {
                         const val = spentByType[key] || 0;
                         if (val === 0) return null;
                         const p = Math.round((val / totalFromCategories) * 100);
@@ -1036,7 +1031,7 @@ const BudgetBreakdown = ({ initial, current, spentByType = {}, incomeByType = {}
                             <div key={key} className="tm-cat-item">
                                 <div className="tm-cat-header">
                                     <span className="tm-cat-name">{meta.label}</span>
-                                    <span className="tm-cat-val">{fmt(val)}</span>
+                                    <span className="tm-cat-val">{fmtV(val)}</span>
                                 </div>
                                 <div className="tm-cat-mini-bar">
                                     <div className="tm-cat-mini-fill" style={{ width: `${p}%`, background: meta.color }} />
@@ -1046,62 +1041,26 @@ const BudgetBreakdown = ({ initial, current, spentByType = {}, incomeByType = {}
                     })}
                 </div>
             )}
-
             {eventStats && (
                 <div className="tm-stats-section">
                     <div className="tm-stats-header">Итоги событий</div>
                     <div className="tm-stats-row">
-                        <div className="tm-mini-stat">
-                            <span className="tm-mini-label">Верно</span>
-                            <span className="tm-mini-val">{eventStats.correctAnswers || 0}</span>
-                        </div>
-                        <div className="tm-mini-stat">
-                            <span className="tm-mini-label">Ошибки</span>
-                            <span className="tm-mini-val">{eventStats.wrongAnswers || 0}</span>
-                        </div>
+                        <div className="tm-mini-stat"><span className="tm-mini-label">Верно</span><span className="tm-mini-val">{eventStats.correctAnswers || 0}</span></div>
+                        <div className="tm-mini-stat"><span className="tm-mini-label">Ошибки</span><span className="tm-mini-val">{eventStats.wrongAnswers || 0}</span></div>
                         {accuracy !== null && (
                             <div className="tm-mini-stat">
                                 <span className="tm-mini-label">Точность</span>
-                                <span className="tm-mini-val" style={{ color: accuracy >= 60 ? colors.success : colors.danger }}>
-                                    {accuracy}%
-                                </span>
+                                <span className="tm-mini-val" style={{ color: accuracy >= 60 ? '#22c55e' : '#ef4444' }}>{accuracy}%</span>
                             </div>
                         )}
                     </div>
-
-                    {(eventStats.moneyDelta !== 0 || eventStats.totalScore !== 0) && (
-                        <div className="tm-delta-info">
-                            {eventStats.totalScore !== 0 && (
-                                <span>Баллы: <b>{eventStats.totalScore > 0 ? '+' : ''}{eventStats.totalScore}</b></span>
-                            )}
-                            {eventStats.moneyDelta !== 0 && (
-                                <span style={{ color: eventStats.moneyDelta > 0 ? colors.success : colors.danger }}>
-                                    Эффект: <b>{eventStats.moneyDelta > 0 ? '+' : ''}{fmt(eventStats.moneyDelta)} млн</b>
-                                </span>
-                            )}
-                        </div>
-                    )}
-
-                    {eventStats.byYear?.length > 0 && (
-                        <details className="tm-details">
-                            <summary>По годам</summary>
-                            <div className="tm-details-content">
-                                {eventStats.byYear.map(yr => (
-                                    <div key={yr.year} className="tm-year-row">
-                                        <span>Год {yr.year}</span>
-                                        <span>{yr.totalCorrect}/{yr.totalWrong}</span>
-                                        <span className="tm-year-delta">{yr.totalMoneyDelta !== 0 ? `${yr.totalMoneyDelta > 0 ? '+' : ''}${fmt(yr.totalMoneyDelta)}` : '—'}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </details>
-                    )}
                 </div>
             )}
         </div>
     );
 };
 
+// ── Мониторинг команд ─────────────────────────────────────────────────────────
 const TeamsMonitor = ({ sessionId }) => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -1131,27 +1090,17 @@ const TeamsMonitor = ({ sessionId }) => {
             const results = await Promise.all(
                 teams.map(async (team) => {
                     try {
-                        const r = await fetch(
-                            `${API_URL}/api/admin/sessions/${sid}/team/${team.id}/expenses`,
-                            { headers: { Authorization: `Bearer ${token}` } }
-                        );
+                        const r = await fetch(`${API_URL}/api/admin/sessions/${sid}/team/${team.id}/expenses`, { headers: { Authorization: `Bearer ${token}` } });
                         if (!r.ok) return { teamId: team.id, spentByType: {}, incomeByType: {}, eventStats: null };
                         const json = await r.json();
-                        return {
-                            teamId: team.id,
-                            spentByType: json.spentByType ?? {},
-                            incomeByType: json.incomeByType ?? {},
-                            eventStats: json.eventStats ?? null,
-                        };
+                        return { teamId: team.id, spentByType: json.spentByType ?? {}, incomeByType: json.incomeByType ?? {}, eventStats: json.eventStats ?? null };
                     } catch {
                         return { teamId: team.id, spentByType: {}, incomeByType: {}, eventStats: null };
                     }
                 })
             );
             const map = {};
-            results.forEach(({ teamId, spentByType, incomeByType, eventStats }) => {
-                map[teamId] = { spentByType, incomeByType, eventStats };
-            });
+            results.forEach(({ teamId, spentByType, incomeByType, eventStats }) => { map[teamId] = { spentByType, incomeByType, eventStats }; });
             setExpensesMap(map);
         } catch (e) { console.error('loadExpenses error:', e); } finally { setExpensesLoading(false); }
     };
@@ -1164,10 +1113,6 @@ const TeamsMonitor = ({ sessionId }) => {
     const toggle = (teamId) => {
         const id = String(teamId);
         setOpenIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
-    };
-
-    const openMonitoring = (team) => {
-        setMonitoringTeam(team);
     };
 
     if (!sessionId) return <div className="tm-empty">Выберите сессию для просмотра команд</div>;
@@ -1190,7 +1135,6 @@ const TeamsMonitor = ({ sessionId }) => {
                         {expensesLoading && ' · загрузка расходов…'}
                     </span>
                 </div>
-
                 <div className="tm-cards">
                     {sorted.map(team => {
                         const lu = teamCells[team.id] ?? [];
@@ -1199,10 +1143,6 @@ const TeamsMonitor = ({ sessionId }) => {
                         const isOnline = team.is_online;
                         const isOpen = openIds.has(String(team.id));
                         const teamData = expensesMap[team.id] ?? {};
-                        const spentByType = teamData.spentByType ?? {};
-                        const incomeByType = teamData.incomeByType ?? {};
-                        const eventStats = teamData.eventStats ?? null;
-                        const current = team.budget ?? 0;
 
                         return (
                             <div key={team.id} className={`tm-card ${isOnline ? 'tm-card-online' : 'tm-card-offline'}`}>
@@ -1213,16 +1153,17 @@ const TeamsMonitor = ({ sessionId }) => {
                                         <span className="tm-session-badge">{team.session_code || data.code}</span>
                                     </div>
                                     <div className="tm-card-right">
-                                        <span className="tm-budget-val">{fmtMln(current)} млн ₽</span>
+                                        <span className="tm-budget-val">{fmtMln(team.budget)} млн ₽</span>
                                         <span className="tm-lu-count">{lu.length} ЛУ</span>
                                         <span className={`tm-chevron ${isOpen ? 'tm-chevron-open' : ''}`}>▼</span>
                                     </div>
                                 </div>
 
                                 <BudgetBreakdown
-                                    initial={initial} current={current}
-                                    spentByType={spentByType} incomeByType={incomeByType}
-                                    eventStats={eventStats}
+                                    initial={initial} current={team.budget}
+                                    spentByType={teamData.spentByType}
+                                    incomeByType={teamData.incomeByType}
+                                    eventStats={teamData.eventStats}
                                 />
 
                                 {isOpen && (
@@ -1255,12 +1196,8 @@ const TeamsMonitor = ({ sessionId }) => {
                                                 <div><span className="tm-meta-label">Статус:</span> {isOnline ? '🟢 Онлайн' : '🔴 Офлайн'}</div>
                                                 <div><span className="tm-meta-label">ID:</span> <code className="tm-id">{String(team.id).slice(0, 12)}…</code></div>
                                             </div>
-                                            <button
-                                                className="tb tb-primary"
-                                                onClick={() => openMonitoring(team)}
-                                                style={{ marginTop: 12, width: '100%' }}
-                                            >
-                                                📊 Детальный мониторинг
+                                            <button className="tb tb-primary" onClick={() => setMonitoringTeam(team)} style={{ marginTop: 12, width: '100%' }}>
+                                                Детальный мониторинг
                                             </button>
                                         </div>
                                     </div>
@@ -1283,6 +1220,7 @@ const TeamsMonitor = ({ sessionId }) => {
     );
 };
 
+// ── Главный компонент AdminPanel ───────────────────────────────────────────────
 const AdminPanel = () => {
     const [loggedIn, setLoggedIn] = useState(() => !!getSavedToken());
     const [tab, setTab] = useState('create');
@@ -1318,7 +1256,6 @@ const AdminPanel = () => {
     const apiFetch = async (url) => {
         const token = getSavedToken();
         const r = await fetch(`${API_URL}${url}`, { headers: { Authorization: `Bearer ${token}` } });
-        if (r.status === 401) { logout(); throw new Error('Unauthorized'); }
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
     };
@@ -1349,7 +1286,7 @@ const AdminPanel = () => {
         { id: 'monitor', label: '👁 Мониторинг' },
         { id: 'sessions', label: '🎮 Сессии' },
         { id: 'teams', label: '👥 Команды' },
-        { id: 'dashboard', label: '📊 Статистика' },
+        { id: 'dashboard', label: ' Статистика' },
     ];
 
     return (
@@ -1359,9 +1296,7 @@ const AdminPanel = () => {
                 <button className="ap-logout" onClick={logout}>Выйти</button>
             </header>
             <nav className="ap-nav">
-                {TABS.map(t => (
-                    <button key={t.id} className={`ap-tab ${tab === t.id ? 'ap-tab-on' : ''}`} onClick={() => changeTab(t.id)}>{t.label}</button>
-                ))}
+                {TABS.map(t => <button key={t.id} className={`ap-tab ${tab === t.id ? 'ap-tab-on' : ''}`} onClick={() => changeTab(t.id)}>{t.label}</button>)}
             </nav>
             <main className="ap-main">
                 {loading && <div className="ap-loading">Загрузка…</div>}
@@ -1382,7 +1317,7 @@ const AdminPanel = () => {
                             <TimerControl sessionId={timerSess} sessions={sessions} adminSocket={adminSocketRef} onRefresh={loadSessions} />
                             {timerSess && (
                                 <div className="live-editor-card">
-                                    <div className="live-editor-card-title">📅 Таймеры сессии</div>
+                                    <div className="live-editor-card-title"> Таймеры сессии</div>
                                     <LiveTimersEditor sessionId={timerSess} adminSocket={adminSocketRef} />
                                 </div>
                             )}
@@ -1410,9 +1345,7 @@ const AdminPanel = () => {
                         {sessions.length === 0 ? <p className="ap-empty">Нет сессий. Создайте во вкладке «Создать».</p> : (
                             <div className="ap-table-wrap">
                                 <table className="ap-table">
-                                    <thead>
-                                        <tr><th>Код</th><th>Статус</th><th>Режим</th><th>ЛУ</th><th>Команды</th><th>Действия</th></tr>
-                                    </thead>
+                                    <thead><tr><th>Код</th><th>Статус</th><th>Режим</th><th>ЛУ</th><th>Команды</th><th>Действия</th></tr></thead>
                                     <tbody>
                                         {sessions.map(s => (
                                             <tr key={s.id}>
@@ -1422,9 +1355,7 @@ const AdminPanel = () => {
                                                 <td>{s.max_lus ?? s.maxLUsPerTeam ?? '—'}</td>
                                                 <td>{s.teamsCount || 0}</td>
                                                 <td className="ap-actions">
-                                                    {s.status === 'waiting' && (
-                                                        <button className="ab ab-green" onClick={async () => { try { await apiAction(`/api/admin/sessions/${s.id}/start`); loadSessions(); } catch (e) { alert(e.message); } }}>▶ Старт</button>
-                                                    )}
+                                                    {s.status === 'waiting' && <button className="ab ab-green" onClick={async () => { try { await apiAction(`/api/admin/sessions/${s.id}/start`); loadSessions(); } catch (e) { alert(e.message); } }}>▶ Старт</button>}
                                                     <button className="ab" onClick={() => { setTimerSess(s.id); changeTab('timer'); }}>⏱ Таймер</button>
                                                     <button className="ab ab-red" onClick={async () => { if (!confirm('Удалить сессию?')) return; try { await deleteSession(s.id); loadSessions(); } catch (e) { alert(e.message); } }}>🗑 Удалить</button>
                                                 </td>
@@ -1443,9 +1374,7 @@ const AdminPanel = () => {
                         {teams.length === 0 ? <p className="ap-empty">Нет команд.</p> : (
                             <div className="ap-table-wrap">
                                 <table className="ap-table">
-                                    <thead>
-                                        <tr><th>Название</th><th>Опыт</th><th>Участники</th><th>Сессия</th><th>Действия</th></tr>
-                                    </thead>
+                                    <thead><tr><th>Название</th><th>Опыт</th><th>Участники</th><th>Сессия</th><th>Действия</th></tr></thead>
                                     <tbody>
                                         {teams.map(t => (
                                             <tr key={t.id}>
@@ -1453,9 +1382,7 @@ const AdminPanel = () => {
                                                 <td>{t.experience === 'students' ? '🎓 Студенты' : '💼 Профессионалы'}</td>
                                                 <td>{t.members_json?.length || 0}</td>
                                                 <td>{t.session_code || '—'}</td>
-                                                <td>
-                                                    <button className="ab" onClick={async () => { if (!confirm('Сбросить команду?')) return; try { await resetTeam(t.id); loadTeams(); } catch (e) { alert(e.message); } }}>🔄 Сброс</button>
-                                                </td>
+                                                <td><button className="ab" onClick={async () => { if (!confirm('Сбросить команду?')) return; try { await resetTeam(t.id); loadTeams(); } catch (e) { alert(e.message); } }}>🔄 Сброс</button></td>
                                             </tr>
                                         ))}
                                     </tbody>
