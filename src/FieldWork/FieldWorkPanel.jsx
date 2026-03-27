@@ -126,7 +126,6 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
   const totCards = avail.reduce((s, b) => s + b.cards.length, 0);
   const selCards = Object.keys(selections).filter(k => avail.some(b => b.cards.some(c => c.cardId === k))).length;
   const canAfford = player.budget >= tc;
-  const avgRank = calcAvgRank(selections, avail);
 
   const doSelect = (cardId, rank) => setSelections(prev => ({ ...prev, [cardId]: rank }));
 
@@ -218,6 +217,8 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
     return 'ready';
   };
 
+  const allFieldWorkDone = ownedCells.every(lu => getStatus(lu.cellRef) !== 'ready');
+
   const handleBack = useCallback(() => {
     if (onBack) onBack();
     else console.warn('onBack callback not provided');
@@ -265,7 +266,12 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
         <button className={`${styles.researchControlBtn} ${styles.researchBackBtn}`} onClick={onMenu}>
           В меню
         </button>
-        <button className={`${styles.researchControlBtn} ${styles.researchNextBtn}`} onClick={onComplete}>
+        <button
+          className={`${styles.researchControlBtn} ${styles.researchNextBtn}`}
+          onClick={onComplete}
+          disabled={!allFieldWorkDone}
+          title={!allFieldWorkDone ? 'Завершите полевые работы на всех участках' : undefined}
+        >
           Далее — К результатам
         </button>
       </div>
@@ -330,18 +336,9 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
               <span className={styles.statLbl}>Стоимость</span>
               <span className={[styles.statVal, canAfford ? styles.ok : styles.fail].join(' ')}>{tc} млн руб.</span>
             </div>
-            {avgRank !== null && (
-              <div className={styles.stat}>
-                <span className={styles.statLbl}>Средний ранг</span>
-                <span className={styles.statVal}>{avgRank}</span>
-              </div>
-            )}
-            <div className={styles.statActions}>
-              <button className={styles.confirmBtn} onClick={doConfirm} disabled={!canAfford || selCards === 0}>
-                Подтвердить — {tc} млн руб.
-              </button>
-              <button className={styles.skipBtn} onClick={onComplete}>Далее</button>
-            </div>
+            <button className={styles.confirmBtn} onClick={doConfirm} disabled={!canAfford || selCards === 0}>
+              Подтвердить — {tc} млн руб.
+            </button>
           </div>
         )}
       </div>
@@ -405,13 +402,7 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
             {!canAfford && <span className={styles.warnRed}>Недостаточно бюджета — </span>}
             {selCards === 0 && canAfford && <span className={styles.warnOrange}>Выберите варианты — </span>}
             Выбрано {selCards} из {totCards} карточек
-            {avgRank !== null && (
-              <span className={styles.avgRankBadge}>&nbsp;· Средний ранг: <strong>{avgRank}</strong></span>
-            )}
           </div>
-          <button className={styles.confirmBtnBottom} onClick={doConfirm} disabled={!canAfford || selCards === 0}>
-            Подтвердить выбор — {tc} млн руб.
-          </button>
         </div>
       )}
     </div>

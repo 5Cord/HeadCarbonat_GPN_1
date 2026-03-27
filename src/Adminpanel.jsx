@@ -114,10 +114,9 @@ const LoginScreen = ({ onLogin }) => {
         if (!pw.trim()) return;
         setLoad(true); setError('');
         try {
-            let token;
-            try { const res = await adminLogin('admin', pw); token = res.token; } catch { token = pw; }
-            localStorage.setItem('auth_token', token);
-            onLogin(token);
+            const res = await adminLogin('admin', pw);
+            localStorage.setItem('auth_token', res.token);
+            onLogin(res.token);
         } catch { setError('Неверный пароль'); } finally { setLoad(false); }
     };
 
@@ -978,84 +977,42 @@ const AdminMonitoring = ({ sessionId, teamId, teamName, onClose }) => {
 };
 
 // ── BudgetBreakdown (компактный в карточке команды) ───────────────────────────
-const BudgetBreakdown = ({ initial, current, spentByType = {}, incomeByType = {}, eventStats = null }) => {
+const BudgetBreakdown = ({ initial, current, spentByType = {}, incomeByType = {}, eventStats = null, currentYearSpent = 0, lu = [], members = [], isOnline = false, isOpen = false }) => {
     const spent = initial - current;
     const pct = initial > 0 ? Math.max(0, Math.min(100, (current / initial) * 100)) : 0;
     const isLow = current < initial * 0.2;
-
-    const totalFromCategories = Object.values(spentByType).reduce((s, v) => s + (v || 0), 0);
-    const totalIncome = Object.values(incomeByType).reduce((s, v) => s + (v || 0), 0);
-    const totalAnswers = (eventStats?.correctAnswers || 0) + (eventStats?.wrongAnswers || 0);
-    const accuracy = totalAnswers > 0 ? Math.round(100 * (eventStats?.correctAnswers || 0) / totalAnswers) : null;
-    const fmtV = (val) => Number(val || 0).toLocaleString(undefined, { maximumFractionDigits: 1 });
-
-    const CAT_META = {
-        lu_card: { label: 'Карточки ЛУ', color: '#60a5fa' },
-        auction: { label: 'Аукционы', color: '#f59e0b' },
-        research: { label: 'НИР', color: '#a78bfa' },
-        fieldwork: { label: 'Полевые работы', color: '#34d399' },
-        events: { label: 'События', color: '#f87171' },
-        other: { label: 'Прочее', color: '#9ca3af' },
-    };
+    const fmtV = (val) => Number(val || 0).toLocaleString('ru-RU', { maximumFractionDigits: 0 });
 
     return (
-        <div className="tm-budget-card">
-            <div className="tm-budget-grid">
-                <div className="tm-budget-stat">
-                    <span className="tm-label">Остаток</span>
-                    <span className="tm-value" style={{ color: isLow ? '#ef4444' : '#22c55e' }}>{fmtV(current)} <small>млн</small></span>
+        <div style={{ padding: '10px 14px', borderTop: '1px solid #f1f5f9', background: '#fff' }}>
+            <div style={{ display: 'flex', gap: 0, border: '1px solid #e9ecef', borderRadius: 8, overflow: 'hidden', marginBottom: 8 }}>
+                <div style={{ flex: 1, padding: '8px 12px', borderRight: '1px solid #e9ecef' }}>
+                    <div style={{ fontSize: 11, color: '#6c757d', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Остаток</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: isLow ? '#dc2626' : '#16a34a' }}>{fmtV(current)} млн</div>
                 </div>
-                <div className="tm-budget-stat">
-                    <span className="tm-label">Расход</span>
-                    <span className="tm-value">{fmtV(spent)} <small>млн</small></span>
+                <div style={{ flex: 1, padding: '8px 12px', borderRight: '1px solid #e9ecef' }}>
+                    <div style={{ fontSize: 11, color: '#6c757d', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Суммарный расход</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#334155' }}>{fmtV(spent)} млн</div>
                 </div>
-                {totalIncome > 0 && (
-                    <div className="tm-budget-stat">
-                        <span className="tm-label">Доход</span>
-                        <span className="tm-value" style={{ color: '#22c55e' }}>+{fmtV(totalIncome)} <small>млн</small></span>
-                    </div>
-                )}
-            </div>
-            <div className="tm-progress-container">
-                <div className="tm-progress-track">
-                    <div className="tm-progress-fill" style={{ width: `${pct}%`, background: isLow ? '#ef4444' : '#22c55e' }} />
+                <div style={{ flex: 1, padding: '8px 12px' }}>
+                    <div style={{ fontSize: 11, color: '#6c757d', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Расход за год</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#334155' }}>{fmtV(currentYearSpent)} млн</div>
                 </div>
             </div>
-            {totalFromCategories > 0 && (
-                <div className="tm-categories-grid">
-                    {Object.entries(CAT_META).map(([key, meta]) => {
-                        const val = spentByType[key] || 0;
-                        if (val === 0) return null;
-                        const p = Math.round((val / totalFromCategories) * 100);
-                        return (
-                            <div key={key} className="tm-cat-item">
-                                <div className="tm-cat-header">
-                                    <span className="tm-cat-name">{meta.label}</span>
-                                    <span className="tm-cat-val">{fmtV(val)}</span>
-                                </div>
-                                <div className="tm-cat-mini-bar">
-                                    <div className="tm-cat-mini-fill" style={{ width: `${p}%`, background: meta.color }} />
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-            {eventStats && (
-                <div className="tm-stats-section">
-                    <div className="tm-stats-header">Итоги событий</div>
-                    <div className="tm-stats-row">
-                        <div className="tm-mini-stat"><span className="tm-mini-label">Верно</span><span className="tm-mini-val">{eventStats.correctAnswers || 0}</span></div>
-                        <div className="tm-mini-stat"><span className="tm-mini-label">Ошибки</span><span className="tm-mini-val">{eventStats.wrongAnswers || 0}</span></div>
-                        {accuracy !== null && (
-                            <div className="tm-mini-stat">
-                                <span className="tm-mini-label">Точность</span>
-                                <span className="tm-mini-val" style={{ color: accuracy >= 60 ? '#22c55e' : '#ef4444' }}>{accuracy}%</span>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
+            <div style={{ height: 4, background: '#e9ecef', borderRadius: 4, overflow: 'hidden', marginBottom: 10 }}>
+                <div style={{ height: '100%', borderRadius: 4, background: isLow ? '#dc2626' : '#16a34a', width: `${pct}%`, transition: 'width 0.4s' }} />
+            </div>
+            <div style={{ display: 'flex', gap: 16, fontSize: 13, color: '#374151' }}>
+                <div><span style={{ color: '#6c757d', fontWeight: 600 }}>Участки: </span>{lu.length > 0 ? lu.join(', ') : '—'}</div>
+            </div>
+            <div style={{ marginTop: 6, fontSize: 13, color: '#374151' }}>
+                <span style={{ color: '#6c757d', fontWeight: 600 }}>Состав: </span>
+                {members.length > 0 ? members.map(m => typeof m === 'string' ? m : (m.name || m.fullName || '')).filter(Boolean).join(', ') : '—'}
+            </div>
+            <div style={{ marginTop: 6, fontSize: 13 }}>
+                <span style={{ color: '#6c757d', fontWeight: 600 }}>Статус: </span>
+                <span style={{ color: isOnline ? '#16a34a' : '#6b7280', fontWeight: 600 }}>{isOnline ? 'Онлайн' : 'Офлайн'}</span>
+            </div>
         </div>
     );
 };
@@ -1073,10 +1030,7 @@ const TeamsMonitor = ({ sessionId }) => {
         if (!sid) return;
         setLoading(true);
         try {
-            const token = getSavedToken();
-            const r = await fetch(`${API_URL}/api/admin/sessions/${sid}`, { headers: { Authorization: `Bearer ${token}` } });
-            if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            const json = await r.json();
+            const json = await apiAction(`/api/admin/sessions/${sid}`, 'GET');
             setData(json);
             loadExpenses(sid, json.teams ?? []);
         } catch (e) { console.error(e); } finally { setLoading(false); }
@@ -1086,13 +1040,10 @@ const TeamsMonitor = ({ sessionId }) => {
         if (!teams.length) return;
         setExpensesLoading(true);
         try {
-            const token = getSavedToken();
             const results = await Promise.all(
                 teams.map(async (team) => {
                     try {
-                        const r = await fetch(`${API_URL}/api/admin/sessions/${sid}/team/${team.id}/expenses`, { headers: { Authorization: `Bearer ${token}` } });
-                        if (!r.ok) return { teamId: team.id, spentByType: {}, incomeByType: {}, eventStats: null };
-                        const json = await r.json();
+                        const json = await apiAction(`/api/admin/sessions/${sid}/team/${team.id}/expenses`, 'GET');
                         return { teamId: team.id, spentByType: json.spentByType ?? {}, incomeByType: json.incomeByType ?? {}, eventStats: json.eventStats ?? null };
                     } catch {
                         return { teamId: team.id, spentByType: {}, incomeByType: {}, eventStats: null };
@@ -1100,7 +1051,11 @@ const TeamsMonitor = ({ sessionId }) => {
                 })
             );
             const map = {};
-            results.forEach(({ teamId, spentByType, incomeByType, eventStats }) => { map[teamId] = { spentByType, incomeByType, eventStats }; });
+            // В loadExpenses, где формируется map:
+            results.forEach(({ teamId, spentByType, incomeByType, eventStats }) => {
+                const currentYearSpent = Object.values(spentByType).reduce((s, v) => s + (v || 0), 0);
+                map[teamId] = { spentByType, incomeByType, eventStats, currentYearSpent };
+            });
             setExpensesMap(map);
         } catch (e) { console.error('loadExpenses error:', e); } finally { setExpensesLoading(false); }
     };
@@ -1164,42 +1119,33 @@ const TeamsMonitor = ({ sessionId }) => {
                                     spentByType={teamData.spentByType}
                                     incomeByType={teamData.incomeByType}
                                     eventStats={teamData.eventStats}
+                                    currentYearSpent={teamData.currentYearSpent || 0}
+                                    lu={lu}
+                                    members={members}
+                                    isOnline={isOnline}
                                 />
 
                                 {isOpen && (
                                     <div className="tm-card-details">
-                                        <div className="tm-detail-section">
-                                            <div className="tm-detail-title">🗺️ Лицензионные участки ({lu.length})</div>
-                                            {lu.length === 0
-                                                ? <div className="tm-detail-empty">Нет участков</div>
-                                                : <div className="tm-lu-list">{lu.map(ref => <span key={ref} className="tm-lu-badge">{ref}</span>)}</div>
-                                            }
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
+                                            {Object.entries({ 'Карточки ЛУ': teamData.spentByType?.lu_card, 'Аукционы': teamData.spentByType?.auction, 'НИР': teamData.spentByType?.research, 'Полевые': teamData.spentByType?.fieldwork, 'События': teamData.spentByType?.events }).map(([label, val]) =>
+                                                val > 0 ? (
+                                                    <div key={label} style={{ fontSize: 12, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 10px' }}>
+                                                        <span style={{ color: '#64748b' }}>{label}: </span>
+                                                        <span style={{ fontWeight: 700 }}>{Number(val || 0).toLocaleString('ru-RU')} млн</span>
+                                                    </div>
+                                                ) : null
+                                            )}
                                         </div>
-                                        <div className="tm-detail-section">
-                                            <div className="tm-detail-title">👥 Состав ({members.length} чел.)</div>
-                                            {members.length === 0
-                                                ? <div className="tm-detail-empty">Нет данных</div>
-                                                : <div className="tm-members-list">
-                                                    {members.map((m, i) => (
-                                                        <div key={i} className="tm-member-row">
-                                                            <span className="tm-member-icon">👤</span>
-                                                            <span className="tm-member-name">{typeof m === 'string' ? m : (m.name || m.fullName || JSON.stringify(m))}</span>
-                                                            {m.role && <span className="tm-member-role">{m.role}</span>}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            }
-                                        </div>
-                                        <div className="tm-detail-meta-buttons">
-                                            <div className="tm-detail-section tm-detail-meta">
-                                                <div><span className="tm-meta-label">Тип:</span> {team.experience === 'students' ? '🎓 Студенты' : '💼 Профессионалы'}</div>
-                                                <div><span className="tm-meta-label">Статус:</span> {isOnline ? '🟢 Онлайн' : '🔴 Офлайн'}</div>
-                                                <div><span className="tm-meta-label">ID:</span> <code className="tm-id">{String(team.id).slice(0, 12)}…</code></div>
+                                        {teamData.eventStats && (
+                                            <div style={{ fontSize: 12, color: '#374151', marginBottom: 10 }}>
+                                                <span style={{ color: '#6c757d', fontWeight: 600 }}>Верно/Ошибки: </span>
+                                                {teamData.eventStats.correctAnswers || 0} / {teamData.eventStats.wrongAnswers || 0}
                                             </div>
-                                            <button className="tb tb-primary" onClick={() => setMonitoringTeam(team)} style={{ marginTop: 12, width: '100%' }}>
-                                                Детальный мониторинг
-                                            </button>
-                                        </div>
+                                        )}
+                                        <button className="tb tb-primary" onClick={() => setMonitoringTeam(team)} style={{ width: '100%' }}>
+                                            Детальный мониторинг
+                                        </button>
                                     </div>
                                 )}
                             </div>
@@ -1233,6 +1179,16 @@ const AdminPanel = () => {
     const adminSocketRef = useRef(null);
 
     useEffect(() => {
+        const onUnauthorized = () => {
+            adminSocketRef.current?.disconnect(); adminSocketRef.current = null;
+            sessionStorage.removeItem('admin_tab');
+            setLoggedIn(false);
+        };
+        window.addEventListener('admin:unauthorized', onUnauthorized);
+        return () => window.removeEventListener('admin:unauthorized', onUnauthorized);
+    }, []);
+
+    useEffect(() => {
         if (!loggedIn) { adminSocketRef.current?.disconnect(); adminSocketRef.current = null; return; }
         if (adminSocketRef.current) return;
         const sock = socketIO(WS_URL, { auth: { role: 'admin' }, transports: ['websocket'], reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 1000 });
@@ -1244,7 +1200,7 @@ const AdminPanel = () => {
     useEffect(() => { if (loggedIn) { const t = sessionStorage.getItem('admin_tab') || 'create'; setTab(t); } }, []);
 
     if (!loggedIn) {
-        return <LoginScreen onLogin={token => { localStorage.setItem('auth_token', token); setLoggedIn(true); }} />;
+        return <LoginScreen onLogin={() => setLoggedIn(true)} />;
     }
 
     const logout = () => {
@@ -1253,14 +1209,7 @@ const AdminPanel = () => {
         setLoggedIn(false);
     };
 
-    const apiFetch = async (url) => {
-        const token = getSavedToken();
-        const r = await fetch(`${API_URL}${url}`, { headers: { Authorization: `Bearer ${token}` } });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-    };
-
-    const loadSessions = async () => { setLoading(true); try { setSessions(await apiFetch('/api/admin/sessions')); } catch (e) { console.error(e); } finally { setLoading(false); } };
+    const loadSessions = async () => { setLoading(true); try { setSessions(await apiAction('/api/admin/sessions', 'GET')); } catch (e) { console.error(e); } finally { setLoading(false); } };
     const loadTeams = async () => { setLoading(true); try { setTeams(await getAdminTeams()); } catch { } finally { setLoading(false); } };
     const loadDash = async () => { setLoading(true); try { setStats(await getAdminStats()); } catch { } finally { setLoading(false); } };
 

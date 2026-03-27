@@ -90,7 +90,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     gridCells, research, events, player,
     saveEventLine, revealEventCard, updateEventLineScore,
     skipEventLine, completeEvents, updateEventMoneySpent,
-    pauseGlobalTimer, resumeGlobalTimer, setGlobalPhase,
+    pauseGlobalTimer, resumeGlobalTimer, setGlobalPhase, licenseUnits,
   } = useGameStore();
 
   const globalTimer = useGameStore(s => s.globalTimer);
@@ -268,15 +268,15 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
       year: globalYear,
       data: {
         score,
-        moneyDelta:     stats.moneyDelta,
+        moneyDelta: stats.moneyDelta,
         correctAnswers: stats.correct,
-        wrongAnswers:   stats.wrong,
-        budgetAfter:    currentBudget,
-        line:           events.linesByLU[luId] || {},
-        completed:      options.completed || false,
-        skipped:        options.skipped   || false,
+        wrongAnswers: stats.wrong,
+        budgetAfter: currentBudget,
+        line: events.linesByLU[luId] || {},
+        completed: options.completed || false,
+        skipped: options.skipped || false,
         // Детальные ответы для AdminPanel
-        cardAnswers:    stats.cardAnswers || [],
+        cardAnswers: stats.cardAnswers || [],
       },
     }, (res) => {
       if (!res?.ok) console.warn('events:save failed:', res?.error);
@@ -354,19 +354,19 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     }
     lineStatsRef.current[luId]._saved = false;
     if (isCorrect) lineStatsRef.current[luId].correct += 1;
-    else           lineStatsRef.current[luId].wrong   += 1;
+    else lineStatsRef.current[luId].wrong += 1;
 
     // ── Детальная запись ответа ───────────────────────────────────────────
     lineStatsRef.current[luId].cardAnswers.push({
       cardIndex,
-      cardType:        'opportunity',
-      question:        card.data.question  || '',
-      options:         card.data.options   || [],
+      cardType: 'opportunity',
+      question: card.data.question || '',
+      options: card.data.options || [],
       selectedAnswers: [...selectedAnswers],
-      correctAnswer:   card.data.correctAnswer,
+      correctAnswer: card.data.correctAnswer,
       isCorrect,
-      points:          pts,
-      skipped:         false,
+      points: pts,
+      skipped: false,
     });
 
     revealEventCard(luId, cardKey, { revealed: true, correct: isCorrect, points: pts });
@@ -474,7 +474,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
       stats: {
         score: currentScore,
         correct: currentStats.correct,
-        wrong:   currentStats.wrong,
+        wrong: currentStats.wrong,
         moneyDelta: currentStats.moneyDelta,
       }
     });
@@ -497,15 +497,15 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
         const key = `${lineIndex}-${ci}`;
         if (rev[key]?.revealed) return; // уже отвечено — не дублируем
         lineStatsRef.current[line.luId].cardAnswers.push({
-          cardIndex:       ci,
-          cardType:        'opportunity',
-          question:        card.data?.question || '',
-          options:         card.data?.options  || [],
+          cardIndex: ci,
+          cardType: 'opportunity',
+          question: card.data?.question || '',
+          options: card.data?.options || [],
           selectedAnswers: [],
-          correctAnswer:   card.data?.correctAnswer ?? null,
-          isCorrect:       false,
-          points:          0,
-          skipped:         true,
+          correctAnswer: card.data?.correctAnswer ?? null,
+          isCorrect: false,
+          points: 0,
+          skipped: true,
         });
       });
     }
@@ -516,15 +516,15 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
         luId: line.luId,
         year: globalYear,
         data: {
-          score:          stats.score,
-          moneyDelta:     stats.moneyDelta,
+          score: stats.score,
+          moneyDelta: stats.moneyDelta,
           correctAnswers: stats.correct,
-          wrongAnswers:   stats.wrong,
-          budgetAfter:    useGameStore.getState().player.budget,
-          line:           events.linesByLU[line.luId] || {},
-          completed:      false,
-          skipped:        true,
-          cardAnswers:    lineStatsRef.current[line.luId]?.cardAnswers || [],
+          wrongAnswers: stats.wrong,
+          budgetAfter: useGameStore.getState().player.budget,
+          line: events.linesByLU[line.luId] || {},
+          completed: false,
+          skipped: true,
+          cardAnswers: lineStatsRef.current[line.luId]?.cardAnswers || [],
         },
       }, (res) => {
         if (!res?.ok) console.warn('events:save failed before skip:', res?.error);
@@ -564,6 +564,15 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     });
     completeEvents();
     onComplete();
+  };
+
+  const getLicenseCost = () => {
+    const ownedLicenses = licenseUnits?.owned ?? licenseUnits?.licenseUnits?.owned ?? [];
+    return ownedLicenses.reduce((s, lu) => s + (lu.cost || 0), 0);
+  };
+
+  const getGridCost = () => {
+    return Object.values(gridCells?.owned ?? {}).reduce((s, c) => s + (c.auctionPrice || 0), 0);
   };
 
   const renderCard = (card, cardIndex, lineIndex, line) => {
@@ -716,6 +725,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
           budget={player.budget}
           spent={totalSpent}
           eventSpent={events.totalMoneySpent || 0}
+          regionMapSpent={getLicenseCost() + getGridCost()}
           theme="light"
         />
       </div>

@@ -2333,6 +2333,7 @@ body,
   .tm-categories-grid {
     grid-template-columns: 1fr;
   }
+
   .tm-budget-grid {
     gap: 4px;
   }

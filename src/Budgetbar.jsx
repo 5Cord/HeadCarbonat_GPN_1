@@ -9,8 +9,8 @@
 
 import React from 'react';
 
-export default function BudgetBar({ budget = 0, spent = 0, eventSpent = 0, theme = 'dark' }) {
-    const totalSpent = spent + (eventSpent || 0);
+export default function BudgetBar({ budget = 0, spent = 0, eventSpent = 0, regionMapSpent = 0, theme = 'dark' }) {
+    const totalSpent = spent + (eventSpent || 0) + (regionMapSpent || 0);
     const isLow = budget < 1000;
     const dark = theme === 'dark';
 
@@ -50,7 +50,7 @@ export default function BudgetBar({ budget = 0, spent = 0, eventSpent = 0, theme
     };
 
     const budgetColor = isLow ? '#ef4444' : dark ? '#4ade80' : '#16a34a';
-    const spentColor  = dark ? '#f97316' : '#ea580c';
+    const spentColor = dark ? '#f97316' : '#ea580c';
 
     const val = { fontSize: '1.05rem', fontWeight: 800 };
 
