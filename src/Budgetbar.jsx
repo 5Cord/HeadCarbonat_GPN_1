@@ -2,15 +2,13 @@
 //
 // Props:
 //   budget      — текущий остаток (число)
-//   spent       — потрачено на НИРы / полевые работы (число)
-//   eventSpent  — потрачено на события (карточки случайности, отрицательные money-эффекты)
-//                 по умолчанию 0; берётся из events.totalMoneySpent
+//   spent       — итого потрачено по всем фазам
+//   phaseSpent  — потрачено на текущем этапе (опционально; ячейка скрыта если не передано)
 //   theme       — 'dark' (по умолчанию) | 'light'
 
 import React from 'react';
 
-export default function BudgetBar({ budget = 0, spent = 0, eventSpent = 0, regionMapSpent = 0, theme = 'dark' }) {
-    const totalSpent = spent + (eventSpent || 0) + (regionMapSpent || 0);
+export default function BudgetBar({ budget = 0, spent = 0, phaseSpent = null, theme = 'dark' }) {
     const isLow = budget < 1000;
     const dark = theme === 'dark';
 
@@ -50,7 +48,8 @@ export default function BudgetBar({ budget = 0, spent = 0, eventSpent = 0, regio
     };
 
     const budgetColor = isLow ? '#ef4444' : dark ? '#4ade80' : '#16a34a';
-    const spentColor = dark ? '#f97316' : '#ea580c';
+    const spentColor  = dark ? '#f97316' : '#ea580c';
+    const phaseColor  = dark ? '#c084fc' : '#7c3aed';
 
     const val = { fontSize: '1.05rem', fontWeight: 800 };
 
@@ -59,14 +58,19 @@ export default function BudgetBar({ budget = 0, spent = 0, eventSpent = 0, regio
     return (
         <div style={wrap}>
             <div style={{ ...cell, ...divider }}>
-                <span style={label}>Бюджет</span>
+                <span style={label}>Остаток</span>
                 <span style={{ ...val, color: budgetColor }}>{fmt(budget)} млн</span>
             </div>
-            <div style={{ ...cell, ...(eventSpent > 0 ? divider : {}) }}>
-                <span style={label}>Потрачено</span>
-                <span style={{ ...val, color: spentColor }}>{fmt(totalSpent)} млн</span>
+            <div style={{ ...cell, ...(phaseSpent !== null ? divider : {}) }}>
+                <span style={label}>Потрачено всего</span>
+                <span style={{ ...val, color: spentColor }}>{fmt(spent)} млн</span>
             </div>
-
+            {phaseSpent !== null && (
+                <div style={cell}>
+                    <span style={label}>На этапе</span>
+                    <span style={{ ...val, color: phaseColor }}>{fmt(phaseSpent)} млн</span>
+                </div>
+            )}
         </div>
     );
 }

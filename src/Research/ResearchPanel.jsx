@@ -637,6 +637,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       successRates: { ...(prog.successRates || {}), [mob.id]: newRate },
       successRatesByYear: appendRateToYear(prog.successRatesByYear, prog.successRatesByYear?.[year], year, mob.id, newRate),
       totalSpent: (prog.totalSpent || 0) + rw.baseCost,
+      spentByYear: { ...(prog.spentByYear || {}), [year]: (prog.spentByYear?.[year] || 0) + rw.baseCost },
     };
   };
 
@@ -648,10 +649,12 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   // ТАЙМЕР UI
   // ─────────────────────────────────────────────────────────────────────────
 
-  const totalSpent = Object.values(research.progressByLU).reduce((s, p) => s + (p.totalSpent || 0), 0);
-
-  const regionMapSpent = (licenseUnits?.owned ?? []).reduce((s, lu) => s + (lu.cost || 0), 0)
-    + Object.values(gridCells?.owned ?? {}).reduce((s, c) => s + (c.auctionPrice || 0), 0);
+  const totalSpent =
+    Object.values(research.progressByLU).reduce((s, p) => s + (p.totalSpent || 0), 0) +
+    (fieldWork.totalSpent || 0) +
+    (events.totalMoneySpent || 0) +
+    (licenseUnits?.owned ?? []).reduce((s, lu) => s + (lu.cost || 0), 0) +
+    Object.values(gridCells?.owned ?? {}).reduce((s, c) => s + (c.auctionPrice || 0), 0);
 
   const timerCls = () => {
     if (inRefusal) return `${styles.timer} ${styles.timerWarning}`;
@@ -833,7 +836,12 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
         )}
 
         <br />
-        <BudgetBar budget={player.budget} spent={totalSpent + regionMapSpent} theme="light" />
+        <BudgetBar
+          budget={player.budget}
+          spent={totalSpent}
+          phaseSpent={Object.values(research.progressByLU).reduce((s, p) => s + (p.spentByYear?.[globalYear] || 0), 0)}
+          theme="light"
+        />
 
         {/* ── Панель суммарной успешности — лаконичная версия ── */}
         {(multiMode || activeLU) && (() => {

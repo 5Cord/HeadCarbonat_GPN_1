@@ -148,6 +148,7 @@ const useGameStore = create(
           yearScores: {},
           yearlyStats: {},
           totalMoneySpent: 0,
+          moneySpentByYear: {},
         },
 
         statistics: {
@@ -157,6 +158,8 @@ const useGameStore = create(
         fieldWork: {
           availableOptions: [],
           selectionsByLU: {},
+          totalSpent: 0,
+          totalSpentByYear: {},
         },
 
         results: {
@@ -815,10 +818,16 @@ const useGameStore = create(
 
         updateEventMoneySpent: (amount) => {
           if (!amount || amount >= 0) return;
+          const year = get().game?.currentYear ?? get().globalTimer?.currentYear ?? 1;
+          const abs = Math.abs(amount);
           set((state) => ({
             events: {
               ...state.events,
-              totalMoneySpent: (state.events.totalMoneySpent || 0) + Math.abs(amount),
+              totalMoneySpent: (state.events.totalMoneySpent || 0) + abs,
+              moneySpentByYear: {
+                ...state.events.moneySpentByYear,
+                [year]: (state.events.moneySpentByYear?.[year] || 0) + abs,
+              },
             },
           }));
         },
@@ -901,9 +910,9 @@ const useGameStore = create(
             auctions: { active: {}, completed: {} },
             regionMap: { cells: [], resourceDensityRevealed: false },
             research: { availableWorks: [], progressByLU: {}, yearTransitionApplied: false },
-            events: { linesByLU: {}, revealedCards: {}, lineScores: {}, skippedLines: {}, historyByYear: {}, isCompleted: false, yearScores: {}, yearlyStats: {}, totalMoneySpent: 0 },
+            events: { linesByLU: {}, revealedCards: {}, lineScores: {}, skippedLines: {}, historyByYear: {}, isCompleted: false, yearScores: {}, yearlyStats: {}, totalMoneySpent: 0, moneySpentByYear: {} },
             statistics: { yearlyData: {} },
-            fieldWork: { availableOptions: [], selectionsByLU: {} },
+            fieldWork: { availableOptions: [], selectionsByLU: {}, totalSpent: 0, totalSpentByYear: {} },
             results: { cardsByLU: {}, finalScore: 0 },
             globalTimer: {
               currentYear: 1,

@@ -201,17 +201,6 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
   const showAlert = (title, message) => setAlertModal({ title, message });
 
-  // ── budget:updated → обновляем стор ──────────────────────────────────────
-  useEffect(() => {
-    const socket = getSocket();
-    if (!socket) return;
-    const onBudgetUpdated = ({ budget: newBudget }) => {
-      useGameStore.setState(st => ({ player: { ...st.player, budget: newBudget } }));
-    };
-    socket.on('budget:updated', onBudgetUpdated);
-    return () => socket.off('budget:updated', onBudgetUpdated);
-  }, []);
-
   // ── cells:updated ─────────────────────────────────────────────────────────
   useEffect(() => {
     const socket = getSocket();

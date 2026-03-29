@@ -40,7 +40,7 @@ const calcAvgRank = (selections, blocks) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }) => {
-  const { player, gridCells, research, fieldWork, events } = useGameStore();
+  const { player, gridCells, research, fieldWork, events, licenseUnits } = useGameStore();
   const { setGlobalPhase } = useGameStore();
   const globalYear = useGameStore(s => s.game.currentYear);
 
@@ -88,9 +88,13 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
   }, [fieldWork.selectionsByLU]);
 
   const [selections, setSelections] = useState(() => getYearSelections(luId, globalYear));
+  const [pendingSelection, setPendingSelection] = useState(null); // { cardId, rank, param, cost }
+  const [lockedCardIds, setLockedCardIds] = useState(new Set());
 
   useEffect(() => {
     setSelections(getYearSelections(luId, globalYear));
+    setPendingSelection(null);
+    setLockedCardIds(new Set());
   }, [luId, globalYear]);
 
   useEffect(() => {
@@ -111,7 +115,6 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
             [luId]: {
               ...prev, selections, totalCost: tc, qualityScore: qs, avgRank,
               availableBlocks: avail.map(b => b.blockId),
-              selectionsByYear: { ...prevByYear, [globalYear]: selections },
               metaByYear: { ...prevMeta, [globalYear]: { totalCost: tc, qualityScore: qs, avgRank } },
             },
           },
@@ -186,25 +189,34 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
     });
   };
 
-  const doConfirm = () => {
-    if (!canAfford || selCards === 0) return;
+  // Вызывается автоматически когда все карточки ЛУ подтверждены
+  const autoSave = (confirmedSelections) => {
+    const cost = calculateTotalCost(confirmedSelections, avail);
+    const newBudget = player.budget - cost;
 
-    const newBudget = player.budget - tc;
-    useGameStore.setState(st => ({ player: { ...st.player, budget: newBudget } }));
+    useGameStore.setState(st => {
+      const prev = st.fieldWork.selectionsByLU[luId] || {};
+      return {
+        player: { ...st.player, budget: newBudget },
+        fieldWork: {
+          ...st.fieldWork,
+          totalSpent: (st.fieldWork.totalSpent || 0) + cost,
+          totalSpentByYear: {
+            ...st.fieldWork.totalSpentByYear,
+            [globalYear]: (st.fieldWork.totalSpentByYear?.[globalYear] || 0) + cost,
+          },
+          selectionsByLU: {
+            ...st.fieldWork.selectionsByLU,
+            [luId]: {
+              ...prev,
+              selectionsByYear: { ...(prev.selectionsByYear || {}), [globalYear]: confirmedSelections },
+            },
+          },
+        },
+      };
+    });
 
-    const luStore = fieldWork.selectionsByLU[luId] || {};
-    const apiPayload = {
-      ...prepareFieldWorkForAPI(player.id, luId, selections, avail),
-      year: globalYear,
-      selectionsByYear: luStore.selectionsByYear || {},
-      metaByYear: luStore.metaByYear || {},
-    };
-    console.log('[FieldWork API]', apiPayload);
-
-    // Сохранить на сервер
-    saveToServer(selections, avail, newBudget);
-
-    onComplete();
+    saveToServer(confirmedSelections, avail, newBudget);
   };
 
   const getStatus = (cellRef) => {
@@ -218,6 +230,7 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
   };
 
   const allFieldWorkDone = ownedCells.every(lu => getStatus(lu.cellRef) !== 'ready');
+  const isLocked = luId ? getStatus(luId) === 'done' : false;
 
   const handleBack = useCallback(() => {
     if (onBack) onBack();
@@ -240,7 +253,12 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
     return map;
   });
 
-  const totalSpent = Object.values(research.progressByLU).reduce((s, p) => s + (p.totalSpent || 0), 0);
+  const totalSpent =
+    Object.values(research.progressByLU).reduce((s, p) => s + (p.totalSpent || 0), 0) +
+    (fieldWork.totalSpent || 0) +
+    (events.totalMoneySpent || 0) +
+    (licenseUnits?.owned ?? []).reduce((s, lu) => s + (lu.cost || 0), 0) +
+    Object.values(gridCells?.owned ?? {}).reduce((s, c) => s + (c.auctionPrice || 0), 0);
 
   // ── CSS класс таймера ─────────────────────────────────────────────────────
   const timerCls = () => {
@@ -324,7 +342,12 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
           })}
         </div>
 
-        <BudgetBar budget={player.budget} spent={totalSpent} theme="dark" />
+        <BudgetBar
+          budget={player.budget}
+          spent={totalSpent}
+          phaseSpent={fieldWork.totalSpentByYear?.[globalYear] || 0}
+          theme="dark"
+        />
 
         {activeLU && (
           <div className={styles.statsRow}>
@@ -336,9 +359,7 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
               <span className={styles.statLbl}>Стоимость</span>
               <span className={[styles.statVal, canAfford ? styles.ok : styles.fail].join(' ')}>{tc} млн руб.</span>
             </div>
-            <button className={styles.confirmBtn} onClick={doConfirm} disabled={!canAfford || selCards === 0}>
-              Подтвердить — {tc} млн руб.
-            </button>
+            {isLocked && <div className={styles.lockedBadge}>✓ Работы сохранены</div>}
           </div>
         )}
       </div>
@@ -368,23 +389,31 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
               <div className={styles.blockCards}>
                 {block.cards.map(card => {
                   const chosen = selections[card.cardId];
+                  const cardLocked = isLocked || lockedCardIds.has(card.cardId);
                   return (
                     <div key={card.cardId}
-                      className={[styles.card, styles['cardGrp_' + block.groupColor], chosen ? styles.cardHasSel : styles.cardNoSel].join(' ')}>
-                      <div className={styles.cardTitle}>{card.cardTitle}</div>
+                      className={[styles.card, styles['cardGrp_' + block.groupColor], chosen ? styles.cardHasSel : styles.cardNoSel, cardLocked ? styles.cardConfirmed : ''].join(' ')}>
+                      <div className={styles.cardTitle}>
+                        {card.cardTitle}
+                        {cardLocked && <span className={styles.cardLockedMark}>✓ выбрано</span>}
+                      </div>
                       <div className={styles.cardOpts}>
-                        {(shuffledOptions[card.cardId] || card.options).map(opt => (
-                          <button key={opt.rank}
-                            className={[styles.optBtn, chosen === opt.rank ? styles.optSel : ''].join(' ')}
-                            onClick={() => doSelect(card.cardId, opt.rank)}>
-                            <div className={styles.optDescBlock}>
-                              <div className={styles.optDesc}>{opt.param}</div>
-                            </div>
-                            <div className={styles.optCostBadge}>
-                              {opt.cost > 0 ? opt.cost + ' млн' : 'Бесплатно'}
-                            </div>
-                          </button>
-                        ))}
+                        {(shuffledOptions[card.cardId] || card.options).map(opt => {
+                          const cardLocked = isLocked || lockedCardIds.has(card.cardId);
+                          return (
+                            <button key={opt.rank}
+                              className={[styles.optBtn, chosen === opt.rank ? styles.optSel : '', cardLocked ? styles.optLocked : ''].join(' ')}
+                              onClick={() => !cardLocked && setPendingSelection({ cardId: card.cardId, rank: opt.rank, param: opt.param, cost: opt.cost, cardTitle: card.cardTitle })}
+                              disabled={cardLocked}>
+                              <div className={styles.optDescBlock}>
+                                <div className={styles.optDesc}>{opt.param}</div>
+                              </div>
+                              <div className={styles.optCostBadge}>
+                                {opt.cost > 0 ? opt.cost + ' млн' : 'Бесплатно'}
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   );
@@ -400,8 +429,57 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
         <div className={styles.bottomBar}>
           <div className={styles.bottomInfo}>
             {!canAfford && <span className={styles.warnRed}>Недостаточно бюджета — </span>}
-            {selCards === 0 && canAfford && <span className={styles.warnOrange}>Выберите варианты — </span>}
+            {canAfford && selCards < totCards && (
+              <span className={styles.warnOrange}>
+                {selCards === 0 ? 'Выберите работу по каждой карточке — ' : `Осталось ${totCards - selCards} карточки без выбора — `}
+              </span>
+            )}
             Выбрано {selCards} из {totCards} карточек
+          </div>
+        </div>
+      )}
+
+      {/* ── МОДАЛЬНОЕ ОКНО ПОДТВЕРЖДЕНИЯ КАРТОЧКИ ── */}
+      {pendingSelection && (
+        <div className={styles.modalOverlay} onClick={() => setPendingSelection(null)}>
+          <div className={styles.modalCard} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalTitle}>Подтвердить выбор работы?</div>
+            <div className={styles.modalBody}>
+              <div className={styles.modalRow}>
+                <span className={styles.modalLbl}>Карточка</span>
+                <span className={styles.modalVal}>{pendingSelection.cardTitle}</span>
+              </div>
+              <div className={styles.modalRow}>
+                <span className={styles.modalLbl}>Работа</span>
+                <span className={styles.modalVal}>{pendingSelection.param}</span>
+              </div>
+              <div className={styles.modalRow}>
+                <span className={styles.modalLbl}>Стоимость</span>
+                <span className={styles.modalVal}>
+                  {pendingSelection.cost > 0 ? `${pendingSelection.cost} млн руб.` : 'Бесплатно'}
+                </span>
+              </div>
+            </div>
+            <div className={styles.modalWarn}>
+              После подтверждения изменить выбор по этой карточке нельзя
+            </div>
+            <div className={styles.modalActions}>
+              <button className={styles.modalCancelBtn} onClick={() => setPendingSelection(null)}>
+                Отмена
+              </button>
+              <button className={styles.modalConfirmBtn} onClick={() => {
+                const newSelections = { ...selections, [pendingSelection.cardId]: pendingSelection.rank };
+                const newLockedIds  = new Set([...lockedCardIds, pendingSelection.cardId]);
+                setSelections(newSelections);
+                setLockedCardIds(newLockedIds);
+                setPendingSelection(null);
+                if (newLockedIds.size >= totCards) {
+                  autoSave(newSelections);
+                }
+              }}>
+                Да, подтвердить
+              </button>
+            </div>
           </div>
         </div>
       )}

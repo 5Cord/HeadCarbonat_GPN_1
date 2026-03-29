@@ -87,7 +87,7 @@ const SkipConfirmModal = ({ lineName, stats, onConfirm, onCancel }) => {
 
 const EventsZone = ({ onComplete, onBack, onMenu }) => {
   const {
-    gridCells, research, events, player,
+    gridCells, research, events, player, fieldWork,
     saveEventLine, revealEventCard, updateEventLineScore,
     skipEventLine, completeEvents, updateEventMoneySpent,
     pauseGlobalTimer, resumeGlobalTimer, setGlobalPhase, licenseUnits,
@@ -672,7 +672,12 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     );
   };
 
-  const totalSpent = Object.values(research.progressByLU).reduce((s, p) => s + (p.totalSpent || 0), 0);
+  const totalSpent =
+    Object.values(research.progressByLU).reduce((s, p) => s + (p.totalSpent || 0), 0) +
+    (fieldWork.totalSpent || 0) +
+    (events.totalMoneySpent || 0) +
+    (licenseUnits?.owned ?? []).reduce((s, lu) => s + (lu.cost || 0), 0) +
+    Object.values(gridCells?.owned ?? {}).reduce((s, c) => s + (c.auctionPrice || 0), 0);
 
   return (
     <div className={styles.eventsZone}>
@@ -724,8 +729,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
         <BudgetBar
           budget={player.budget}
           spent={totalSpent}
-          eventSpent={events.totalMoneySpent || 0}
-          regionMapSpent={getLicenseCost() + getGridCost()}
+          phaseSpent={events.moneySpentByYear?.[globalYear] || 0}
           theme="light"
         />
       </div>

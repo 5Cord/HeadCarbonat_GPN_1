@@ -178,6 +178,11 @@ export default function useSocket() {
         });
       },
 
+      onBudgetUpdated: ({ budget }) => {
+        if (budget == null) return;
+        useGameStore.setState(st => ({ player: { ...st.player, budget } }));
+      },
+
       onGameOver: () => {
         useGameStore.setState(st => ({ game: { ...st.game, status: 'FINISHED' } }));
       },

@@ -59,6 +59,7 @@ export function connectSocket(token, sessionId, callbacks = {}) {
   _socket.on('refusal:completed', callbacks.onRefusalCompleted || (() => {}));
   _socket.on('game:over',         callbacks.onGameOver         || (() => {}));
   _socket.on('state:full',        callbacks.onFullState        || (() => {}));
+  _socket.on('budget:updated',    callbacks.onBudgetUpdated    || (() => {}));
 
   return _socket;
 }

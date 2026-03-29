@@ -994,10 +994,6 @@ const BudgetBreakdown = ({ initial, current, spentByType = {}, incomeByType = {}
                     <div style={{ fontSize: 11, color: '#6c757d', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Суммарный расход</div>
                     <div style={{ fontSize: 15, fontWeight: 700, color: '#334155' }}>{fmtV(spent)} млн</div>
                 </div>
-                <div style={{ flex: 1, padding: '8px 12px' }}>
-                    <div style={{ fontSize: 11, color: '#6c757d', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Расход за год</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#334155' }}>{fmtV(currentYearSpent)} млн</div>
-                </div>
             </div>
             <div style={{ height: 4, background: '#e9ecef', borderRadius: 4, overflow: 'hidden', marginBottom: 10 }}>
                 <div style={{ height: '100%', borderRadius: 4, background: isLow ? '#dc2626' : '#16a34a', width: `${pct}%`, transition: 'width 0.4s' }} />

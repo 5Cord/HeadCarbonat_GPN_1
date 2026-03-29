@@ -222,7 +222,7 @@ const ConfirmYearModal = ({ globalYear, isLastYear, onConfirm, onCancel }) => (
 
 const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
   const {
-    player, research, events, fieldWork, gridCells,
+    player, research, events, fieldWork, gridCells, licenseUnits,
     advanceToNextYear, resetEventCardsForNewYear, applyYearTransitionForAllLUs,
     game, setGlobalPhase,
   } = useGameStore();
@@ -376,7 +376,12 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
     }
   };
 
-  const totalSpent = Object.values(research.progressByLU).reduce((s, p) => s + (p.totalSpent || 0), 0);
+  const totalSpent =
+    Object.values(research.progressByLU).reduce((s, p) => s + (p.totalSpent || 0), 0) +
+    (fieldWork.totalSpent || 0) +
+    (events.totalMoneySpent || 0) +
+    (licenseUnits?.owned ?? []).reduce((s, lu) => s + (lu.cost || 0), 0) +
+    Object.values(gridCells?.owned ?? {}).reduce((s, c) => s + (c.auctionPrice || 0), 0);
 
   return (
     <div className="rp-panel">

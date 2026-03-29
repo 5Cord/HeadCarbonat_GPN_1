@@ -467,6 +467,101 @@
   background: #444; color: #666; box-shadow: none; cursor: not-allowed; transform: none;
 }
 
+/* ── Locked state ── */
+
+.lockedBadge {
+  margin-left: auto;
+  padding: 10px 24px;
+  background: rgba(106, 158, 114, 0.15);
+  color: #6a9e72;
+  border: 1px solid rgba(106, 158, 114, 0.4);
+  border-radius: 10px;
+  font-weight: 700; font-size: 0.95rem;
+  letter-spacing: 0.04em;
+}
+
+.optLocked { opacity: 0.5; cursor: not-allowed; }
+
+.cardConfirmed { border-color: rgba(106, 158, 114, 0.5) !important; }
+
+.cardLockedMark {
+  margin-left: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #6a9e72;
+  background: rgba(106, 158, 114, 0.12);
+  border: 1px solid rgba(106, 158, 114, 0.3);
+  border-radius: 6px;
+  padding: 2px 7px;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+}
+
+/* ── Modal ── */
+
+.modalOverlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+
+.modalCard {
+  background: #1e1610;
+  border: 1px solid rgba(200, 169, 126, 0.25);
+  border-radius: 16px;
+  padding: 32px 36px;
+  width: 420px; max-width: 90vw;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+.modalTitle {
+  font-size: 1.25rem; font-weight: 800;
+  color: #c8a97e; margin-bottom: 24px;
+  letter-spacing: 0.04em;
+}
+
+.modalBody { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+
+.modalRow { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+
+.modalLbl { font-size: 0.85rem; color: rgba(200, 169, 126, 0.55); white-space: nowrap; }
+
+.modalVal { font-size: 1rem; font-weight: 700; color: #c8a97e; text-align: right; }
+
+.modalWarn {
+  font-size: 0.82rem;
+  color: rgba(220, 150, 80, 0.8);
+  background: rgba(220, 150, 80, 0.08);
+  border: 1px solid rgba(220, 150, 80, 0.2);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 24px;
+}
+
+.modalActions { display: flex; gap: 12px; justify-content: flex-end; }
+
+.modalCancelBtn {
+  padding: 11px 24px;
+  background: transparent;
+  color: rgba(200, 169, 126, 0.6);
+  border: 1px solid rgba(200, 169, 126, 0.2);
+  border-radius: 10px; font-size: 0.95rem; cursor: pointer;
+  transition: all 0.15s; font-family: sans-serif;
+}
+.modalCancelBtn:hover { border-color: rgba(200, 169, 126, 0.4); color: #c8a97e; }
+
+.modalConfirmBtn {
+  padding: 11px 28px;
+  background: linear-gradient(135deg, #2fa394, #1a7a6e);
+  color: #fff; border: none; border-radius: 10px;
+  font-weight: 800; font-size: 0.95rem; cursor: pointer;
+  letter-spacing: 0.05em;
+  box-shadow: 0 4px 14px rgba(47, 163, 148, 0.35);
+  transition: opacity 0.15s; font-family: sans-serif;
+}
+.modalConfirmBtn:hover { opacity: 0.9; }
+
 /* ── Responsive ── */
 
 @media (max-width: 1200px) { .timer { right: 200px; } }
