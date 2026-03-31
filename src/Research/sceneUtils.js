@@ -84,6 +84,32 @@ export const resolveSceneDesc = (scenario, workId, rowNum) => {
   return category.items[rowNum - 1]?.description ?? null;
 };
 
+// Отладка: перебирает все сценарии/работы/ранки и выводит console.table
+export const debugAllSceneImages = () => {
+  const rows = [];
+  for (let scenario = 0; scenario <= 4; scenario++) {
+    for (const workId of Object.keys(WORK_SCENE_MAP)) {
+      const map = WORK_SCENE_MAP[workId];
+      const maxRank = map.rows;
+      for (let rank = 1; rank <= maxRank; rank++) {
+        const img = resolveSceneImage(scenario, workId, rank, 'к');
+        const desc = resolveSceneDesc(scenario, workId, rank);
+        rows.push({
+          сценарий: scenario,
+          workId,
+          rank,
+          'img ✓/✗': img ? '✓' : '✗',
+          'desc ✓/✗': desc ? '✓' : '✗',
+          desc_текст: desc ?? '—',
+        });
+      }
+    }
+  }
+  console.table(rows);
+  const missing = rows.filter(r => r['img ✓/✗'] === '✗');
+  console.warn(`[SceneDebug] Не найдено img: ${missing.length} из ${rows.length}`, missing.map(r => `${r.сценарий}/${r.workId}/rank${r.rank}`));
+};
+
 // Возвращает URL картинки: type = 'к' (картинка) | 'т' (текст, устарело)
 // rowNum = avgRank из FieldWork (1, 2 или 3)
 export const resolveSceneImage = (scenario, workId, rowNum, type) => {

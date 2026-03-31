@@ -5,7 +5,7 @@ import { FIELD_WORK_BLOCKS } from '../FieldWork/Fieldworkdata';
 import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
 import ResultsPanelTour from './ResultsPanelTour';
-import { WORK_SCENE_MAP, getScenario, resolveSceneImage, resolveSceneDesc } from '../Research/sceneUtils.js';
+import { WORK_SCENE_MAP, getScenario, resolveSceneImage, resolveSceneDesc, debugAllSceneImages } from '../Research/sceneUtils.js';
 
 const renderWithSup = (text) => {
   if (!text) return null;
@@ -141,7 +141,7 @@ const MultiYearCell = ({ block, fwData, workedYears, scenario, evScoreByYear }) 
         const sceneOk = scenario != null && evScore >= 0 && avgRank != null;
         const sceneImg = sceneOk ? resolveSceneImage(scenario, block.mobWorkId, avgRank, 'к') : null;
         const sceneDesc = sceneOk ? resolveSceneDesc(scenario, block.mobWorkId, avgRank) : null;
-        console.log(`[SceneDebug] MultiYear сценарий=${scenario} работа=${block.mobWorkId} год=${y} avgRank=${avgRank} evScore=${evScore} | img=${sceneImg ?? 'НЕ НАЙДЕНО'} | desc=${sceneDesc ?? 'НЕ НАЙДЕНО'}`);
+        // console.log(`[SceneDebug] MultiYear сценарий=${scenario} работа=${block.mobWorkId} год=${y} avgRank=${avgRank} evScore=${evScore} | img=${sceneImg ?? 'НЕ НАЙДЕНО'} | desc=${sceneDesc ?? 'НЕ НАЙДЕНО'}`);
         return (
           <WorkCell
             key={y}
@@ -398,6 +398,9 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
       <div className="rp-nav-controls">
         <button className="rp-nav-btn rp-nav-btn-back" onClick={onBack}>← Назад</button>
         <button className="rp-nav-btn rp-nav-btn-back" onClick={onMenu}>В меню</button>
+        {/* DEBUG — удалить после проверки */}
+        <button className="rp-nav-btn rp-nav-btn-back" onClick={debugAllSceneImages} style={{ background: '#7b1fa2', color: '#fff' }}>🔍 Debug scenes</button>
+        {/* /DEBUG */}
         <button className="rp-nav-btn rp-nav-btn-finish" onClick={handleFinishYear}>
           {isLastYear ? '🏁 Завершить игру' : `✓ Завершить год ${globalYear}`}
         </button>
@@ -524,7 +527,7 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
                                 const sceneOk = scenario != null && evScore >= 0 && avgRank != null;
                                 const sceneImg = sceneOk ? resolveSceneImage(scenario, col.mobWorkId, avgRank, 'к') : null;
                                 const sceneDesc = sceneOk ? resolveSceneDesc(scenario, col.mobWorkId, avgRank) : null;
-                                console.log(`[SceneDebug] ЛУ=${activeLU.cellRef} сценарий=${scenario} работа=${col.mobWorkId} год=${y} avgRank=${avgRank} evScore=${evScore} | img=${sceneImg ?? 'НЕ НАЙДЕНО'} | desc=${sceneDesc ?? 'НЕ НАЙДЕНО'}`);
+                                // console.log(`[SceneDebug] ЛУ=${activeLU.cellRef} сценарий=${scenario} работа=${col.mobWorkId} год=${y} avgRank=${avgRank} evScore=${evScore} | img=${sceneImg ?? 'НЕ НАЙДЕНО'} | desc=${sceneDesc ?? 'НЕ НАЙДЕНО'}`);
                                 return <WorkCell block={block} selections={sels} year={null} sceneImg={sceneImg} sceneDesc={sceneDesc} />;
                               })()
                               : <MultiYearCell
