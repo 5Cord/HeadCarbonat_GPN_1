@@ -70,6 +70,8 @@
   color: #2fa394;
   font-size: 2.4rem;
   font-weight: 700;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #e8f5f3;
 }
 
 .headerControls {
@@ -300,7 +302,9 @@
   font-weight: 700;
   font-size: 0.75rem;
   border: 1px solid #333;
-  position: relative;
+  position: sticky;
+  top: 0;
+  z-index: 20;
   vertical-align: top;
   color: white;
 }
@@ -321,29 +325,29 @@
 }
 
 .colMob {
-  min-width: 80px;
+  min-width: 100px;
   writing-mode: vertical-rl;
   text-orientation: mixed;
   padding: 0.5rem 0.3rem;
 }
 
 .colGroupGray {
-  background: #9e9e9e !important;
+  background: #757575 !important;
   color: white !important;
 }
 
 .colGroupOrange {
-  background: #ff9800 !important;
+  background: #f4511e !important;
   color: white !important;
 }
 
 .colGroupBeige {
-  background: #d4a574 !important;
+  background: #8d6e63 !important;
   color: white !important;
 }
 
 .colGroupBlue {
-  background: #2196f3 !important;
+  background: #1976d2 !important;
   color: white !important;
 }
 
@@ -353,7 +357,7 @@
 }
 
 .colMob.locked {
-  opacity: 0.55;
+  opacity: 0.75;
   cursor: not-allowed;
 }
 
@@ -370,14 +374,16 @@
 }
 
 .mobName {
-  font-size: 0.7rem;
-  line-height: 1.1;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.03em;
   color: inherit;
 }
 
 .mobCost {
-  font-size: 0.65rem;
-  font-weight: 600;
+  font-size: 0.75rem;
+  font-weight: 700;
   color: inherit;
   opacity: 0.95;
 }
@@ -387,7 +393,7 @@
 }
 
 .mobSuccess {
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   margin-top: 0.2rem;
   font-weight: 600;
   color: inherit;
@@ -396,8 +402,8 @@
 .mobYears {
   display: block;
   margin-top: 0.2rem;
-  font-size: 0.6rem;
-  opacity: 0.85;
+  font-size: 0.7rem;
+  opacity: 0.9;
   font-weight: 500;
   color: inherit;
 }
@@ -405,7 +411,7 @@
 .mobDependency {
   display: block;
   margin-top: 0.2rem;
-  font-size: 0.55rem;
+  font-size: 0.6rem;
   color: #ffe082;
   font-weight: 700;
 }
@@ -413,7 +419,7 @@
 .mobLocked {
   display: block;
   margin-top: 0.2rem;
-  font-size: 0.6rem;
+  font-size: 0.65rem;
   color: rgba(255, 255, 255, 0.75);
   font-weight: 600;
 }
@@ -448,9 +454,6 @@
   width: 5%;
 }
 
-/* ═══════════════════════════════════════════
-   ЯЧЕЙКИ ТАБЛИЦЫ
-═══════════════════════════════════════════ */
 
 .cell {
   width: 80px;
@@ -464,14 +467,12 @@
   padding: 0.3rem;
 }
 
-/* Столбец НЕ мобилизован → скрыт серым */
 .cell.colHidden {
   background: #e0e0e0 !important;
   cursor: not-allowed;
   color: #999;
 }
 
-/* Столбец мобилизован → ячейки видны, можно кликать */
 .cell.colVisible.available {
   background: #f48fb1;
   color: #333;
@@ -502,14 +503,12 @@
   box-shadow: none;
 }
 
-/* Куплено в текущем году */
 .cell.purchased {
   background: #f48fb1;
   border: 2px solid #c2185b;
   cursor: default;
 }
 
-/* Куплено другими ЛУ */
 .cell.purchasedOther {
   background: #bdbdbd;
   border: 1px solid #757575;
@@ -525,14 +524,12 @@
   opacity: 0.7;
 }
 
-/* Столбец завершён (evScore >= 0) — заблокирован навсегда */
 .cell.pastPurchased {
   background: #e0e0e0 !important;
   cursor: not-allowed;
   opacity: 0.4;
 }
 
-/* Столбец доступен повторно (evScore < 0) — ↺ */
 .cell.repeatable {
   background: #fff3e0;
   border: 2px solid #ff9800;
@@ -546,9 +543,6 @@
   z-index: 10;
 }
 
-/* ═══════════════════════════════════════════
-   СОДЕРЖИМОЕ ЯЧЕЕК
-═══════════════════════════════════════════ */
 
 .cellUnavailable {
   display: flex;
@@ -640,15 +634,11 @@
   display: block;
 }
 
-/* Завершён навсегда */
 .cellUnavailable .cellLockIcon {
   font-size: 1.5rem;
   opacity: 0.5;
 }
 
-/* ═══════════════════════════════════════════
-   ИТОГОВАЯ СТРОКА
-═══════════════════════════════════════════ */
 
 .totalsRow {
   background: #fff9e6;
@@ -695,9 +685,6 @@
   font-size: 1.2rem;
 }
 
-/* ═══════════════════════════════════════════
-   МОДАЛКИ
-═══════════════════════════════════════════ */
 
 .cellModalOverlay {
   position: fixed;
@@ -855,9 +842,6 @@
   background: #e0e0e0;
 }
 
-/* ═══════════════════════════════════════════
-   ИСТОРИЯ ПОКУПОК
-═══════════════════════════════════════════ */
 
 .purchaseHistory {
   background: white;
@@ -914,13 +898,110 @@
   text-align: center;
 }
 
+
+.luCard {
+  padding: 10px 14px;
+  min-width: 140px;
+  border-radius: 10px;
+  border: 2px solid #e0e0e0;
+  background: #fff;
+  color: #333;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.07);
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.luCard:hover {
+  border-color: #2fa394;
+  box-shadow: 0 4px 12px rgba(47, 163, 148, 0.15);
+  transform: translateY(-1px);
+}
+
+.luCardActive {
+  border-color: #2fa394 !important;
+  background: #2fa394 !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(47, 163, 148, 0.3) !important;
+  transform: translateY(-2px) !important;
+}
+
+.luCardDone {
+  opacity: 0.65;
+  cursor: default;
+  background: #f5f5f5 !important;
+  border-color: #ddd !important;
+  color: #aaa !important;
+}
+
+.luCardDone:hover {
+  transform: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.07);
+  border-color: #ddd !important;
+}
+
+.luCardName {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.luBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  width: fit-content;
+}
+
+.luCardScore {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.luCardNir {
+  font-size: 0.82rem;
+  opacity: 0.9;
+  font-weight: 600;
+}
+
+.luCardBlocked {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.luBudgetSection {
+  margin-top: 1rem;
+}
+
+.stepArrow {
+  display: inline-block;
+  margin-left: 8px;
+  animation: arrowBounce 1s ease-in-out infinite;
+}
+
+@keyframes arrowBounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(4px); }
+}
+
+.colMobPulse {
+  animation: colGlow 1.4s ease-in-out infinite !important;
+  outline: 2px solid #4caf50 !important;
+  outline-offset: -2px;
+}
+
+@keyframes colGlow {
+  0%, 100% { box-shadow: inset 0 0 0 0 rgba(76, 175, 80, 0); }
+  50%       { box-shadow: inset 0 0 10px 2px rgba(76, 175, 80, 0.35); }
+}
+
 .groupHeader {
   display: none;
 }
 
-/* ═══════════════════════════════════════════
-   ТАЙМЕР
-═══════════════════════════════════════════ */
 
 .timer {
   position: fixed;
@@ -1080,9 +1161,6 @@
   }
 }
 
-/* ═══════════════════════════════════════════
-   ДОП. СТИЛИ
-═══════════════════════════════════════════ */
 
 .nextYearBtn {
   padding: 0.6rem 1.2rem;
@@ -1106,7 +1184,6 @@
   cursor: not-allowed;
 }
 
-/* Выбранный столбец (анимация) */
 .columnSelected {
   border: 3px solid #4caf50 !important;
   box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
@@ -1125,7 +1202,6 @@
   }
 }
 
-/* Ячейка в корзине */
 .cell.inCart {
   background: #4caf50 !important;
   border: 2px solid #2e7d32;
@@ -1149,7 +1225,6 @@
   color: white;
 }
 
-/* Столбец завершён навсегда (evScore >= 0) */
 .pastPurchased {
   background-color: #e0e0e0 !important;
   color: #888 !important;

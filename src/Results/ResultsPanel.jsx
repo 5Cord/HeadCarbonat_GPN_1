@@ -1,5 +1,3 @@
-// С Бэкендом
-// ResultsPanel.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import './ResultsPanel.css';
 import useGameStore from '../../store/gameStore';
@@ -7,6 +5,18 @@ import { FIELD_WORK_BLOCKS } from '../FieldWork/Fieldworkdata';
 import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
 import ResultsPanelTour from './ResultsPanelTour';
+import { WORK_SCENE_MAP, getScenario, resolveSceneImage, resolveSceneDesc } from '../Research/sceneUtils.js';
+
+const renderWithSup = (text) => {
+  if (!text) return null;
+  return text.split(', ').map((segment, si) => (
+    <div key={si}>
+      {segment.split(/(\^\d+)/).map((part, i) =>
+        /^\^\d+$/.test(part) ? <sup key={i}>{part.slice(1)}</sup> : part
+      )}
+    </div>
+  ));
+};
 
 const formatTime = (s) => {
   const t = Math.max(0, Math.floor(s));
@@ -35,7 +45,6 @@ const COLOR_MAP = { gray: '#9e9e9e', orange: '#e67e22', beige: '#c8a96e', blue: 
 const GROUP_BG = { gray: '#f0f0f0', orange: '#ffd8b1', beige: '#f5e8d0', blue: '#c6e2ff' };
 const STATUS_LABEL = { done: 'Выполнено', noWork: 'Нет работ', failed: 'Провал', noResearch: 'Нет НИР' };
 
-// ─── Хелперы чтения fieldWork ─────────────────────────────────────────────────
 
 const getSelectionsForYear = (fwData, year) => {
   if (!fwData) return null;
@@ -76,9 +85,8 @@ const getTotalCostAllYears = (fwData) => {
   return fwData.totalCost || 0;
 };
 
-// ─── WorkCell ─────────────────────────────────────────────────────────────────
 
-const WorkCell = ({ block, selections, year }) => {
+const WorkCell = ({ block, selections, year, sceneImg, sceneDesc }) => {
   if (!block || !selections) return <div className="rp-empty-cell" />;
   const chosen = block.cards.map(card => {
     const rank = selections[card.cardId];
@@ -91,29 +99,34 @@ const WorkCell = ({ block, selections, year }) => {
   return (
     <div className="rp-work-cell" style={{ borderColor: clr }}>
       <div className="rp-work-cell-head" style={{ background: clr }}>
-        {block.title}
         {year != null && (
-          <span style={{ marginLeft: 6, fontSize: '0.68rem', opacity: 0.9, fontWeight: 600 }}>
+          <span style={{ fontSize: '0.68rem', opacity: 0.9, fontWeight: 600 }}>
             год {year}
           </span>
         )}
       </div>
-      <div className="rp-work-cell-body">
-        {chosen.map((c, i) => (
-          <div key={i} className="rp-work-param">
-            <div className="rp-work-param-label">{c.title}</div>
-            <div className="rp-work-param-val">{c.param}</div>
-          </div>
-        ))}
-      </div>
-      <div className="rp-work-cell-cost">{chosen.reduce((s, c) => s + c.cost, 0)} млн</div>
+      {sceneImg ? (
+        <div className="rp-work-cell-img-wrap">
+          <img src={sceneImg} alt={block.title} className="rp-work-cell-img" />
+          <div className="rp-work-cell-body rp-work-cell-body--overlay" />
+        </div>
+      ) : (
+        <div className="rp-work-cell-body">
+          {chosen.map((c, i) => (
+            <div key={i} className="rp-work-param">
+              <div className="rp-work-param-label">{c.title}</div>
+              <div className="rp-work-param-val">{c.param}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {sceneDesc && <div className="rp-work-cell-desc">{renderWithSup(sceneDesc)}</div>}
     </div>
   );
 };
 
-// ─── MultiYearCell ────────────────────────────────────────────────────────────
 
-const MultiYearCell = ({ block, fwData, workedYears }) => {
+const MultiYearCell = ({ block, fwData, workedYears, scenario, evScoreByYear }) => {
   if (!block || !workedYears.length) return <div className="rp-empty-cell" />;
   const yearsWithData = workedYears.filter(y => {
     const s = getSelectionsForYear(fwData, y);
@@ -122,14 +135,28 @@ const MultiYearCell = ({ block, fwData, workedYears }) => {
   if (!yearsWithData.length) return <div className="rp-empty-cell" />;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      {yearsWithData.map(y => (
-        <WorkCell key={y} block={block} selections={getSelectionsForYear(fwData, y)} year={y} />
-      ))}
+      {yearsWithData.map(y => {
+        const avgRank = fwData?.metaByYear?.[y]?.avgRank ?? null;
+        const evScore = evScoreByYear?.[y] ?? 0;
+        const sceneOk = scenario != null && evScore >= 0 && avgRank != null;
+        const sceneImg = sceneOk ? resolveSceneImage(scenario, block.mobWorkId, avgRank, 'к') : null;
+        const sceneDesc = sceneOk ? resolveSceneDesc(scenario, block.mobWorkId, avgRank) : null;
+        console.log(`[SceneDebug] MultiYear сценарий=${scenario} работа=${block.mobWorkId} год=${y} avgRank=${avgRank} evScore=${evScore} | img=${sceneImg ?? 'НЕ НАЙДЕНО'} | desc=${sceneDesc ?? 'НЕ НАЙДЕНО'}`);
+        return (
+          <WorkCell
+            key={y}
+            block={block}
+            selections={getSelectionsForYear(fwData, y)}
+            year={y}
+            sceneImg={sceneImg}
+            sceneDesc={sceneDesc}
+          />
+        );
+      })}
     </div>
   );
 };
 
-// ─── WaitingModal — модалка ожидания других команд ───────────────────────────
 
 const WaitingModal = ({ year, readyCount, totalCount, isLastYear, teamNames }) => (
   <div style={{
@@ -152,7 +179,6 @@ const WaitingModal = ({ year, readyCount, totalCount, isLastYear, teamNames }) =
         Ждём пока все команды завершат год {year}
       </p>
 
-      {/* Прогресс-бар */}
       <div style={{ background: '#f0f0f0', borderRadius: 8, height: 12, marginBottom: '1rem', overflow: 'hidden' }}>
         <div style={{
           width: `${(readyCount / Math.max(totalCount, 1)) * 100}%`,
@@ -167,7 +193,6 @@ const WaitingModal = ({ year, readyCount, totalCount, isLastYear, teamNames }) =
         {readyCount} / {totalCount} команд готовы
       </div>
 
-      {/* Список готовых команд */}
       {teamNames && teamNames.length > 0 && (
         <div style={{ textAlign: 'left', background: '#f8f9fa', borderRadius: 8, padding: '0.75rem 1rem' }}>
           {teamNames.map((name, i) => (
@@ -186,7 +211,6 @@ const WaitingModal = ({ year, readyCount, totalCount, isLastYear, teamNames }) =
   </div>
 );
 
-// ─── ConfirmYearModal ─────────────────────────────────────────────────────────
 
 const ConfirmYearModal = ({ globalYear, isLastYear, onConfirm, onCancel }) => (
   <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000 }}>
@@ -216,9 +240,6 @@ const ConfirmYearModal = ({ globalYear, isLastYear, onConfirm, onCancel }) => (
   </div>
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ОСНОВНОЙ КОМПОНЕНТ
-// ─────────────────────────────────────────────────────────────────────────────
 
 const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
   const {
@@ -236,14 +257,12 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
 
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // ── Состояние ожидания других команд ─────────────────────────────────────
   const [waiting, setWaiting] = useState(false);
   const [readyCount, setReadyCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [readyTeamIds, setReadyTeamIds] = useState([]);
   const [readyTeamNames, setReadyTeamNames] = useState([]);
 
-  // Подписываемся на WS события готовности и перехода года
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -255,9 +274,8 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
     };
 
     const onYearAdvanced = ({ year }) => {
-      // Сервер перекинул всех — выполняем локальный переход
       setWaiting(false);
-      const nextYear = year; // год уже обновлён через timer:state
+      const nextYear = year;
       resetEventCardsForNewYear(nextYear);
       applyYearTransitionForAllLUs(nextYear - 1);
       advanceToNextYear();
@@ -280,11 +298,7 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
     };
   }, []);
 
-  // Формируем имена готовых команд из списка id
-  // (для отображения в модалке — берём из sessionTeams если есть, иначе просто id)
   useEffect(() => {
-    // Простой вариант: показываем teamId как имя, 
-    // если хочется имена — нужно хранить маппинг teams в сторе
     setReadyTeamNames(readyTeamIds);
   }, [readyTeamIds]);
 
@@ -335,7 +349,6 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
     const isOnline = !!(socket?.connected && player.sessionId);
 
     if (isLastYear) {
-      // Последний год — для онлайна тоже через year:ready
       if (isOnline) {
         setWaiting(true);
         setReadyCount(0);
@@ -352,10 +365,8 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
     }
 
     if (isOnline) {
-      // Онлайн: показываем ожидание, отправляем готовность на сервер
       setWaiting(true);
       setReadyCount(0);
-      // Локально сохраняем прогресс (события и исследования уже сохранены через WS ранее)
       resetEventCardsForNewYear(globalYear + 1);
       applyYearTransitionForAllLUs(globalYear);
 
@@ -363,11 +374,9 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
         if (res) {
           setReadyCount(res.readyCount);
           setTotalCount(res.totalCount);
-          // Если мы единственная команда — сервер сам пришлёт year:advanced
         }
       });
     } else {
-      // Офлайн: старое поведение
       const nextYear = globalYear + 1;
       resetEventCardsForNewYear(nextYear);
       applyYearTransitionForAllLUs(globalYear);
@@ -386,7 +395,6 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
   return (
     <div className="rp-panel">
 
-      {/* ── КНОПКИ НАВИГАЦИИ ───────────────────────────────────────────── */}
       <div className="rp-nav-controls">
         <button className="rp-nav-btn rp-nav-btn-back" onClick={onBack}>← Назад</button>
         <button className="rp-nav-btn rp-nav-btn-back" onClick={onMenu}>В меню</button>
@@ -395,7 +403,6 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
         </button>
       </div>
 
-      {/* ── ТАЙМЕР ──────────────────────────────────────────────────────── */}
       <div className={timerCls()}>
         <div className="rp-timer-lbl">Глобальный таймер</div>
         {timeRemaining > 0
@@ -408,7 +415,6 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
         </div>
       </div>
 
-      {/* ── КАРТОЧКИ УЧАСТКОВ ───────────────────────────────────────────── */}
       <div className="rp-lu-switcher">
         <span className="rp-lu-switcher-label">Выберите участок:</span>
         <div className="rp-lu-switcher-row">
@@ -452,7 +458,6 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
         <BudgetBar budget={player.budget} spent={totalSpent} theme="light" />
       </div>
 
-      {/* ── ТАБЛИЦА ─────────────────────────────────────────────────────── */}
       {activeLU && (
         <div className="rp-table-section">
           {workedYears.length > 1 && (
@@ -482,45 +487,60 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
               <tbody>
                 {workedYears.length === 0 && (
                   <tr>
-                    {/* <td className="rp-td rp-td-lu">
-                      <div className="rp-lu-info">
-                        <div className="rp-lu-info-ref">{activeLU.cellRef}</div>
-                        <div className="rp-lu-info-name">{activeLU.name}</div>
-                      </div>
-                    </td> */}
                     {TABLE_COLUMNS.map(col => (
                       <td key={col.mobWorkId} className="rp-td"><div className="rp-empty-cell" /></td>
                     ))}
                   </tr>
                 )}
 
-                {workedYears.length > 0 && (
-                  <tr style={{ background: '#f8f9fa' }}>
-                    <td className="rp-td rp-td-lu">
-                      <div className="rp-lu-info">
-                        <div className="rp-lu-info-ref">{activeLU.cellRef}</div>
-                        <div className="rp-lu-info-name">{activeLU.name}</div>
-                      </div>
-                    </td>
-                    {TABLE_COLUMNS.map(col => {
-                      const block = blockByMobId[col.mobWorkId];
-                      return (
-                        <td key={col.mobWorkId} className="rp-td">
-                          {workedYears.length === 1
-                            ? (() => {
-                              const sels = getSelectionsForYear(activeFwData, workedYears[0]);
-                              const hasAny = block && sels && block.cards.some(c => sels[c.cardId] != null);
-                              return hasAny
-                                ? <WorkCell block={block} selections={sels} year={null} />
-                                : <div className="rp-empty-cell" />;
-                            })()
-                            : <MultiYearCell block={block} fwData={activeFwData} workedYears={workedYears} />
-                          }
-                        </td>
-                      );
-                    })}
-                  </tr>
-                )}
+                {workedYears.length > 0 && (() => {
+                  const scenario = getScenario(activeLU.cellRef);
+                  const evScoreByYear = {};
+                  for (let y = 1; y <= globalYear; y++) {
+                    evScoreByYear[y] = y < globalYear
+                      ? (events.historyByYear?.[y]?.lineScores?.[activeLU.cellRef] ?? 0)
+                      : (events.lineScores?.[activeLU.cellRef] ?? 0);
+                  }
+                  return (
+                    <tr style={{ background: '#f8f9fa' }}>
+                      <td className="rp-td rp-td-lu">
+                        <div className="rp-lu-info">
+                          <div className="rp-lu-info-ref">{activeLU.cellRef}</div>
+                          <div className="rp-lu-info-name">{activeLU.name}</div>
+                        </div>
+                      </td>
+                      {TABLE_COLUMNS.map(col => {
+                        const block = blockByMobId[col.mobWorkId];
+                        return (
+                          <td key={col.mobWorkId} className="rp-td">
+                            {workedYears.length === 1
+                              ? (() => {
+                                const y = workedYears[0];
+                                const sels = getSelectionsForYear(activeFwData, y);
+                                const hasAny = block && sels && block.cards.some(c => sels[c.cardId] != null);
+                                if (!hasAny) return <div className="rp-empty-cell" />;
+                                const avgRank = activeFwData?.metaByYear?.[y]?.avgRank ?? null;
+                                const evScore = evScoreByYear[y] ?? 0;
+                                const sceneOk = scenario != null && evScore >= 0 && avgRank != null;
+                                const sceneImg = sceneOk ? resolveSceneImage(scenario, col.mobWorkId, avgRank, 'к') : null;
+                                const sceneDesc = sceneOk ? resolveSceneDesc(scenario, col.mobWorkId, avgRank) : null;
+                                console.log(`[SceneDebug] ЛУ=${activeLU.cellRef} сценарий=${scenario} работа=${col.mobWorkId} год=${y} avgRank=${avgRank} evScore=${evScore} | img=${sceneImg ?? 'НЕ НАЙДЕНО'} | desc=${sceneDesc ?? 'НЕ НАЙДЕНО'}`);
+                                return <WorkCell block={block} selections={sels} year={null} sceneImg={sceneImg} sceneDesc={sceneDesc} />;
+                              })()
+                              : <MultiYearCell
+                                  block={block}
+                                  fwData={activeFwData}
+                                  workedYears={workedYears}
+                                  scenario={scenario}
+                                  evScoreByYear={evScoreByYear}
+                                />
+                            }
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })()}
 
                 {workedYears.length > 1 && workedYears.map(y => {
                   const ySels = getSelectionsForYear(activeFwData, y);
@@ -536,7 +556,6 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
         </div>
       )}
 
-      {/* ── ЛЕГЕНДА ─────────────────────────────────────────────────────── */}
       <div className="rp-legend">
         {[
           { color: 'gray', label: 'СРР (сейсморазведочные работы)' },
@@ -551,7 +570,6 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
         ))}
       </div>
 
-      {/* ── МОДАЛКИ ─────────────────────────────────────────────────────── */}
       {showConfirm && (
         <ConfirmYearModal
           globalYear={globalYear} isLastYear={isLastYear}
@@ -568,7 +586,6 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
           teamNames={readyTeamNames}
         />
       )}
-      {/* <ResultsPanelTour globalYear={globalYear} onDone={() => {}} /> */}
     </div>
   );
 };

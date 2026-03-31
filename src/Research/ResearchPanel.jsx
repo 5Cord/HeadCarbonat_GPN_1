@@ -1,20 +1,3 @@
-// ResearchPanel.jsx — улучшенная версия с бэкендом
-// CSS additions needed in ResearchPanel.module.css:
-//
-// .colYearInactive {
-//   background: #bdbdbd !important;
-//   color: #888 !important;
-//   opacity: 0.4;
-//   cursor: not-allowed;
-//   filter: grayscale(1);
-// }
-//
-// .cellYearInactive {
-//   background: #e8e8e8 !important;
-//   opacity: 0.25;
-//   cursor: not-allowed;
-//   filter: grayscale(1);
-// }
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { RESEARCH_WORKS, MOBILIZATION_WORKS } from './researchData';
 import useGameStore from '../../store/gameStore';
@@ -24,7 +7,6 @@ import ResearchPanelTour, { RefusalTour } from './Researchpaneltour';
 import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
 
-// ─── Константы ────────────────────────────────────────────────────────────────
 
 const REFUSAL_YEARS = [3, 5];
 const REFUSAL_DURATION = 10 * 60;
@@ -44,7 +26,6 @@ const COLS_BY_YEAR = {
   10: ['depression', 'bsko', 'ppd', '3bs'],
 };
 
-// ─── Утилиты ─────────────────────────────────────────────────────────────────
 
 const fmt = (s) => {
   const t = Math.max(0, Math.floor(s));
@@ -60,7 +41,6 @@ const iterLabel = (year) => {
   return '3 — Добыча (годы 9–10)';
 };
 
-// ─── Дефолтный прогресс ──────────────────────────────────────────────────────
 
 const defaultProgress = () => ({
   blockedColumns: [],
@@ -76,7 +56,6 @@ const defaultProgress = () => ({
   successRates: {},
 });
 
-// ─── Переход года ─────────────────────────────────────────────────────────────
 
 function applyYearTransition(prog, prevYear, eventsScore) {
   const prevCol = prog.columnsByYear?.[prevYear];
@@ -88,7 +67,6 @@ function applyYearTransition(prog, prevYear, eventsScore) {
   return { ...prog, blockedColumns: blocked, purchasedCells: {}, successRates: {} };
 }
 
-// ─── Цветовые группы столбцов ────────────────────────────────────────────────
 
 const MOB_GROUPS = [
   { ids: ['srr_2d', 'srr_3d'], label: 'СРР', cls: 'colGroupGray' },
@@ -99,9 +77,6 @@ const MOB_GROUPS = [
 
 const getColGroup = (colId) => MOB_GROUPS.find(g => g.ids.includes(colId)) || MOB_GROUPS[0];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// КОМПОНЕНТ
-// ─────────────────────────────────────────────────────────────────────────────
 
 export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   const {
@@ -115,11 +90,9 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   const globalYear = useGameStore(s => s.game.currentYear);
   const timeRemaining = globalTimer.timeRemaining;
 
-  // ── Онлайн-режим ─────────────────────────────────────────────────────────
   const socket = getSocket();
   const isOnline = !!(socket?.connected && player.sessionId);
 
-  // ── Локальный UI-стейт ────────────────────────────────────────────────────
   const [showYearResultsModal, setShowYearResultsModal] = useState(false);
   const [resultsTimeRemaining, setResultsTimeRemaining] = useState(RESULTS_DURATION);
   const resultsTimerRef = useRef(null);
@@ -130,7 +103,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   const [refusalRefs, setRefusalRefs] = useState([]);
   const [purchaseModal, setPurchaseModal] = useState(null);
 
-  // Отказной таймер
   const [refusalLeft, setRefusalLeft] = useState(0);
   const [inRefusal, setInRefusal] = useState(false);
   const refusalIntervalRef = useRef(null);
@@ -140,32 +112,26 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   const [activeLU, setActiveLU] = useState(null);
   const [sessionCount, setSessionCount] = useState(0);
 
-  // ── Ожидание других команд (онлайн) ──────────────────────────────────────
   const [waiting, setWaiting] = useState(false);
   const [readyCount, setReadyCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [readyTeamIds, setReadyTeamIds] = useState([]);
 
-  // ── Объявить фазу при монтировании ────────────────────────────────────────
   useEffect(() => {
     setGlobalPhase('RESEARCH');
   }, []);
 
-  // ── Реакция на истечение серверного таймера ───────────────────────────────
   useEffect(() => {
     if (timeRemaining > 0) return;
     if (inRefusal) return;
     handleYearEnd();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeRemaining]);
 
-  // ── Пауза таймера при модалках ────────────────────────────────────────────
   useEffect(() => {
     if (showYearConfirm || purchaseModal || showYearResultsModal) pauseGlobalTimer();
     else if (!inRefusal) resumeGlobalTimer();
   }, [showYearConfirm, purchaseModal, showYearResultsModal, inRefusal]);
 
-  // ── Таймер модалки результатов года ──────────────────────────────────────
   useEffect(() => {
     if (!showYearResultsModal) return;
     setResultsTimeRemaining(RESULTS_DURATION);
@@ -178,14 +144,11 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     return () => clearInterval(resultsTimerRef.current);
   }, [showYearResultsModal]);
 
-  // Авто-переход когда таймер результатов дошёл до 0
   useEffect(() => {
     if (!showYearResultsModal || resultsTimeRemaining > 0) return;
     confirmNextYear();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resultsTimeRemaining, showYearResultsModal]);
 
-  // ── WS подписки (онлайн-режим) ────────────────────────────────────────────
   useEffect(() => {
     if (!socket) return;
 
@@ -219,7 +182,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     };
   }, [socket]);
 
-  // ── Отказной таймер ───────────────────────────────────────────────────────
   const startRefusalTimer = useCallback(() => {
     setRefusalLeft(REFUSAL_DURATION);
     setInRefusal(true);
@@ -244,7 +206,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     };
   }, []);
 
-  // ── Реакция на смену года ─────────────────────────────────────────────────
   const prevYearRef = useRef(globalYear);
   useEffect(() => {
     if (prevYearRef.current === globalYear) return;
@@ -273,9 +234,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     setGlobalPhase('RESEARCH');
   }, [globalYear]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ЛОГИКА КОНЦА ГОДА
-  // ─────────────────────────────────────────────────────────────────────────
 
   const handleYearEnd = useCallback(() => {
     if (globalYear >= 10) { setTimeout(() => setShowFinalModal(true), 200); return; }
@@ -320,9 +278,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     }
   }, [globalYear, isOnline, socket]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ОТКАЗ ОТ УЧАСТКОВ
-  // ─────────────────────────────────────────────────────────────────────────
 
   const handleRefusalAccept = useCallback((refsToRemove = []) => {
     stopRefusalTimer();
@@ -368,9 +323,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     });
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ВСПОМОГАТЕЛЬНЫЕ ДАННЫЕ
-  // ─────────────────────────────────────────────────────────────────────────
 
   const ownedLUs = useMemo(() =>
     Object.values(gridCells.owned).map(c => ({
@@ -418,9 +370,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     return (prog.skippedYears || []).includes(globalYear) || !!prog.columnsByYear?.[globalYear];
   }, [getProgress, globalYear]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ВЫБОР УЧАСТНИКОВ И СТОЛБЦА
-  // ─────────────────────────────────────────────────────────────────────────
 
   const resetSelection = () => { setSelectedLUs([]); setSelectedCol(null); setActiveLU(null); setSessionCount(0); };
 
@@ -439,10 +388,8 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     });
   };
 
-  // ── handleColClick — без алертов, тихо фильтруем недоступные ЛУ ──────────
   const handleColClick = (mob) => {
     if (selectedLUs.length === 0) return;
-    // Столбец недоступен в этом году — игнорируем
     if (!isColActiveThisYear(mob.id, globalYear)) return;
 
     const valid = selectedLUs.filter(luId => colStatus(mob.id, luId).ok);
@@ -452,12 +399,8 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     setSelectedCol(prev => prev === mob.id ? null : mob.id);
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ПОКУПКА ЯЧЕЙКИ
-  // ─────────────────────────────────────────────────────────────────────────
 
   const openPurchaseModal = (work, mob) => {
-    // Ячейка недоступна в этом году — молча игнорируем
     if (!isColActiveThisYear(mob.id, globalYear)) return;
 
     if (selectedLUs.length > 0 && selectedCol === mob.id) {
@@ -493,7 +436,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       const { breakdown, total, toBuy } = purchaseModal;
       if (player.budget < total) return;
 
-      // Формируем данные для отправки
       const purchases = breakdown.map(({ luId, needsMob, cost }) => ({
         luId,
         workId: work.id,
@@ -505,18 +447,15 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
         year: globalYear,
       }));
 
-      // Отправляем на сервер
       if (isOnline) {
         socket?.emit('research:purchase', { purchases, totalCost: total }, (res) => {
           if (!res?.ok) {
             showAlert?.('Ошибка', res?.error || 'Не удалось списать бюджет');
             return;
           }
-          // Бюджет придёт через budget:updated
         });
       }
 
-      // Локально обновляем ТОЛЬКО прогресс НИР (не бюджет!)
       const updProg = { ...research.progressByLU };
       breakdown.forEach(({ luId, needsMob, cost }) => {
         const p = updProg[luId] || defaultProgress();
@@ -527,10 +466,8 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       });
 
       if (isOnline) {
-        // В онлайн-режиме бюджет НЕ ТРОГАЕМ
         useGameStore.setState(st => ({ research: { ...st.research, progressByLU: updProg } }));
       } else {
-        // Офлайн — списываем локально
         useGameStore.setState(st => ({
           player: { ...st.player, budget: st.player.budget - total },
           research: { ...st.research, progressByLU: updProg }
@@ -542,7 +479,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       return;
     }
 
-    // Одиночная покупка — аналогичная логика
     const { luId, needsMob, total } = purchaseModal;
     if (player.budget < total) return;
 
@@ -597,7 +533,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     resetSelection();
   };
 
-  // ── skipResearch — без window.confirm ────────────────────────────────────
   const skipResearch = () => {
     if (selectedLUs.length === 0) return;
     const skippable = selectedLUs.filter(luId =>
@@ -613,9 +548,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     }
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ИММУТАБЕЛЬНЫЕ ХЕЛПЕРЫ
-  // ─────────────────────────────────────────────────────────────────────────
 
   const makeResearchWork = (work, mob, cellKey, cost, needsMob, rate) => ({
     id: cellKey, name: `${work.name} | ${mob.name}`, baseCost: cost,
@@ -645,9 +577,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   const appendToYearMap = (obj, year, key, val) => { const o = obj || {}; return { ...o, [year]: { ...(o[year] || {}), [key]: val } }; };
   const appendRateToYear = (byYear, cur, year, colId, rate) => { const o = byYear || {}; return { ...o, [year]: { ...(cur || {}), [colId]: rate } }; };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ТАЙМЕР UI
-  // ─────────────────────────────────────────────────────────────────────────
 
   const totalSpent =
     Object.values(research.progressByLU).reduce((s, p) => s + (p.totalSpent || 0), 0) +
@@ -672,9 +601,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     return { bg: '#e3f2fd', border: '#1565c0', text: '#1565c0' };
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ДАННЫЕ ДЛЯ ТАБЛИЦЫ
-  // ─────────────────────────────────────────────────────────────────────────
 
   const activeProg = activeLU ? getProgress(activeLU.cellRef) : null;
   const multiMode = selectedLUs.length > 0;
@@ -685,7 +611,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     return ownedLUs.every(lu => isLUDone(lu.cellRef));
   }, [ownedLUs, isLUDone]);
 
-  // ── colRateActive — исправлен для мульти-режима ──────────────────────────
   const colRateActive = useCallback((colId) => {
     const targetProgs = multiMode && selectedLUs.length > 0
       ? selectedLUs.map(id => research.progressByLU[id] || defaultProgress())
@@ -704,14 +629,10 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     return maxRate;
   }, [multiMode, selectedLUs, activeProg, research.progressByLU]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // РЕНДЕР
-  // ─────────────────────────────────────────────────────────────────────────
 
   return (
     <div className={styles.researchPanel}>
 
-      {/* ── ТАЙМЕР ─────────────────────────────────────────────────────── */}
       <div className={timerCls()}>
         {inRefusal ? (
           <>
@@ -733,7 +654,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
         )}
       </div>
 
-      {/* ── НАВИГАЦИЯ ──────────────────────────────────────────────────── */}
       <div className={styles.researchMapControls}>
         <button className={`${styles.researchControlBtn} ${styles.researchBackBtn}`} onClick={onBack}>← Назад</button>
         <button className={`${styles.researchControlBtn} ${styles.researchBackBtn}`} onClick={onMenu}>В меню</button>
@@ -748,7 +668,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
         </button>
       </div>
 
-      {/* ── ПАНЕЛЬ УЧАСТКОВ ────────────────────────────────────────────── */}
       <div className={styles.researchHeader}>
         <h2>Научные исследования</h2>
 
@@ -759,12 +678,11 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
         ) : (
           <div style={{ width: '100%' }}>
             <div style={{ marginBottom: '0.5rem', fontWeight: 700, color: '#333' }}>
-              Шаг 1. Выберите участки:
-              <span style={{ marginLeft: 8, fontWeight: 400, color: '#888', fontSize: '0.85rem' }}>
-                {multiMode
-                  ? (selectedCol ? 'Столбец выбран — кликайте по ячейкам' : 'Теперь выберите столбец (заголовок)')
-                  : 'Один клик — выбрать, повторный — снять'}
-              </span>
+              {!multiMode
+                ? 'Шаг 1 — Выберите лицензионные участки ниже'
+                : !selectedCol
+                  ? <>Шаг 2 — Выберите столбец (клик по заголовку таблицы)<span className={styles.stepArrow}></span></>
+                  : 'Шаг 3 — Кликайте по ячейкам и подтвердите'}
             </div>
 
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -781,27 +699,31 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                 const prevColName = prevColId ? MOBILIZATION_WORKS.find(w => w.id === prevColId)?.name : null;
 
                 return (
-                  <div key={lu.cellRef} onClick={() => !done && toggleLU(lu)}
-                    style={{
-                      padding: '10px 14px', minWidth: 140, borderRadius: 10, cursor: done ? 'default' : 'pointer',
-                      border: `2px solid ${inGroup ? '#2fa394' : done ? '#ddd' : '#e0e0e0'}`,
-                      background: inGroup ? '#2fa394' : done ? '#f5f5f5' : '#fff',
-                      color: inGroup ? '#fff' : done ? '#aaa' : '#333',
-                      opacity: done ? 0.65 : 1,
-                      display: 'flex', flexDirection: 'column', gap: 3,
-                      boxShadow: inGroup ? '0 4px 12px rgba(47,163,148,.3)' : '0 2px 4px rgba(0,0,0,.06)',
-                      transform: inGroup ? 'translateY(-2px)' : 'none', transition: 'all .2s',
-                    }}
+                  <div
+                    key={lu.cellRef}
+                    onClick={() => !done && toggleLU(lu)}
+                    className={`${styles.luCard} ${inGroup ? styles.luCardActive : ''} ${done && !inGroup ? styles.luCardDone : ''}`}
                   >
-                    <div style={{ fontWeight: 700, fontSize: '1.05rem' }}>{inGroup && '✓ '}{lu.name}</div>
-                    {done && <div style={{ fontSize: '0.75rem', color: skipped ? '#ff9800' : '#2fa394', fontWeight: 600 }}>{skipped ? 'Пропущен' : 'Использован'} (год {globalYear})</div>}
+                    <div className={styles.luCardName}>{inGroup && '✓ '}{lu.name}</div>
+                    {done && (
+                      <span
+                        className={styles.luBadge}
+                        style={{ color: skipped ? '#e65100' : '#2fa394', background: skipped ? '#fff3e0' : '#e8f5f3' }}
+                      >
+                        {skipped ? 'Пропущен' : 'Использован'} (год {globalYear})
+                      </span>
+                    )}
                     {prevColName && evScore !== null && prevYear > 0 && (
-                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: evScore >= 0 ? (inGroup ? 'rgba(255,255,255,.85)' : '#2e7d32') : (inGroup ? 'rgba(255,220,200,1)' : '#c62828') }}>
+                      <div className={styles.luCardScore} style={{ color: evScore >= 0 ? (inGroup ? 'rgba(255,255,255,.85)' : '#2e7d32') : (inGroup ? 'rgba(255,220,200,1)' : '#c62828') }}>
                         {evScore >= 0 ? `+${evScore}` : evScore} по «{prevColName}»{evScore < 0 ? ' ↺' : ''}
                       </div>
                     )}
-                    {nirCount > 0 && <div style={{ fontSize: '0.82rem', opacity: .9, fontWeight: 600 }}>{nirCount} НИР куплено</div>}
-                    {blocked.length > 0 && <div style={{ fontSize: '0.65rem', color: inGroup ? 'rgba(255,255,255,.6)' : '#bbb' }}>Заблок.: {blocked.map(c => MOBILIZATION_WORKS.find(w => w.id === c)?.name || c).join(', ')}</div>}
+                    {nirCount > 0 && <div className={styles.luCardNir}>{nirCount} НИР куплено</div>}
+                    {blocked.length > 0 && (
+                      <div className={styles.luCardBlocked} style={{ color: inGroup ? 'rgba(255,255,255,.6)' : '#999' }}>
+                        Заблок.: {blocked.map(c => MOBILIZATION_WORKS.find(w => w.id === c)?.name || c).join(', ')}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -822,9 +744,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
               </div>
             )}
 
-            {!multiMode && !activeLU && <div style={{ padding: '6px 12px', background: '#f3f8ff', borderRadius: 7, border: '1px solid #b3d0f5', color: '#1565c0', fontSize: '0.85rem' }}>Выберите один или несколько участков выше, чтобы начать</div>}
-            {multiMode && !selectedCol && <div style={{ padding: '6px 12px', background: '#fff8e1', borderRadius: 7, border: '1px solid #ffe082', color: '#795548', fontSize: '0.85rem' }}><strong>Шаг 2:</strong> кликните на заголовок столбца в таблице ниже</div>}
-            {multiMode && selectedCol && sessionCount === 0 && <div style={{ padding: '6px 12px', background: '#fff8e1', borderRadius: 7, border: '1px solid #ffe082', color: '#795548', fontSize: '0.85rem' }}><strong>Шаг 3:</strong> кликайте по ячейкам столбца. После покупок нажмите «Подтвердить».</div>}
             {!multiMode && !activeLU && !allLUsDoneThisYear && ownedLUs.length > 0 && (
               <div style={{ padding: '6px 12px', background: '#fff3e0', borderRadius: 7, border: '1px solid #ffe082', color: '#e65100', fontSize: '0.85rem', marginTop: 4 }}>
                 <strong>Не все участки обработаны:</strong>{' '}
@@ -835,15 +754,15 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
           </div>
         )}
 
-        <br />
-        <BudgetBar
-          budget={player.budget}
-          spent={totalSpent}
-          phaseSpent={Object.values(research.progressByLU).reduce((s, p) => s + (p.spentByYear?.[globalYear] || 0), 0)}
-          theme="light"
-        />
+        <div className={styles.luBudgetSection}>
+          <BudgetBar
+            budget={player.budget}
+            spent={totalSpent}
+            phaseSpent={Object.values(research.progressByLU).reduce((s, p) => s + (p.spentByYear?.[globalYear] || 0), 0)}
+            theme="light"
+          />
+        </div>
 
-        {/* ── Панель суммарной успешности — лаконичная версия ── */}
         {(multiMode || activeLU) && (() => {
           const targetLUIds = multiMode ? selectedLUs : [activeLU?.cellRef].filter(Boolean);
           const activeColId = selectedCol
@@ -868,7 +787,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
           const hasPurchases = items.some(i => i.rate > 0);
           if (!hasPurchases) return null;
 
-          // Короткое имя столбца: убираем "Успешность " в начале если есть
           const shortColName = mob.name.replace(/^Успешность\s+/i, '');
 
           return (
@@ -884,9 +802,9 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                 {items.map(i => i.luName).join(', ')}
               </span>
               <span style={{ fontSize: '0.85rem', color: '#555' }}>
-               Успешность
+                Успешность
               </span>
-              
+
               <span style={{
                 fontSize: '1.2rem', fontWeight: 800, lineHeight: 1,
                 color: (() => {
@@ -901,7 +819,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
         })()}
       </div>
 
-      {/* ── ГОД + КНОПКА ЗАВЕРШИТЬ ─────────────────────────────────────── */}
       <div className={styles.roundIndicator}>
         <div className={styles.yearInfo}>
           <span className={styles.yearLabel}>Год:</span>
@@ -924,19 +841,15 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
         </button>
       </div>
 
-      {/* ── ЛЕГЕНДА ────────────────────────────────────────────────────── */}
       <div className={styles.groupLegend}>
         {MOB_GROUPS.map(g => (
           <div key={g.cls} className={styles.legendItem}>
-            <span className={styles.legendColor} style={{ background: { colGroupGray: '#f0f0f0', colGroupOrange: '#ffd8b1', colGroupBeige: '#f5e8d0', colGroupBlue: '#c6e2ff' }[g.cls] }} />
+            <span className={styles.legendColor} style={{ background: { colGroupGray: '#757575', colGroupOrange: '#f4511e', colGroupBeige: '#8d6e63', colGroupBlue: '#1976d2' }[g.cls] }} />
             <span className={styles.legendText}>{g.label}</span>
           </div>
         ))}
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════ */}
-      {/*  ТАБЛИЦА НИР                                                       */}
-      {/* ══════════════════════════════════════════════════════════════════ */}
       <div className={styles.researchTableContainer}>
         <div className={styles.researchTableScroll}>
           <table className={`${styles.researchTable} ${styles.battleship}`}>
@@ -947,12 +860,10 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                 {MOBILIZATION_WORKS.map((mob) => {
                   const { cls, label, ids } = getColGroup(mob.id);
                   const isFirstInGroup = ids[0] === mob.id;
-                  // Столбец активен в этом году?
                   const active = isColActiveThisYear(mob.id, globalYear);
                   const isSelected = multiMode && selectedCol === mob.id;
                   const hasDep = mob.dependency && !allMobilized.has(mob.dependency);
 
-                  // Заблокирован для одиночного ЛУ
                   const blockedForActive = activeLU && !multiMode
                     ? (getProgress(activeLU.cellRef).blockedColumns || []).includes(mob.id)
                     : false;
@@ -960,7 +871,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                     ? Object.values(getProgress(activeLU.cellRef).columnsByYear || {}).includes(mob.id)
                     : false;
 
-                  // В мульти-режиме
                   const blockedCount = multiMode
                     ? selectedLUs.filter(id => (getProgress(id).blockedColumns || []).includes(mob.id)).length
                     : 0;
@@ -974,17 +884,15 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                     ([id, p]) => !selectedLUs.includes(id) && p.columnsByYear?.[globalYear] === mob.id
                   );
 
-                  // Столбец полностью недоступен (не в этом году или все заблокированы и т.д.)
                   const fullyDisabled = !active || hasDep || takenByOther
                     || (blockedForActive && !multiMode)
                     || (noneValid && multiMode);
 
                   const clickable = multiMode && active && !noneValid && !hasDep && !takenByOther;
 
-                  // CSS-классы заголовка
                   let hClass = `${styles[cls] || ''}`;
                   if (!active) {
-                    hClass += ` ${styles.colYearInactive}`; // серый, не в этом году
+                    hClass += ` ${styles.colYearInactive}`;
                   } else if (isSelected) {
                     hClass += ` ${styles.mobilized}`;
                   } else if (takenByOther || (blockedForActive && !multiMode) || (noneValid && multiMode)) {
@@ -1000,7 +908,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                         cursor: clickable ? 'pointer' : 'default',
                         outline: isSelected ? '3px solid #ff9800' : 'none',
                         outlineOffset: '-3px',
-                        // Серый + непрозрачный если год не тот
                         filter: !active ? 'grayscale(1)' : 'none',
                         opacity: !active ? 0.4 : fullyDisabled ? 0.45 : 1,
                       }}
@@ -1017,13 +924,12 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                     >
                       {isFirstInGroup && <div className={styles.groupHeader}>{label}</div>}
                       <div className={styles.mobHeader}>
-                        {isSelected && <span style={{ fontSize: '0.85rem', marginRight: 2 }}>★ </span>}
                         <span className={styles.mobName}>{mob.name}</span>
                         <span className={styles.mobCost}>{mob.cost} млн</span>
                         <span className={styles.mobYears}>{mob.years?.length ? `Годы: ${mob.years.join(', ')}` : ''}</span>
                         {!active && <span className={styles.mobLocked}>Не в этом году</span>}
                         {active && hasDep && <span className={styles.mobLocked}>Требует зависимость</span>}
-                        {active && takenByOther && <span className={styles.mobLocked} style={{ color: '#ef9a9a' }}>Занят в {globalYear}г</span>}
+                        {active && takenByOther && <span className={styles.mobLocked} style={{ color: '#ffffff' }}>Занят в {globalYear}г</span>}
                         {active && blockedForActive && !multiMode && <span className={styles.mobLocked} style={{ color: '#bdbdbd' }}>Заблокирован</span>}
                         {active && repeatableForActive && !multiMode && <span className={styles.mobLocked} style={{ color: '#ff9800' }}>↺ Повтор</span>}
                         {active && multiMode && blockedCount > 0 && !noneValid && <span className={styles.mobLocked} style={{ color: '#ffccbc' }}>{blockedCount} заблок.</span>}
@@ -1042,7 +948,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                   {MOBILIZATION_WORKS.map((mob) => {
                     const { cls } = getColGroup(mob.id);
                     const cellKey = `${work.id}-${mob.id}`;
-                    // Столбец активен в этом году?
                     const active = isColActiveThisYear(mob.id, globalYear);
                     const isSelCol = multiMode && selectedCol === mob.id;
                     const rate = work.successRates[mob.id] || 0;
@@ -1078,7 +983,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                     const colNoneValid = multiMode && selectedLUs.length > 0
                       && selectedLUs.filter(id => colStatus(mob.id, id).ok).length === 0;
 
-                    // Ячейка серая если столбец не активен в этом году
                     if (!active) {
                       return (
                         <td key={mob.id} className={`${styles.cell} ${styles[cls] || ''} ${styles.cellYearInactive}`}
@@ -1140,7 +1044,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                 </tr>
               ))}
 
-              {/* ── ИТОГОВАЯ СТРОКА ── */}
               <tr className={styles.totalsRow}>
                 <td colSpan="2" className={styles.totalsLabel}><strong>Итоговая успешность:</strong></td>
                 {MOBILIZATION_WORKS.map((mob) => {
@@ -1163,7 +1066,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                     ? Object.values(getProgress(activeLU.cellRef).columnsByYear || {}).includes(mob.id)
                     : false;
 
-                  // Серая ячейка итогов если год не тот
                   if (!active) {
                     return (
                       <td key={mob.id} className={`${styles.totalsCell} ${styles[cls] || ''}`}
@@ -1189,7 +1091,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
         </div>
       </div>
 
-      {/* ── Подтверждение завершения года ─────────────────────────────── */}
       {showYearConfirm && (
         <div className={styles.cellModalOverlay} onClick={() => setShowYearConfirm(false)}>
           <div className={styles.cellModal} onClick={e => e.stopPropagation()}>
@@ -1208,7 +1109,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
         </div>
       )}
 
-      {/* ── Покупка НИР ───────────────────────────────────────────────── */}
       {purchaseModal && (
         <div className={styles.cellModalOverlay} onClick={() => setPurchaseModal(null)}>
           <div className={styles.cellModal} onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
@@ -1262,7 +1162,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
         </div>
       )}
 
-      {/* ── Итоги года ────────────────────────────────────────────────── */}
       {showYearResultsModal && (() => {
         const timerColors = getResultsTimerColor();
         return (
@@ -1296,14 +1195,12 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
               </div>
               <div className={styles.modalActions} style={{ marginTop: 16 }}>
                 <button className={styles.purchaseModalBtn} onClick={confirmNextYear}>{globalYear >= 10 ? 'Завершить игру' : `Перейти на год ${globalYear + 1}`}</button>
-                {/* <button className={styles.cancelModalBtn} onClick={() => { clearInterval(resultsTimerRef.current); setShowYearResultsModal(false); setResultsTimeRemaining(RESULTS_DURATION); }}>Вернуться к исследованиям</button> */}
               </div>
             </div>
           </div>
         );
       })()}
 
-      {/* ── Ожидание других команд ────────────────────────────────────── */}
       {waiting && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 4000 }}>
           <div style={{ background: '#fff', borderRadius: 16, padding: '2.5rem', maxWidth: 480, width: '90%', boxShadow: '0 10px 50px rgba(0,0,0,0.4)', textAlign: 'center' }}>
@@ -1324,7 +1221,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
         </div>
       )}
 
-      {/* ── Отказной период ───────────────────────────────────────────── */}
       {showRefusalModal && (
         <div className={styles.cellModalOverlay}>
           <div className={styles.cellModal} onClick={e => e.stopPropagation()} style={{ maxWidth: 700, width: '95%' }}>
@@ -1355,7 +1251,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
         </div>
       )}
 
-      {/* ── Финальный модал (год 10) ──────────────────────────────────── */}
       {showFinalModal && (
         <div className={styles.cellModalOverlay}>
           <div className={styles.cellModal}>

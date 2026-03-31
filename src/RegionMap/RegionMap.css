@@ -1,4 +1,3 @@
-/* RegionMap.css */
 
 .region-map-fullscreen {
   position: fixed;
@@ -580,13 +579,12 @@
   right: 5%;
   background: rgba(255, 255, 255, 0.95);
   border-radius: 12px;
-  padding: 12px 24px;
+  padding: 10px 16px;
   display: flex;
-  gap: 20px;
+  gap: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   z-index: 100;
   backdrop-filter: blur(10px);
-  flex-wrap: wrap;
   flex-direction: column;
 }
 
@@ -1432,9 +1430,6 @@
   margin-top: 8px;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   НЕДОСТУПНЫЕ ДЛЯ ПОКУПКИ ЯЧЕЙКИ (ЦВЕТНЫЕ, НО С ПАТТЕРНОМ)
-   ══════════════════════════════════════════════════════════════ */
 .grid-cell-blocked {
   cursor: not-allowed;
   opacity: 0.95;
@@ -1442,14 +1437,11 @@
 
 .grid-cell-blocked:hover {
   background: inherit !important;
-  /* Не меняем цвет при hover */
   transform: none !important;
   border-color: inherit !important;
   filter: brightness(0.95);
-  /* Легкое затемнение при наведении */
 }
 
-/* Базовая заглушка для всех заблокированных типов */
 .grid-cell-blocked-reserve,
 .grid-cell-blocked-settlement,
 .grid-cell-blocked-company {
@@ -1458,26 +1450,21 @@
   border-width: 2px;
 }
 
-/* ЦВЕТА ДЛЯ КАЖДОГО ТИПА (возвращаем цвета) */
 .grid-cell-blocked-reserve {
   background: #c8e6c9 !important;
-  /* Светло-зеленый */
   border: 2px solid #66bb6a !important;
 }
 
 .grid-cell-blocked-settlement {
   background: #fff9c4 !important;
-  /* Светло-желтый */
   border: 2px solid #fbc02d !important;
 }
 
 .grid-cell-blocked-company {
   background: #e1bee7 !important;
-  /* Светло-фиолетовый */
   border: 2px solid #ab47bc !important;
 }
 
-/* УНИВЕРСАЛЬНЫЙ ПАТТЕРН "НЕДОСТУПНО" (полоски) ДЛЯ ВСЕХ ТИПОВ */
 .grid-cell-blocked-reserve::before,
 .grid-cell-blocked-settlement::before,
 .grid-cell-blocked-company::before {
@@ -1489,31 +1476,24 @@
   bottom: 0;
   background: repeating-linear-gradient(45deg,
       rgba(0, 0, 0, 0.15),
-      /* Темные полоски */
       rgba(0, 0, 0, 0.15) 6px,
       transparent 6px,
       transparent 12px);
   pointer-events: none;
-  /* Чтобы не мешать кликам */
   z-index: 1;
 }
 
-/* Текст внутри заблокированных ячеек */
 .grid-cell-blocked-reserve .cell-label,
 .grid-cell-blocked-settlement .cell-label,
 .grid-cell-blocked-company .cell-label {
   color: #333;
-  /* Темно-серый текст для читаемости */
   font-size: 11px;
   font-weight: 600;
   z-index: 2;
-  /* Чтобы текст был над паттерном */
   position: relative;
   text-shadow: 0 0 2px rgba(255, 255, 255, 0.8);
-  /* Легкая подсветка для читаемости */
 }
 
-/* Иконка/маркер для заблокированных */
 .cell-mark-blocked {
   color: #555;
   font-size: 18px;
@@ -1530,12 +1510,8 @@
 }
 
 
-/* ══════════════════════════════════════════════════════════════
-   ЛЕГЕНДА ДЛЯ НЕДОСТУПНЫХ ЯЧЕЕК (ЦВЕТНАЯ, НО С ПАТТЕРНОМ)
-   ══════════════════════════════════════════════════════════════ */
 .legend-color-blocked-reserve {
   background: #c8e6c9;
-  /* Светло-зеленый */
   border: 2px solid #66bb6a;
   position: relative;
   overflow: hidden;
@@ -1543,7 +1519,6 @@
 
 .legend-color-blocked-settlement {
   background: #fff9c4;
-  /* Светло-желтый */
   border: 2px solid #fbc02d;
   position: relative;
   overflow: hidden;
@@ -1551,13 +1526,11 @@
 
 .legend-color-blocked-company {
   background: #e1bee7;
-  /* Светло-фиолетовый */
   border: 2px solid #ab47bc;
   position: relative;
   overflow: hidden;
 }
 
-/* Добавляем те же полоски в легенду для единообразия */
 .legend-color-blocked-reserve::before,
 .legend-color-blocked-settlement::before,
 .legend-color-blocked-company::before {
@@ -1683,7 +1656,6 @@
   color: black;
 }
 
-/* Добавить в RegionMap.css */
 
 .grid-cell-pending-auction {
   background-color: #fff3cd;
@@ -1733,11 +1705,7 @@
   font-size: 18px;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   ДОБАВИТЬ В КОНЕЦ RegionMap.css
-   ══════════════════════════════════════════════════════════════ */
 
-/* Баннер после аукциона */
 .post-auction-banner {
   position: fixed;
   top: 90px;
@@ -1766,7 +1734,6 @@
   }
 }
 
-/* Статус "Вы лидируете" в модале аукциона */
 .auction-leading-block {
   background: #e8f5e9;
   border: 1px solid #a5d6a7;
@@ -1789,7 +1756,6 @@
   line-height: 1.4;
 }
 
-/* Предупреждение "другая команда лидирует" */
 .auction-losing-notice {
   background: #fff3e0;
   border: 1px solid #ffb74d;
@@ -1801,7 +1767,6 @@
   font-weight: 600;
 }
 
-/* Уведомление о статусе фазы */
 .auction-phase-notice {
   background: #f5f5f5;
   border: 1px solid #ddd;
@@ -1813,7 +1778,6 @@
   text-align: center;
 }
 
-/* Кнопка "Покинуть аукцион" */
 .modal-btn-danger {
   background: transparent;
   border: 1.5px solid #e53935;
@@ -1830,19 +1794,13 @@
   color: #fff;
 }
 
-/* Своя ставка в истории */
 .auction-bid-row-mine {
   background: #e3f2fd;
   border-radius: 4px;
   font-weight: 600;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   НОВЫЕ СТИЛИ: Модальные окна подтверждения (confirm-modal)
-   Добавить в конец RegionMap.css
-   ══════════════════════════════════════════════════════════════ */
 
-/* Контент подтверждающего модала — чуть уже */
 .confirm-modal-content {
   max-width: 480px;
 }
@@ -1850,10 +1808,8 @@
 .confirm-modal-content h2 {
   font-size: 20px;
   padding-right: 36px;
-  /* чтобы не залезть за кнопку закрытия */
 }
 
-/* Тело модала — текстовые параграфы */
 .confirm-modal-body {
   font-size: 14px;
   line-height: 1.6;
@@ -1871,7 +1827,6 @@
   font-style: italic;
 }
 
-/* Детали покупки карточки / участка */
 .confirm-purchase-details {
   background: #f9f9f9;
   border-radius: 8px;
@@ -1884,7 +1839,6 @@
   color: #333;
 }
 
-/* Иконка карточки внутри confirm */
 .confirm-card-icon {
   width: 48px;
   height: 48px;
@@ -1912,7 +1866,6 @@
   line-height: 1.55;
 }
 
-/* Строка остатка бюджета */
 .confirm-budget-row {
   display: flex;
   justify-content: space-between;
@@ -1923,7 +1876,6 @@
   color: #555;
 }
 
-/* Иконка ячейки (координата участка) */
 .confirm-cell-ref {
   display: inline-block;
   background: #2fa394;
@@ -1936,7 +1888,6 @@
   letter-spacing: 0.05em;
 }
 
-/* Статистика (участков/обязательств) */
 .confirm-stats-row {
   display: flex;
   gap: 12px;
@@ -1968,7 +1919,6 @@
   color: #2fa394;
 }
 
-/* Блок деталей аукциона */
 .confirm-auction-info {
   background: white;
   border: 1px solid #e0e0e0;
@@ -1990,7 +1940,6 @@
   color: #2fa394;
 }
 
-/* Предупреждение (красная рамка) */
 .confirm-warning-box {
   background: #fff3e0;
   border: 1.5px solid #ff9800;
@@ -2001,7 +1950,6 @@
   line-height: 1.5;
 }
 
-/* Вспомогательные классы цветов */
 .text-danger {
   color: #c62828;
 }
@@ -2014,14 +1962,12 @@
   color: #e65100;
 }
 
-/* ── Модал «нет карточек» ────────────────────────────────── */
 .no-card-modal-icon {
   font-size: 48px;
   text-align: center;
   margin-bottom: 8px;
 }
 
-/* Кнопка danger (уже есть в оригинальном CSS, но на всякий случай) */
 .modal-btn-warning {
   background: #fff3e0;
   border: 1.5px solid #ff9800;
@@ -2033,7 +1979,6 @@
   color: white;
 }
 
-/* ── Добавить в RegionMap.css, заменив существующий блок .next-control-btn ── */
 
 .next-control-btn {
   background: linear-gradient(135deg, #2fa394, #1e8074);
@@ -2046,7 +1991,6 @@
   box-shadow: 0 6px 16px rgba(47, 163, 148, 0.4);
 }
 
-/* Кнопка "Далее" пока карта не завершена — видна, но заблокирована */
 .next-control-btn-disabled,
 .next-control-btn:disabled {
   background: rgba(255, 255, 255, 0.18);
@@ -2058,7 +2002,6 @@
   font-size: 13px;
 }
 
-/* Кнопки Назад/В меню заблокированы во время фаз карты */
 .control-btn-locked,
 .back-control-btn:disabled {
   background: rgba(255, 255, 255, 0.12) !important;
@@ -2069,11 +2012,7 @@
   box-shadow: none !important;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   ОСПАРИВАЕМЫЕ ЯЧЕЙКИ — добавить в конец RegionMap.css
-   ══════════════════════════════════════════════════════════════ */
 
-/* Ячейка: ваша, но другая команда зарегистрировалась на аукцион */
 .grid-cell-contested {
   background: linear-gradient(135deg, #fff8e1, #ffe082) !important;
   border: 2px solid #f9a825 !important;
@@ -2098,7 +2037,6 @@
   }
 }
 
-/* Метка ⚔ внутри оспариваемой ячейки */
 .cell-mark-contested {
   font-size: 14px;
   color: #e65100;
@@ -2121,13 +2059,11 @@
   }
 }
 
-/* Метка cell-label внутри оспариваемой ячейки */
 .grid-cell-contested .cell-label {
   color: #bf360c;
   font-size: 11px;
 }
 
-/* Легенда — цвет для оспариваемых */
 .legend-color-contested {
   background: linear-gradient(135deg, #fff8e1, #ffe082);
   border: 2px solid #f9a825;
@@ -2135,7 +2071,6 @@
   overflow: hidden;
 }
 
-/* ── Баннер «Ваши участки оспариваются» (вверху, под таймером) ── */
 .contested-banner {
   position: fixed;
   top: 90px;
@@ -2189,7 +2124,6 @@
   opacity: 0.9;
 }
 
-/* ── Блок в боковой панели ── */
 .contested-cells-block {
   background: linear-gradient(135deg, #fff8e1, #fff3cd);
   border: 1.5px solid #f9a825;
@@ -2255,7 +2189,6 @@
   font-style: italic;
 }
 
-/* ── В списке «Ваши участки» — иконка ⚔️ рядом с оспариваемым ── */
 .owned-cell-item-contested {
   border-left-color: #f9a825 !important;
   background: linear-gradient(135deg, #fff8e1, #fff3cd) !important;
@@ -2266,7 +2199,6 @@
   flex-shrink: 0;
 }
 
-/* Компакт-вид боковой панели */
 .contested-info-row .info-label {
   color: #e65100;
   font-weight: 700;
@@ -2278,11 +2210,7 @@
   animation: swordPulse 1.2s ease-in-out infinite;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   Добавьте эти стили в RegionMap.css
-   ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Баннер авто-выдачи участков ─────────────────────────────────────────── */
 .auto-assign-banner {
   position: fixed;
   top: 80px;
@@ -2352,7 +2280,6 @@
   color: #fff;
 }
 
-/* ── Ячейка карты: авто-назначена ────────────────────────────────────────── */
 .grid-cell-auto {
   background: linear-gradient(135deg, #e8f4fd, #c8e6fa) !important;
   border-color: #4a9eda !important;
@@ -2363,13 +2290,11 @@
   line-height: 1;
 }
 
-/* ── Легенда: авто-назначенный участок ───────────────────────────────────── */
 .legend-color-auto {
   background: linear-gradient(135deg, #e8f4fd, #c8e6fa);
   border: 1.5px solid #4a9eda;
 }
 
-/* ── Список участков в боковой панели: авто-назначен ─────────────────────── */
 .owned-cell-item-auto {
   border-left: 3px solid #4a9eda !important;
   background: #f0f8ff !important;
@@ -2378,4 +2303,62 @@
 .owned-cell-auto-icon {
   font-size: 0.8rem;
   margin-right: 2px;
+}
+
+.legend-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.legend-color-auction {
+  background: linear-gradient(135deg, #e3f2fd, #90caf9);
+  border: 2px solid #1976d2;
+  position: relative;
+  overflow: hidden;
+}
+
+.lu-limit-bar-track {
+  width: 100%;
+  height: 5px;
+  background: #e5e7eb;
+  border-radius: 3px;
+  margin: 3px 0 8px;
+  overflow: hidden;
+}
+
+.lu-limit-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease, background 0.3s ease;
+}
+
+.cell-tooltip {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  background: rgba(15, 23, 42, 0.92);
+  color: #f1f5f9;
+  border-radius: 8px;
+  padding: 7px 11px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  backdrop-filter: blur(6px);
+  max-width: 220px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.cell-tooltip-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.cell-tooltip-sub {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  margin-top: 2px;
+  line-height: 1.3;
 }

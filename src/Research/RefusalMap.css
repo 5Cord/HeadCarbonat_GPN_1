@@ -1,4 +1,3 @@
-/* RefusalMap.css */
 
 .refusal-map-wrap {
   width: 100%;
@@ -8,7 +7,6 @@
   user-select: none;
 }
 
-/* ── Легенда ── */
 .refusal-map-legend {
   display: flex;
   gap: 12px;
@@ -48,14 +46,12 @@
   color: #1b5e20;
 }
 
-/* ── Сетка ── */
 .refusal-map-grid-wrap {
   overflow-x: auto;
 }
 
 .refusal-grid-col-headers {
   display: flex;
-  margin-left: 28px;  /* ширина row-header */
   margin-bottom: 2px;
 }
 
@@ -65,12 +61,15 @@
 }
 
 .refusal-grid-col-header {
-  width: 36px;
-  min-width: 36px;
+  width: 38px;
+  min-width: 38px;
   text-align: center;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  color: #555;
+  color: #1e293b;
+  background: #f1f5f9;
+  border-radius: 4px 4px 0 0;
+  padding: 2px 0;
 }
 
 .refusal-grid-row {
@@ -83,17 +82,21 @@
   width: 28px;
   min-width: 28px;
   text-align: center;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  color: #555;
+  color: #1e293b;
+  background: #f1f5f9;
   flex-shrink: 0;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  border-radius: 0 4px 4px 0;
 }
 
-/* ── Ячейки ── */
 .refusal-cell {
-  width: 36px;
-  min-width: 36px;
-  height: 30px;
+  width: 38px;
+  min-width: 38px;
+  height: 34px;
   border: 1px solid #ccc;
   display: flex;
   align-items: center;
@@ -109,8 +112,8 @@
 }
 
 .refusal-cell-label {
-  font-size: 0.55rem;
-  opacity: 0.5;
+  font-size: 0.6rem;
+  opacity: 0.7;
   line-height: 1;
 }
 
@@ -120,7 +123,6 @@
   line-height: 1;
 }
 
-/* Свой участок — синий, кликабельный */
 .refusal-cell-own {
   background: #bbdefb;
   border: 2px solid #1976d2;
@@ -140,7 +142,6 @@
   font-size: 0.9rem;
 }
 
-/* Выбран для отказа — красный */
 .refusal-cell-selected {
   background: #ffcdd2;
   border: 2px solid #c62828;
@@ -160,14 +161,12 @@
   font-size: 1rem;
 }
 
-/* Чужой участок */
 .refusal-cell-other {
   background: #f5f5f5;
   border: 1px solid #bdbdbd;
   color: #9e9e9e;
 }
 
-/* Заблокированные */
 .refusal-cell-blocked {
   cursor: not-allowed;
 }
@@ -187,7 +186,6 @@
   border: 1px solid #fb8c00;
 }
 
-/* ── Итог ── */
 .refusal-map-selection-summary {
   text-align: center;
   padding: 8px 14px;

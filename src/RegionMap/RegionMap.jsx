@@ -161,6 +161,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   }, {});
 
   const [hoveredLU, setHoveredLU] = useState(null);
+  const [cellTooltip, setCellTooltip] = useState(null); // { cellId, x, y }
   const [showInfoCards, setShowInfoCards] = useState(false);
   const [selectedInfoCard, setSelectedInfoCard] = useState(null);
   const [isWideScreen, setIsWideScreen] = useState(window.innerWidth > 1580);
@@ -362,6 +363,31 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
   const isBlocked = (ref) => !!getBlockedType(ref);
   const getBlockedLabel = (type) => ({ reserve: 'Природный заказник', settlement: 'Населённый пункт', company: 'Занято нефтяной компанией' }[type] || 'Заблокировано');
+
+  const getCellTooltipContent = (cellId) => {
+    const blockedType = getBlockedType(cellId);
+    if (blockedType) return { title: getBlockedLabel(blockedType), sub: `${cellId} · недоступен` };
+    const isContested = isMyContestedCell(cellId);
+    if (isContested) {
+      const bid = myContestedCells[cellId]?.currentBid;
+      return { title: 'Ваш участок оспаривается ⚔', sub: `${cellId}${bid != null ? ` · ставка: ${bid} млн` : ''}` };
+    }
+    if (isOwnedByMe(cellId)) {
+      const isAuto = ownedCells[cellId]?.isAutoAssigned;
+      return { title: isAuto ? 'Ваш участок (авто)' : 'Ваш участок', sub: cellId };
+    }
+    if (isOwnedByOther(cellId)) {
+      const name = gridCells.allTeams[cellId]?.ownedByTeamName ?? 'Другая команда';
+      return { title: name, sub: `${cellId} · занят` };
+    }
+    const auction = auctions.active[cellId];
+    if (auction) {
+      const bid = auction.currentBid;
+      return { title: 'Аукцион LIVE', sub: `${cellId} · текущая ставка: ${bid != null ? `${bid} млн` : '—'}` };
+    }
+    if (isRegisteredForAuction(cellId)) return { title: 'Вы в очереди', sub: `${cellId} · ожидание аукциона` };
+    return { title: 'Свободный участок', sub: cellId };
+  };
 
   const isLUSelected = (luId) => selectedLU.some(lu => lu.id === luId);
   const canAffordLU = (lu) => isLUSelected(lu.id) || budget >= lu.cost;
@@ -604,7 +630,10 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         {!isWideScreen ? (
           <>
             <div className="info-row"><span className="info-label">Карточки:</span><span className="info-value">{selectedLU.length}</span></div>
-            <div className="info-row"><span className="info-label">Участки:</span><span className="info-value">{ownedCount}/{MAX_LUS_PER_TEAM}</span></div>
+            <div className="info-row"><span className="info-label">Участки:</span><span className={`info-value ${ownedCount >= MAX_LUS_PER_TEAM ? 'limit-reached' : ''}`}>{ownedCount}/{MAX_LUS_PER_TEAM}</span></div>
+            <div className="lu-limit-bar-track">
+              <div className="lu-limit-bar-fill" style={{ width: `${Math.min(100, (ownedCount / MAX_LUS_PER_TEAM) * 100)}%`, background: ownedCount >= MAX_LUS_PER_TEAM ? '#ef4444' : ownedCount >= MAX_LUS_PER_TEAM - 1 ? '#f59e0b' : '#2fa394' }} />
+            </div>
             {myAuctionCells.length > 0 && <div className="info-row"><span className="info-label">Аукционы:</span><span className="info-value auction-count">{myAuctionCells.length}</span></div>}
             {contestedCount > 0 && <div className="info-row contested-info-row"><span className="info-label">⚔️ Оспор.:</span><span className="info-value contested-value">{contestedCount}</span></div>}
             <div className="info-row"><span className="info-label">Всего:</span><span className={`info-value ${totalCommittedCells >= MAX_LUS_PER_TEAM ? 'limit-reached' : ''}`}>{totalCommittedCells}/{MAX_LUS_PER_TEAM}</span></div>
@@ -624,7 +653,10 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         ) : (
           <>
             <div className="info-row"><span className="info-label">Карточки информации:</span><span className="info-value">{selectedLU.length}</span></div>
-            <div className="info-row"><span className="info-label">Выбрано участков:</span><span className="info-value">{ownedCount} / {MAX_LUS_PER_TEAM}</span></div>
+            <div className="info-row"><span className="info-label">Выбрано участков:</span><span className={`info-value ${ownedCount >= MAX_LUS_PER_TEAM ? 'limit-reached' : ''}`}>{ownedCount} / {MAX_LUS_PER_TEAM}</span></div>
+            <div className="lu-limit-bar-track">
+              <div className="lu-limit-bar-fill" style={{ width: `${Math.min(100, (ownedCount / MAX_LUS_PER_TEAM) * 100)}%`, background: ownedCount >= MAX_LUS_PER_TEAM ? '#ef4444' : ownedCount >= MAX_LUS_PER_TEAM - 1 ? '#f59e0b' : '#2fa394' }} />
+            </div>
             {myAuctionCells.length > 0 && <div className="info-row"><span className="info-label">Зарегистрировано на аукционы:</span><span className="info-value auction-count">{myAuctionCells.length}</span></div>}
             {contestedCount > 0 && (
               <div className="contested-cells-block">
@@ -729,7 +761,8 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                         <div
                           className={['grid-cell', ownedByMe && isContested ? 'grid-cell-contested' : '', ownedByMe && !isContested && isAutoAssigned ? 'grid-cell-auto' : '', ownedByMe && !isContested && !isAutoAssigned ? 'grid-cell-owned' : '', ownedByOther ? 'grid-cell-other' : '', hasActiveAuction ? 'grid-cell-auction' : '', isPendingAuction ? 'grid-cell-pending-auction' : '', blockedType ? `grid-cell-blocked grid-cell-blocked-${blockedType}` : '', isDisabled ? 'grid-cell-disabled' : ''].filter(Boolean).join(' ')}
                           onClick={() => handleGridCellClick(cellId)}
-                          title={isContested ? `${cellId} — ваш участок, но на него претендует другая команда!` : isAutoAssigned ? `${cellId} — выдан автоматически` : !isOurPhase ? 'Выбор участков недоступен' : blockedType ? `${cellId} - ${getBlockedLabel(blockedType)}` : ownedByMe ? `${cellId} - ваш участок` : ownedByOther ? `${cellId} - занят другой командой` : hasActiveAuction ? `${cellId} - аукцион` : isPendingAuction ? `${cellId} - вы в очереди` : totalCommittedCells >= MAX_LUS_PER_TEAM ? `${cellId} - лимит ${MAX_LUS_PER_TEAM}` : `${cellId} - нажмите чтобы выбрать`}
+                          onMouseMove={(e) => setCellTooltip({ cellId, x: e.clientX, y: e.clientY })}
+                          onMouseLeave={() => setCellTooltip(null)}
                         >
                           <span className="cell-label">{cellId}</span>
                           {ownedByMe && isContested && <span className="cell-mark cell-mark-contested">⚔</span>}
@@ -772,12 +805,25 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
       </div>
 
       <div className="map-legend">
-        <div className="legend-item"><div className="legend-color legend-color-contested"></div><span>Аукцион</span></div>
+        <div className="legend-title">Легенда</div>
+        <div className="legend-item"><div className="legend-color legend-color-own"></div><span>Ваш участок</span></div>
+        <div className="legend-item"><div className="legend-color legend-color-contested"></div><span>Оспаривается</span></div>
+        <div className="legend-item"><div className="legend-color legend-color-auction"></div><span>Аукцион</span></div>
         <div className="legend-item"><div className="legend-color legend-color-other"></div><span>Занят другой командой</span></div>
         <div className="legend-item"><div className="legend-color legend-color-blocked-reserve"></div><span>Природный заказник</span></div>
         <div className="legend-item"><div className="legend-color legend-color-blocked-settlement"></div><span>Населённый пункт</span></div>
         <div className="legend-item"><div className="legend-color legend-color-blocked-company"></div><span>Другие компании</span></div>
       </div>
+
+      {cellTooltip && (() => {
+        const { title, sub } = getCellTooltipContent(cellTooltip.cellId);
+        return (
+          <div className="cell-tooltip" style={{ left: cellTooltip.x + 14, top: cellTooltip.y - 10 }}>
+            <div className="cell-tooltip-title">{title}</div>
+            <div className="cell-tooltip-sub">{sub}</div>
+          </div>
+        );
+      })()}
 
       <AuctionDashboard auctions={auctions} player={player} budget={budget} onPlaceBid={handleDashboardBid} onLeaveAuction={handleDashboardLeave} currentPhase={currentPhase} />
 

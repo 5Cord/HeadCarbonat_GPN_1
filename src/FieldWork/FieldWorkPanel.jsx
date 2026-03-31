@@ -1,4 +1,3 @@
-// FieldWorkPanel.jsx — локальный таймер убран, читаем globalTimer из store
 import React, { useState, useEffect, useCallback } from 'react';
 import { FIELD_WORK_BLOCKS, calculateTotalCost, calculateQualityScore, prepareFieldWorkForAPI } from './Fieldworkdata';
 import useGameStore from '../../store/gameStore';
@@ -6,7 +5,6 @@ import styles from './FieldWorkPanel.module.css';
 import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
 
-// ─── Утилиты ─────────────────────────────────────────────────────────────────
 
 const fmtTime = (totalSeconds) => {
   const s = Math.max(0, Math.floor(totalSeconds));
@@ -35,26 +33,20 @@ const calcAvgRank = (selections, blocks) => {
   return Math.floor(sum / count);
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// КОМПОНЕНТ
-// ─────────────────────────────────────────────────────────────────────────────
 
 const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }) => {
   const { player, gridCells, research, fieldWork, events, licenseUnits } = useGameStore();
   const { setGlobalPhase } = useGameStore();
   const globalYear = useGameStore(s => s.game.currentYear);
 
-  // ── ГЛОБАЛЬНЫЙ ТАЙМЕР (только чтение) ─────────────────────────────────────
   const globalTimer = useGameStore(s => s.globalTimer);
   const timeRemaining = globalTimer.timeRemaining;
   const isTimerFinished = timeRemaining <= 0;
 
-  // Объявить фазу при монтировании
   useEffect(() => {
     setGlobalPhase('FIELD_WORK');
   }, []);
 
-  // ── Участки ───────────────────────────────────────────────────────────────
 
   const ownedCells = Object.values(gridCells.owned).map(c => ({
     id: c.cellRef, cellRef: c.cellRef,
@@ -71,7 +63,6 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
   const researchProg = luId ? (research.progressByLU[luId] || null) : null;
   const evScore = luId ? (events.lineScores?.[luId] ?? 0) : 0;
 
-  // Доступные блоки
   const avail = (() => {
     if (evScore < 0 || !researchProg) return [];
     const chosenColThisYear = researchProg.columnsByYear?.[globalYear];
@@ -81,14 +72,13 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
     return [];
   })();
 
-  // ── Selections ────────────────────────────────────────────────────────────
 
   const getYearSelections = useCallback((id, year) => {
     return fieldWork.selectionsByLU[id]?.selectionsByYear?.[year] || {};
   }, [fieldWork.selectionsByLU]);
 
   const [selections, setSelections] = useState(() => getYearSelections(luId, globalYear));
-  const [pendingSelection, setPendingSelection] = useState(null); // { cardId, rank, param, cost }
+  const [pendingSelection, setPendingSelection] = useState(null);
   const [lockedCardIds, setLockedCardIds] = useState(new Set());
 
   useEffect(() => {
@@ -123,7 +113,6 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
     });
   }, [selections, luId, globalYear]);
 
-  // ── Расчёты ───────────────────────────────────────────────────────────────
 
   const tc = calculateTotalCost(selections, avail);
   const totCards = avail.reduce((s, b) => s + b.cards.length, 0);
@@ -132,14 +121,11 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
 
   const doSelect = (cardId, rank) => setSelections(prev => ({ ...prev, [cardId]: rank }));
 
-  // ── Сохранение на сервер ─────────────────────────────────────────────────
-  // Формируем детальные данные карточек для AdminPanel
   const buildDetailedSelections = (sel, blocks) => {
     const details = [];
     blocks.forEach(block => {
       block.cards.forEach(card => {
         const chosenRank = sel[card.cardId];
-        // Записываем все карточки: выбранные и нет
         const chosen = chosenRank != null
           ? card.options.find(o => o.rank === chosenRank)
           : null;
@@ -174,8 +160,8 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
       luId,
       year: globalYear,
       data: {
-        selections:     detailedCards,   // детальные данные для AdminPanel
-        selectionsRaw:  sel,             // { cardId: rank } — быстрый доступ
+        selections:     detailedCards,
+        selectionsRaw:  sel,
         totalCost,
         qualityScore,
         avgRank:        avgR,
@@ -189,7 +175,6 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
     });
   };
 
-  // Вызывается автоматически когда все карточки ЛУ подтверждены
   const autoSave = (confirmedSelections) => {
     const cost = calculateTotalCost(confirmedSelections, avail);
     const newBudget = player.budget - cost;
@@ -237,7 +222,6 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
     else console.warn('onBack callback not provided');
   }, [onBack]);
 
-  // Карточки перемешиваются один раз при монтировании
   const [shuffledOptions] = useState(() => {
     const map = {};
     FIELD_WORK_BLOCKS.forEach(block => {
@@ -260,7 +244,6 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
     (licenseUnits?.owned ?? []).reduce((s, lu) => s + (lu.cost || 0), 0) +
     Object.values(gridCells?.owned ?? {}).reduce((s, c) => s + (c.auctionPrice || 0), 0);
 
-  // ── CSS класс таймера ─────────────────────────────────────────────────────
   const timerCls = () => {
     if (isTimerFinished) return styles.timer + ' ' + styles.timerFinished;
     const t = timeRemaining;
@@ -270,13 +253,9 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
     return styles.timer;
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // РЕНДЕР
-  // ─────────────────────────────────────────────────────────────────────────
 
   return (
     <div className={styles.panel}>
-      {/* ── КНОПКИ НАВИГАЦИИ ── */}
       <div className={styles.researchMapControls}>
         <button className={`${styles.researchControlBtn} ${styles.researchBackBtn}`} onClick={handleBack}>
           ← Назад
@@ -294,7 +273,6 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
         </button>
       </div>
 
-      {/* ── ГЛОБАЛЬНЫЙ ТАЙМЕР ── */}
       <div className={timerCls()}>
         {isTimerFinished ? (
           <>
@@ -310,7 +288,6 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
         )}
       </div>
 
-      {/* ── ВЫБОР УЧАСТКА ── */}
       <div className={styles.luSection}>
         <div className={styles.luSectionLabel}>Шаг 1. Выберите участок:</div>
         <div className={styles.luCardsRow}>
@@ -359,12 +336,17 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
               <span className={styles.statLbl}>Стоимость</span>
               <span className={[styles.statVal, canAfford ? styles.ok : styles.fail].join(' ')}>{tc} млн руб.</span>
             </div>
+            {(() => { const r = calcAvgRank(selections, avail); return r != null && (
+              <div className={styles.stat}>
+                <span className={styles.statLbl}>Рейтинг</span>
+                <span className={styles.statVal} style={{ color: r === 1 ? '#2e7d32' : r === 2 ? '#f57c00' : '#c62828' }}>★ {r}</span>
+              </div>
+            ); })()}
             {isLocked && <div className={styles.lockedBadge}>✓ Работы сохранены</div>}
           </div>
         )}
       </div>
 
-      {/* ── ОБЛАСТЬ КАРТОЧЕК ── */}
       <div className={styles.fieldArea}>
         {!activeLU ? (
           <div className={styles.emptyMsg}>Выберите участок выше</div>
@@ -424,7 +406,6 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
         )}
       </div>
 
-      {/* ── НИЖНЯЯ ПАНЕЛЬ ПОДТВЕРЖДЕНИЯ ── */}
       {activeLU && avail.length > 0 && (
         <div className={styles.bottomBar}>
           <div className={styles.bottomInfo}>
@@ -439,7 +420,6 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
         </div>
       )}
 
-      {/* ── МОДАЛЬНОЕ ОКНО ПОДТВЕРЖДЕНИЯ КАРТОЧКИ ── */}
       {pendingSelection && (
         <div className={styles.modalOverlay} onClick={() => setPendingSelection(null)}>
           <div className={styles.modalCard} onClick={e => e.stopPropagation()}>

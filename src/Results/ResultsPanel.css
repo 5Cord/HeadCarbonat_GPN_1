@@ -1,6 +1,118 @@
-/* ═══════════════════════════════════════════════════════════
-   ResultsPanel.css
-═══════════════════════════════════════════════════════════ */
+
+.rp-work-cell-img-wrap {
+  position: relative;
+  overflow: hidden;
+}
+
+.rp-work-cell-img {
+  width: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.rp-work-cell-body--overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(2px);
+  padding: 0.4rem 0.5rem;
+}
+
+.rp-work-cell-body--overlay .rp-work-param-label {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.63rem;
+}
+
+.rp-work-cell-body--overlay .rp-work-param-val {
+  color: #fff;
+  font-size: 0.72rem;
+}
+
+.rp-work-cell-desc {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.72rem;
+  color: #444;
+  border-top: 1px solid #e0e0e0;
+  background: #fafafa;
+  line-height: 1.4;
+}
+
+.rp-scene-section {
+  margin: 1.5rem 20px;
+}
+
+.rp-scene-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #2fa394;
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e8f5f3;
+}
+
+.rp-scene-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.rp-scene-card {
+  background: white;
+  border-radius: 10px;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  min-width: 220px;
+  max-width: 300px;
+  flex: 1;
+}
+
+.rp-scene-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.8rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+  gap: 0.5rem;
+}
+
+.rp-scene-card-year {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #888;
+  white-space: nowrap;
+}
+
+.rp-scene-card-work {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #2fa394;
+  flex: 1;
+  text-align: center;
+}
+
+.rp-scene-card-rank {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #f57c00;
+  white-space: nowrap;
+}
+
+.rp-scene-card-img {
+  width: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.rp-scene-card-txt {
+  width: 100%;
+  display: block;
+  border-top: 1px solid #e0e0e0;
+  object-fit: cover;
+}
 .rp-panel {
   width: 100%;
   min-height: 100vh;
@@ -11,7 +123,6 @@
   overflow: hidden;
 }
 
-/* ─── Таймер ─────────────────────────────────────────────── */
 .rp-timer {
   position: fixed;
   top: 14px;
@@ -73,7 +184,6 @@
   }
 }
 
-/* ─── Топбар ─────────────────────────────────────────────── */
 .rp-topbar {
   display: flex;
   align-items: center;
@@ -157,7 +267,6 @@
   background: #1b5e20;
 }
 
-/* ─── Сводка ─────────────────────────────────────────────── */
 .rp-summary {
   display: flex;
   background: #fff;
@@ -204,7 +313,6 @@
   color: #c62828 !important;
 }
 
-/* ─── Переключатель ЛУ (сверху, как в ResearchPanel) ─────── */
 .rp-lu-switcher {
   background: #fff;
   border-bottom: 2px solid #ddd;
@@ -230,7 +338,6 @@
   gap: 10px;
 }
 
-/* Карточка ЛУ — точный стиль как в ResearchPanel */
 .rp-lu-card {
   position: relative;
   padding: 10px 14px;
@@ -262,7 +369,6 @@
   transform: translateY(-2px) !important;
 }
 
-/* Статусная левая полоска */
 .rp-lu-card--done {
   border-left: 4px solid #2e7d32;
 }
@@ -365,7 +471,6 @@
   opacity: .65;
 }
 
-/* ─── Секция таблицы ──────────────────────────────────────── */
 .rp-table-section {
   flex: 1;
   overflow: hidden;
@@ -380,7 +485,6 @@
   padding: 14px 16px 8px;
 }
 
-/* ─── Таблица ─────────────────────────────────────────────── */
 .rp-table {
   border-collapse: separate;
   border-spacing: 5px;
@@ -388,7 +492,6 @@
   min-width: max-content;
 }
 
-/* Заголовки */
 .rp-th {
   font-size: .68rem;
   font-weight: 700;
@@ -411,7 +514,6 @@
   border-bottom: 3px solid #bbb !important;
 }
 
-/* Ячейки */
 .rp-td {
   padding: 2px;
   vertical-align: top;
@@ -423,7 +525,6 @@
   width: 152px;
 }
 
-/* ─── Карточка ЛУ в таблице (левая колонка) ──────────────── */
 .rp-lu-info {
   background: #fff;
   border: 2px solid #ccc;
@@ -478,7 +579,6 @@
   font-family: monospace;
 }
 
-/* ─── Пустая ячейка ───────────────────────────────────────── */
 .rp-empty-cell {
   width: 86px;
   height: 106px;
@@ -487,7 +587,6 @@
   border-radius: 8px;
 }
 
-/* ─── Заполненная ячейка работы ───────────────────────────── */
 .rp-work-cell {
   width: 86px;
   min-height: 106px;
@@ -522,7 +621,7 @@
 
 .rp-work-cell-body {
   flex: 1;
-  padding: 4px 5px 2px;
+  padding: 0px 0px 0px;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -566,7 +665,6 @@
   font-family: monospace;
 }
 
-/* ─── Легенда ─────────────────────────────────────────────── */
 .rp-legend {
   display: flex;
   gap: 22px;
@@ -593,7 +691,6 @@
   flex-shrink: 0;
 }
 
-/* ─── Модал ───────────────────────────────────────────────── */
 .rp-overlay {
   position: fixed;
   inset: 0;
@@ -689,7 +786,6 @@
   background: #e0e0e0;
 }
 
-/* ── Кнопки навигации (фиксированные слева, как в ResearchPanel) ── */
 
 .rp-nav-controls {
   position: fixed;
