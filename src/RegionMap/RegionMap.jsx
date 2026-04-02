@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './RegionMap.css';
 import useGameStore, { AUCTION_START_PRICE } from '../../store/gameStore';
+import GlobalTimer from '../GlobalTimer';
 import AuctionDashboard from './Auctiondashboard';
 import RegionMapTour from './Regionmaptour';
 import { getSocket } from '../apiHelpers';
@@ -25,16 +26,6 @@ const BLOCKED_CELLS = {
   company: ['B5', 'C5', 'B6', 'C6'],
 };
 
-const RM_WARNING_5MIN = 5 * 60;
-const RM_WARNING_2MIN = 2 * 60;
-const RM_WARNING_30SEC = 30;
-
-const formatTime = (totalSeconds) => {
-  const s = Math.max(0, Math.floor(totalSeconds));
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-};
 
 const getLUNamePosition = (position) => {
   switch (position) {
@@ -134,7 +125,6 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
   const globalTimer = useGameStore(s => s.globalTimer);
   const serverPhase = globalTimer.phase;
-  const timeRemaining = globalTimer.timeRemaining;
 
   const currentPhase = serverPhaseToLocal(serverPhase) ?? 'finished';
   const isOurPhase = isRegionMapPhase(serverPhase);
@@ -179,6 +169,20 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
   const [autoAssignBanner, setAutoAssignBanner] = useState(null);
   const autoAssignTimerRef = useRef(null);
+
+  const mapDone = !isOurPhase && serverPhase !== 'LOBBY' && !isRegionMapPhase(serverPhase);
+  const hasLUs  = ownedCount > 0;
+
+  const [showNirHint, setShowNirHint] = useState(false);
+  const nirHintShownRef = useRef(sessionStorage.getItem('nirHintShown') === '1');
+
+  useEffect(() => {
+    if (mapDone && hasLUs && !nirHintShownRef.current) {
+      nirHintShownRef.current = true;
+      sessionStorage.setItem('nirHintShown', '1');
+      setShowNirHint(true);
+    }
+  }, [mapDone, hasLUs]);
 
   const contestedKeys = Object.keys(myContestedCells).sort().join(',');
   useEffect(() => {
@@ -328,32 +332,6 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
     }
   };
 
-  // ── Таймер UI ─────────────────────────────────────────────────────────────
-  const getTimerClass = () => {
-    if (!isOurPhase) return 'region-timer region-timer-finished';
-    if (timeRemaining <= RM_WARNING_30SEC) return 'region-timer region-timer-critical';
-    if (timeRemaining <= RM_WARNING_2MIN) return 'region-timer region-timer-warning';
-    if (timeRemaining <= RM_WARNING_5MIN) return 'region-timer region-timer-alert';
-    return 'region-timer';
-  };
-
-  const getTimerLabel = () => {
-    switch (currentPhase) {
-      case 'selection': return 'Выбор участков';
-      case 'auction': return 'Аукцион';
-      case 'post_auction': return 'Допокупка участков';
-      default: return 'Время вышло';
-    }
-  };
-
-  const getTimerSubtitle = () => {
-    switch (currentPhase) {
-      case 'selection': return 'Покупка лицензионных участков';
-      case 'auction': return 'Победит лидер по истечении времени';
-      case 'post_auction': return 'Только свободные участки (аукционы недоступны)';
-      default: return 'Переход к следующему этапу';
-    }
-  };
 
   // ── Вспомогательные ──────────────────────────────────────────────────────
   const getBlockedType = (ref) =>
@@ -570,13 +548,23 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   return (
     <div className="region-map-fullscreen">
 
-      <div className={getTimerClass()}>
-        {!isOurPhase ? (
-          <><div className="region-timer-label">{getTimerLabel()}</div><div className="region-timer-value">00:00</div><div className="region-timer-subtitle">{getTimerSubtitle()}</div></>
-        ) : (
-          <><div className="region-timer-label">{getTimerLabel()}</div><div className="region-timer-value">{formatTime(timeRemaining)}</div><div className="region-timer-subtitle">{getTimerSubtitle()}</div></>
-        )}
-      </div>
+      <GlobalTimer
+        label={
+          currentPhase === 'selection'   ? 'Покупка ЛУ' :
+          currentPhase === 'auction'     ? 'Аукцион' :
+          currentPhase === 'post_auction'? 'Докупка ЛУ' :
+          'Таймер'
+        }
+        subtitleOverride={
+          currentPhase === 'selection'   ? 'Выбор лицензионных участков' :
+          currentPhase === 'auction'     ? 'Победит лидер по истечении времени' :
+          currentPhase === 'post_auction'? 'Только свободные участки' :
+          undefined
+        }
+        forceFinished={mapDone}
+        finishedLabel="Карта региона завершена"
+        finishedText="Перейдите к полю «Научные исследования»"
+      />
 
       {currentPhase === 'post_auction' && showPostAuctionBanner && (
         <div className="post-auction-banner">Аукцион завершён! Есть время докупить свободные участки (аукционы недоступны)</div>
@@ -600,6 +588,30 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
             <span>Время допокупки истекло. Вам выданы свободные участки: <strong>{autoAssignBanner.cells.join(', ')}</strong></span>
           </div>
           <button className="auto-assign-banner-close" onClick={() => setAutoAssignBanner(null)}>✕</button>
+        </div>
+      )}
+
+      {showNirHint && (
+        <div className="nir-hint-overlay" onClick={() => setShowNirHint(false)}>
+          <div className="nir-hint-modal" onClick={e => e.stopPropagation()}>
+            <div className="nir-hint-icon">🗺️</div>
+            <div className="nir-hint-title">Карта региона завершена!</div>
+            <div className="nir-hint-text">
+              Теперь переходите к&nbsp;
+              <strong>Научным исследованиям (НИР)</strong>&nbsp;—
+              это первый шаг работы на вашем лицензионном участке.
+            </div>
+            <div className="nir-hint-actions">
+              <button className="nir-hint-btn-secondary" onClick={() => setShowNirHint(false)}>
+                Остаться на карте
+              </button>
+              {onNext && (
+                <button className="nir-hint-btn-primary" onClick={() => { setShowNirHint(false); onNext(); }}>
+                  Перейти к НИР →
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -786,7 +798,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                               title={`${lu.name} - ${lu.cost} млн руб.`}
                             >
                               <span className="lu-marker-number">{lu.shortName}</span>
-                              {isLUSelected(lu.id) && <span className="lu-marker-check">OK</span>}
+                              {isLUSelected(lu.id) && <span className="lu-marker-check"></span>}
                             </div>
                             <div className="lu-name-label" style={{ position: 'absolute', top: lu.customStyle?.top || '0', left: lu.customStyle?.left || '0', transform: getLUNamePosition(lu.position), whiteSpace: 'nowrap' }}>
                               <div className="lu-name-text">{lu.name}</div>

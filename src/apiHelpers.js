@@ -60,6 +60,7 @@ export function connectSocket(token, sessionId, callbacks = {}) {
   _socket.on('game:over',         callbacks.onGameOver         || (() => {}));
   _socket.on('state:full',        callbacks.onFullState        || (() => {}));
   _socket.on('budget:updated',    callbacks.onBudgetUpdated    || (() => {}));
+  _socket.on('year:advanced',     callbacks.onYearAdvanced     || (() => {}));
 
   return _socket;
 }

@@ -2,16 +2,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { generateEventLine, CARD_TYPES } from './Eventsdata.js';
 import useGameStore from '../../store/gameStore';
+import GlobalTimer from '../GlobalTimer';
 import styles from './EventsZone.module.css';
 import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
 
-const formatTime = (totalSeconds) => {
-  const s = Math.max(0, Math.floor(totalSeconds));
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-};
 
 const CardImage = ({ src, alt = '123', className = '' }) => {
   const [failed, setFailed] = useState(false);
@@ -91,16 +86,25 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     saveEventLine, revealEventCard, updateEventLineScore,
     skipEventLine, completeEvents, updateEventMoneySpent,
     pauseGlobalTimer, resumeGlobalTimer, setGlobalPhase, licenseUnits,
+    resetEventCardsForNewYear, applyYearTransitionForAllLUs, advanceToNextYear,
+    setNavigateToRefusal,
   } = useGameStore();
 
   const globalTimer = useGameStore(s => s.globalTimer);
   const globalYear = useGameStore(s => s.game.currentYear);
+  const timeRemaining = useGameStore(s => s.globalTimer.timeRemaining);
+  const isLastYear = globalYear >= 10;
 
   const [selectedCard, setSelectedCard] = useState(null);
   const [selectedAnswers, setSelectedAnswers] = useState([]);
   const [cancelPickMode, setCancelPickMode] = useState(false);
   const [cancelSource, setCancelSource] = useState(null);
   const [skipConfirmData, setSkipConfirmData] = useState(null);
+
+  const [showYearEndModal, setShowYearEndModal] = useState(false);
+  const [waiting, setWaiting] = useState(false);
+  const [readyCount, setReadyCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
 
   // lineStatsRef — трекер ответов/денег по каждому ЛУ за текущий вызов компонента
   // Добавлено поле cardAnswers — массив детальных ответов для передачи на сервер
@@ -130,6 +134,46 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
   useEffect(() => {
     setGlobalPhase('EVENTS');
   }, []);
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const onYearAdvanced = ({ year }) => {
+      setWaiting(false);
+      resetEventCardsForNewYear(year);
+      applyYearTransitionForAllLUs(year - 1);
+      advanceToNextYear();
+      onComplete();
+    };
+
+    const onReadyStatus = ({ readyCount: rc, totalCount: tc }) => {
+      setReadyCount(rc);
+      setTotalCount(tc);
+    };
+
+    const onGameOver = () => {
+      setWaiting(false);
+      onComplete();
+    };
+
+    socket.on('year:advanced', onYearAdvanced);
+    socket.on('year:ready_status', onReadyStatus);
+    socket.on('game:over', onGameOver);
+
+    return () => {
+      socket.off('year:advanced', onYearAdvanced);
+      socket.off('year:ready_status', onReadyStatus);
+      socket.off('game:over', onGameOver);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (timeRemaining > 0) return;
+    if (showYearEndModal || waiting) return;
+    if ([3, 5].includes(globalYear)) { setNavigateToRefusal(true); return; }
+    setShowYearEndModal(true);
+  }, [timeRemaining]);
 
   useEffect(() => {
     if (selectedCard || cancelPickMode) pauseGlobalTimer();
@@ -375,17 +419,11 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     setSelectedAnswers([]);
   };
 
-  const handlePlayRandom = (play) => {
+  const handlePlayRandom = () => {
     if (!selectedCard || selectedCard.card.type !== CARD_TYPES.RANDOM) return;
     const { cardKey, card, luId, cardIndex } = selectedCard;
     const effect = card.data.effect
       || (typeof card.data.points === 'number' ? { type: 'points', value: card.data.points } : { type: 'points', value: 0 });
-
-    if (!play) {
-      revealEventCard(luId, cardKey, { revealed: true, played: false, points: 0 });
-      setSelectedCard(null);
-      return;
-    }
 
     if (effect.type === 'cancel') {
       revealEventCard(luId, cardKey, { revealed: true, played: true, points: 0 });
@@ -566,6 +604,25 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     onComplete();
   };
 
+  const confirmNextYear = () => {
+    setShowYearEndModal(false);
+    const socket = getSocket();
+    const isOnline = !!(socket?.connected && player.sessionId);
+    if (isOnline) {
+      setWaiting(true);
+      setReadyCount(0);
+      socket.emit('year:ready', { year: globalYear }, (res) => {
+        if (res) { setReadyCount(res.readyCount); setTotalCount(res.totalCount); }
+      });
+    } else {
+      const nextYear = globalYear + 1;
+      resetEventCardsForNewYear(nextYear);
+      applyYearTransitionForAllLUs(globalYear);
+      onComplete();
+      setTimeout(() => advanceToNextYear(), 0);
+    }
+  };
+
   const getLicenseCost = () => {
     const ownedLicenses = licenseUnits?.owned ?? licenseUnits?.licenseUnits?.owned ?? [];
     return ownedLicenses.reduce((s, lu) => s + (lu.cost || 0), 0);
@@ -679,20 +736,25 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     (licenseUnits?.owned ?? []).reduce((s, lu) => s + (lu.cost || 0), 0) +
     Object.values(gridCells?.owned ?? {}).reduce((s, c) => s + (c.auctionPrice || 0), 0);
 
+  const incompleteCount = playableLines.filter((_, i) => !isLineComplete(i) && !isLineSkipped(i)).length;
+
   return (
     <div className={styles.eventsZone}>
-      <div className={styles.timer}>
-        <div className={styles.timerLabel}>Время на события</div>
-        <div className={styles.timerValue}>{formatTime(globalTimer.timeRemaining)}</div>
-        <div className={styles.timerSubtitle}>Год {globalTimer.currentYear}</div>
-      </div>
+      <GlobalTimer />
 
       <div className={styles.researchMapControls}>
         <button className={`${styles.researchControlBtn} ${styles.researchBackBtn}`} onClick={onBack}>← Назад</button>
         <button className={`${styles.researchControlBtn} ${styles.researchBackBtn}`} onClick={onMenu}>В меню</button>
-        <button className={`${styles.researchControlBtn} ${styles.researchNextBtn}`} onClick={handleComplete} disabled={!canCompleteStage()}>
-          Далее — К полевым работам
-        </button>
+        <div className={styles.nextBtnWrap}>
+          <button className={`${styles.researchControlBtn} ${styles.researchNextBtn}`} onClick={handleComplete} disabled={!canCompleteStage()}>
+            Далее — К полевым работам
+          </button>
+          {!canCompleteStage() && incompleteCount > 0 && (
+            <div className={styles.nextBtnHint}>
+              Осталось завершить: {incompleteCount} {incompleteCount === 1 ? 'участок' : incompleteCount < 5 ? 'участка' : 'участков'}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className={styles.luSection}>
@@ -705,7 +767,13 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
             const score = events.lineScores?.[lu.cellRef] ?? 0;
             const line = events.linesByLU[lu.cellRef];
             const hasRes = hasResearchForLU(lu.cellRef);
-            const stats = lineStatsRef.current[lu.cellRef] || { correct: 0, wrong: 0 };
+            const luLineIndex = playableLines.findIndex(l => l.luId === lu.cellRef);
+            const totalQ = line?.cards?.filter(c => c.type === CARD_TYPES.OPPORTUNITY).length ?? 0;
+            const revMap = events.revealedCards[lu.cellRef] || {};
+            const answeredQ = line?.cards?.reduce((count, card, ci) => {
+              const key = `${luLineIndex}-${ci}`;
+              return card.type === CARD_TYPES.OPPORTUNITY && revMap[key]?.revealed ? count + 1 : count;
+            }, 0) ?? 0;
             return (
               <div key={lu.cellRef} onClick={() => setActiveLUId(lu.cellRef)}
                 className={[styles.luCard, isActive ? styles.luCardActive : '', styles['luSt_' + status]].join(' ')}>
@@ -719,6 +787,14 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
                     </span>
                   )}
                 </div>
+                {hasRes && totalQ > 0 && (
+                  <div className={styles.luProgress}>
+                    <span className={styles.luProgressCount}>{answeredQ}/{totalQ}</span>
+                    <div className={styles.luProgressBar}>
+                      <div className={styles.luProgressFill} style={{ width: `${(answeredQ / totalQ) * 100}%` }} />
+                    </div>
+                  </div>
+                )}
                 <div className={styles.luCardStatus}>
                   {status === 'done' ? 'Пройдено' : status === 'skipped' ? 'Пропущено' : status === 'noResearch' ? 'Нет НИР' : 'В процессе'}
                 </div>
@@ -858,7 +934,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
                       {effect.type === 'cancel' && <span className={styles.effectHint}> — нажмите «Сыграть», затем выберите карточку риска</span>}
                     </div>
                     <div className={styles.randomActions}>
-                      <button className={styles.playBtn} onClick={() => handlePlayRandom(true)}>Сыграть карточку</button>
+                      <button className={styles.playBtn} onClick={handlePlayRandom}>Сыграть карточку</button>
                     </div>
                   </div>
                 </div>
@@ -875,6 +951,45 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
           onConfirm={confirmSkipLine}
           onCancel={cancelSkipLine}
         />
+      )}
+
+      {showYearEndModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000 }}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: '2.5rem', maxWidth: 480, width: '90%', boxShadow: '0 10px 40px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ textAlign: 'center', color: '#2e7d32', marginBottom: '1rem', fontSize: '1.4rem' }}>
+              {isLastYear ? 'Завершить игру?' : `Завершить год ${globalYear}?`}
+            </h3>
+            <p style={{ textAlign: 'center', color: '#555', marginBottom: '1.5rem' }}>
+              {isLastYear
+                ? 'Это последний год. После подтверждения игра завершится.'
+                : `Время вышло. Переходим к году ${globalYear + 1}.`}
+            </p>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button onClick={confirmNextYear} style={{ flex: 1, padding: '1rem', background: isLastYear ? '#c62828' : '#2fa394', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '1.1rem', cursor: 'pointer' }}>
+                {isLastYear ? 'Завершить игру' : `Перейти к году ${globalYear + 1}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {waiting && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 4000 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '2.5rem', maxWidth: 480, width: '90%', boxShadow: '0 10px 50px rgba(0,0,0,0.4)', textAlign: 'center' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⏳</div>
+            <h3 style={{ color: '#2e7d32', marginBottom: '0.5rem', fontSize: '1.4rem' }}>
+              {isLastYear ? 'Ожидание завершения игры' : `Ожидание перехода к году ${globalYear + 1}`}
+            </h3>
+            <p style={{ color: '#666', marginBottom: '1.5rem' }}>Ждём пока все команды завершат год {globalYear}</p>
+            <div style={{ background: '#f0f0f0', borderRadius: 8, height: 12, marginBottom: '1rem', overflow: 'hidden' }}>
+              <div style={{ width: `${(readyCount / Math.max(totalCount, 1)) * 100}%`, height: '100%', background: '#2fa394', borderRadius: 8, transition: 'width 0.4s ease' }} />
+            </div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#333' }}>
+              {readyCount} / {totalCount} команд готовы
+            </div>
+            <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#aaa' }}>Переход произойдёт автоматически когда все будут готовы</p>
+          </div>
+        </div>
       )}
     </div>
   );

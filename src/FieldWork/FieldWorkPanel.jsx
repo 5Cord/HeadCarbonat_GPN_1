@@ -1,17 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { FIELD_WORK_BLOCKS, calculateTotalCost, calculateQualityScore, prepareFieldWorkForAPI } from './Fieldworkdata';
 import useGameStore from '../../store/gameStore';
+import GlobalTimer from '../GlobalTimer';
 import styles from './FieldWorkPanel.module.css';
 import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
 
 
-const fmtTime = (totalSeconds) => {
-  const s = Math.max(0, Math.floor(totalSeconds));
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
-};
 
 const GRP_LBL = {
   gray: 'СРР (сейсморазведочные работы)',
@@ -35,17 +30,78 @@ const calcAvgRank = (selections, blocks) => {
 
 
 const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }) => {
-  const { player, gridCells, research, fieldWork, events, licenseUnits } = useGameStore();
+  const { player, gridCells, research, fieldWork, events, licenseUnits,
+    resetEventCardsForNewYear, applyYearTransitionForAllLUs, advanceToNextYear,
+    setNavigateToRefusal,
+  } = useGameStore();
   const { setGlobalPhase } = useGameStore();
   const globalYear = useGameStore(s => s.game.currentYear);
+  const timeRemaining = useGameStore(s => s.globalTimer.timeRemaining);
+  const isLastYear = globalYear >= 10;
 
-  const globalTimer = useGameStore(s => s.globalTimer);
-  const timeRemaining = globalTimer.timeRemaining;
-  const isTimerFinished = timeRemaining <= 0;
 
   useEffect(() => {
     setGlobalPhase('FIELD_WORK');
   }, []);
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const onYearAdvanced = ({ year }) => {
+      setWaiting(false);
+      resetEventCardsForNewYear(year);
+      applyYearTransitionForAllLUs(year - 1);
+      advanceToNextYear();
+      onComplete();
+    };
+
+    const onReadyStatus = ({ readyCount: rc, totalCount: tc }) => {
+      setReadyCount(rc);
+      setTotalCount(tc);
+    };
+
+    const onGameOver = () => {
+      setWaiting(false);
+      onComplete();
+    };
+
+    socket.on('year:advanced', onYearAdvanced);
+    socket.on('year:ready_status', onReadyStatus);
+    socket.on('game:over', onGameOver);
+
+    return () => {
+      socket.off('year:advanced', onYearAdvanced);
+      socket.off('year:ready_status', onReadyStatus);
+      socket.off('game:over', onGameOver);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (timeRemaining > 0) return;
+    if (showYearEndModal || waiting) return;
+    if ([3, 5].includes(globalYear)) { setNavigateToRefusal(true); return; }
+    setShowYearEndModal(true);
+  }, [timeRemaining]);
+
+  const confirmNextYear = () => {
+    setShowYearEndModal(false);
+    const socket = getSocket();
+    const isOnline = !!(socket?.connected && player.sessionId);
+    if (isOnline) {
+      setWaiting(true);
+      setReadyCount(0);
+      socket.emit('year:ready', { year: globalYear }, (res) => {
+        if (res) { setReadyCount(res.readyCount); setTotalCount(res.totalCount); }
+      });
+    } else {
+      const nextYear = globalYear + 1;
+      resetEventCardsForNewYear(nextYear);
+      applyYearTransitionForAllLUs(globalYear);
+      onComplete();
+      setTimeout(() => advanceToNextYear(), 0);
+    }
+  };
 
 
   const ownedCells = Object.values(gridCells.owned).map(c => ({
@@ -202,6 +258,10 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
     });
 
     saveToServer(confirmedSelections, avail, newBudget);
+
+    setSavedToast(true);
+    clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setSavedToast(false), 2500);
   };
 
   const getStatus = (cellRef) => {
@@ -215,12 +275,34 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
   };
 
   const allFieldWorkDone = ownedCells.every(lu => getStatus(lu.cellRef) !== 'ready');
+  const doneLUs = ownedCells.filter(lu => getStatus(lu.cellRef) === 'done').length;
+
+  // ЛУ считается «есть реальная работа» только если статус ready И есть блоки для этого года
+  const isLUWorkable = (cellRef) => {
+    if (getStatus(cellRef) !== 'ready') return false;
+    const resP = research.progressByLU[cellRef];
+    const sc = events.lineScores?.[cellRef] ?? 0;
+    if (sc < 0 || !resP) return false;
+    const mobThisYear = resP.mobilizedColumnsByYear?.[globalYear] || [];
+    if (mobThisYear.length > 0) return FIELD_WORK_BLOCKS.some(b => mobThisYear.includes(b.mobWorkId));
+    const chosenCol = resP.columnsByYear?.[globalYear];
+    return !!chosenCol && FIELD_WORK_BLOCKS.some(b => b.mobWorkId === chosenCol);
+  };
+  const canProceed = allFieldWorkDone || !ownedCells.some(lu => isLUWorkable(lu.cellRef));
   const isLocked = luId ? getStatus(luId) === 'done' : false;
 
   const handleBack = useCallback(() => {
     if (onBack) onBack();
     else console.warn('onBack callback not provided');
   }, [onBack]);
+
+  const [savedToast, setSavedToast] = useState(false);
+  const toastTimerRef = useRef(null);
+
+  const [showYearEndModal, setShowYearEndModal] = useState(false);
+  const [waiting, setWaiting] = useState(false);
+  const [readyCount, setReadyCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
 
   const [shuffledOptions] = useState(() => {
     const map = {};
@@ -244,14 +326,6 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
     (licenseUnits?.owned ?? []).reduce((s, lu) => s + (lu.cost || 0), 0) +
     Object.values(gridCells?.owned ?? {}).reduce((s, c) => s + (c.auctionPrice || 0), 0);
 
-  const timerCls = () => {
-    if (isTimerFinished) return styles.timer + ' ' + styles.timerFinished;
-    const t = timeRemaining;
-    if (t <= 30) return styles.timer + ' ' + styles.timerCritical;
-    if (t <= 120) return styles.timer + ' ' + styles.timerWarning;
-    if (t <= 300) return styles.timer + ' ' + styles.timerAlert;
-    return styles.timer;
-  };
 
 
   return (
@@ -266,30 +340,20 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
         <button
           className={`${styles.researchControlBtn} ${styles.researchNextBtn}`}
           onClick={onComplete}
-          disabled={!allFieldWorkDone}
-          title={!allFieldWorkDone ? 'Завершите полевые работы на всех участках' : undefined}
+          disabled={!canProceed}
+          title={!canProceed ? 'Завершите полевые работы на всех участках' : undefined}
         >
           Далее — К результатам
         </button>
       </div>
 
-      <div className={timerCls()}>
-        {isTimerFinished ? (
-          <>
-            <div className={styles.timerLabel}>Время истекло</div>
-            <div className={styles.timerSub}>Полевые работы</div>
-          </>
-        ) : (
-          <>
-            <div className={styles.timerLabel}>Глобальный таймер</div>
-            <div className={styles.timerValue}>{fmtTime(timeRemaining)}</div>
-            <div className={styles.timerSub}>Год {globalTimer.currentYear}</div>
-          </>
-        )}
-      </div>
+      <GlobalTimer />
 
       <div className={styles.luSection}>
-        <div className={styles.luSectionLabel}>Шаг 1. Выберите участок:</div>
+        <div className={styles.luSectionLabel}>
+          Шаг 1. Выберите участок:
+          <span className={styles.progressBadge}>{doneLUs} / {ownedCells.length} ЛУ завершено</span>
+        </div>
         <div className={styles.luCardsRow}>
           {ownedCells.map(lu => {
             const status = getStatus(lu.cellRef);
@@ -313,6 +377,13 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
                   )}
                   {yearMeta?.totalCost > 0 && <span className={styles.metaCost}>{yearMeta.totalCost} млн</span>}
                 </div>
+                {status === 'ready' && (() => {
+                  const yearSel = fieldWork.selectionsByLU[lu.cellRef]?.selectionsByYear?.[globalYear];
+                  const selCount = yearSel ? Object.keys(yearSel).length : 0;
+                  return selCount > 0
+                    ? <div className={styles.cardCountBadge}>{selCount} карт. выбрано</div>
+                    : null;
+                })()}
                 <div className={styles.luCardStatus}>{ST_TXT[status]}</div>
               </div>
             );
@@ -336,12 +407,6 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
               <span className={styles.statLbl}>Стоимость</span>
               <span className={[styles.statVal, canAfford ? styles.ok : styles.fail].join(' ')}>{tc} млн руб.</span>
             </div>
-            {(() => { const r = calcAvgRank(selections, avail); return r != null && (
-              <div className={styles.stat}>
-                <span className={styles.statLbl}>Рейтинг</span>
-                <span className={styles.statVal} style={{ color: r === 1 ? '#2e7d32' : r === 2 ? '#f57c00' : '#c62828' }}>★ {r}</span>
-              </div>
-            ); })()}
             {isLocked && <div className={styles.lockedBadge}>✓ Работы сохранены</div>}
           </div>
         )}
@@ -351,13 +416,27 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
         {!activeLU ? (
           <div className={styles.emptyMsg}>Выберите участок выше</div>
         ) : avail.length === 0 ? (
-          <div className={styles.emptyMsg}>
-            {evScore < 0
-              ? 'Провал в зоне событий (счёт ' + evScore + ') — полевые работы недоступны для участка ' + activeLU.cellRef
-              : !researchProg || !(researchProg.mobilizedColumns?.length)
-                ? 'Для участка ' + activeLU.cellRef + ' не проводились научные исследования.'
-                : 'Нет доступных блоков работ для года ' + globalYear}
-          </div>
+          evScore < 0 ? (
+            <div className={styles.emptyMsg}>
+              Провал в зоне событий (счёт {evScore}) — полевые работы недоступны для участка {activeLU.cellRef}
+            </div>
+          ) : !researchProg || !(researchProg.mobilizedColumns?.length) ? (
+            <div className={styles.emptyStateNoResearch}>
+              <div className={styles.emptyStateIcon}>🔬</div>
+              <div className={styles.emptyStateTitle}>Нет научных исследований</div>
+              <div className={styles.emptyStateHint}>
+                Для участка <strong>{activeLU.cellRef}</strong> не выбраны работы НИР.<br />
+                Вернитесь в «Научные исследования» и выберите направление.
+              </div>
+              <button className={styles.emptyStateBtn} onClick={handleBack}>
+                ← Вернуться к НИР
+              </button>
+            </div>
+          ) : (
+            <div className={styles.emptyMsg}>
+              Нет доступных блоков работ для года {globalYear}
+            </div>
+          )
         ) : (
           avail.map(block => (
             <div key={block.blockId} className={[styles.blockCol, styles['grp_' + block.groupColor]].join(' ')}>
@@ -416,6 +495,49 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
               </span>
             )}
             Выбрано {selCards} из {totCards} карточек
+          </div>
+        </div>
+      )}
+
+      {savedToast && (
+        <div className={styles.savedToast}>Работы сохранены</div>
+      )}
+
+      {showYearEndModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000 }}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: '2.5rem', maxWidth: 480, width: '90%', boxShadow: '0 10px 40px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ textAlign: 'center', color: '#2e7d32', marginBottom: '1rem', fontSize: '1.4rem' }}>
+              {isLastYear ? 'Завершить игру?' : `Завершить год ${globalYear}?`}
+            </h3>
+            <p style={{ textAlign: 'center', color: '#555', marginBottom: '1.5rem' }}>
+              {isLastYear
+                ? 'Это последний год. После подтверждения игра завершится.'
+                : `Время вышло. Переходим к году ${globalYear + 1}.`}
+            </p>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button onClick={confirmNextYear} style={{ flex: 1, padding: '1rem', background: isLastYear ? '#c62828' : '#2fa394', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '1.1rem', cursor: 'pointer' }}>
+                {isLastYear ? 'Завершить игру' : `Перейти к году ${globalYear + 1}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {waiting && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 4000 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '2.5rem', maxWidth: 480, width: '90%', boxShadow: '0 10px 50px rgba(0,0,0,0.4)', textAlign: 'center' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⏳</div>
+            <h3 style={{ color: '#2e7d32', marginBottom: '0.5rem', fontSize: '1.4rem' }}>
+              {isLastYear ? 'Ожидание завершения игры' : `Ожидание перехода к году ${globalYear + 1}`}
+            </h3>
+            <p style={{ color: '#666', marginBottom: '1.5rem' }}>Ждём пока все команды завершат год {globalYear}</p>
+            <div style={{ background: '#f0f0f0', borderRadius: 8, height: 12, marginBottom: '1rem', overflow: 'hidden' }}>
+              <div style={{ width: `${(readyCount / Math.max(totalCount, 1)) * 100}%`, height: '100%', background: '#2fa394', borderRadius: 8, transition: 'width 0.4s ease' }} />
+            </div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#333' }}>
+              {readyCount} / {totalCount} команд готовы
+            </div>
+            <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#aaa' }}>Переход произойдёт автоматически когда все будут готовы</p>
           </div>
         </div>
       )}

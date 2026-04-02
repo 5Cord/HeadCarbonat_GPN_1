@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { RESEARCH_WORKS, MOBILIZATION_WORKS } from './researchData';
 import useGameStore from '../../store/gameStore';
+import GlobalTimer from '../GlobalTimer';
 import styles from './ResearchPanel.module.css';
 import RefusalMap from './RefusalMap';
 import ResearchPanelTour, { RefusalTour } from './Researchpaneltour';
@@ -585,14 +586,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     (licenseUnits?.owned ?? []).reduce((s, lu) => s + (lu.cost || 0), 0) +
     Object.values(gridCells?.owned ?? {}).reduce((s, c) => s + (c.auctionPrice || 0), 0);
 
-  const timerCls = () => {
-    if (inRefusal) return `${styles.timer} ${styles.timerWarning}`;
-    if (timeRemaining <= 0) return `${styles.timer} ${styles.timerFinished}`;
-    if (timeRemaining <= 30) return `${styles.timer} ${styles.timerCritical}`;
-    if (timeRemaining <= 120) return `${styles.timer} ${styles.timerWarning}`;
-    if (timeRemaining <= 300) return `${styles.timer} ${styles.timerAlert}`;
-    return styles.timer;
-  };
 
   const getResultsTimerColor = () => {
     if (resultsTimeRemaining <= 10) return { bg: '#ffebee', border: '#c62828', text: '#c62828' };
@@ -633,26 +626,18 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   return (
     <div className={styles.researchPanel}>
 
-      <div className={timerCls()}>
-        {inRefusal ? (
-          <>
-            <div className={styles.timerLabel}>Время на решение</div>
-            <div className={styles.timerValue}>{fmt(refusalLeft)}</div>
-            <div className={styles.timerSubtitle}>Отказ от участка (год {globalYear})</div>
-          </>
-        ) : timeRemaining <= 0 ? (
-          <>
-            <div className={styles.timerLabel}>Ход завершён</div>
-            <div className={styles.timerFinishedText}>Исследования завершены</div>
-          </>
-        ) : (
-          <>
-            <div className={styles.timerLabel}>Глобальный таймер</div>
-            <div className={styles.timerValue}>{fmt(timeRemaining)}</div>
-            <div className={styles.timerSubtitle}>Год {globalTimer.currentYear}</div>
-          </>
-        )}
-      </div>
+      {inRefusal
+        ? <GlobalTimer
+            label="Время на решение"
+            valueOverride={fmt(refusalLeft)}
+            subtitleOverride={`Отказ от участка (год ${globalYear})`}
+            forceWarning
+          />
+        : <GlobalTimer
+            finishedLabel="Ход завершён"
+            finishedText="Исследования завершены"
+          />
+      }
 
       <div className={styles.researchMapControls}>
         <button className={`${styles.researchControlBtn} ${styles.researchBackBtn}`} onClick={onBack}>← Назад</button>

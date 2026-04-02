@@ -22,17 +22,17 @@
 
 .rp-work-cell-body--overlay .rp-work-param-label {
   color: rgba(255, 255, 255, 0.75);
-  font-size: 0.63rem;
+  font-size: 0.72rem;
 }
 
 .rp-work-cell-body--overlay .rp-work-param-val {
   color: #fff;
-  font-size: 0.72rem;
+  font-size: 0.82rem;
 }
 
 .rp-work-cell-desc {
-  padding: 0.35rem 0.5rem;
-  font-size: 0.72rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
   color: #444;
   border-top: 1px solid #e0e0e0;
   background: #fafafa;
@@ -340,8 +340,8 @@
 
 .rp-lu-card {
   position: relative;
-  padding: 10px 14px;
-  min-width: 130px;
+  padding: 12px 18px;
+  min-width: 160px;
   border-radius: 10px;
   cursor: pointer;
   border: 2px solid #e0e0e0;
@@ -349,7 +349,7 @@
   color: #333;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, .06);
   transition: all .2s;
   user-select: none;
@@ -399,13 +399,13 @@
 }
 
 .rp-lu-ref {
-  font-size: 1.05rem;
+  font-size: 1.2rem;
   font-weight: 700;
   line-height: 1.1;
 }
 
 .rp-lu-name {
-  font-size: .72rem;
+  font-size: .85rem;
   opacity: .85;
   overflow: hidden;
   white-space: nowrap;
@@ -420,9 +420,9 @@
 }
 
 .rp-badge {
-  font-size: .62rem;
+  font-size: .72rem;
   font-weight: 700;
-  padding: 1px 5px;
+  padding: 2px 7px;
   border-radius: 4px;
 }
 
@@ -463,11 +463,11 @@
 }
 
 .rp-lu-status-lbl {
-  font-size: .62rem;
+  font-size: .72rem;
   text-transform: uppercase;
   letter-spacing: .05em;
   font-weight: 600;
-  margin-top: 2px;
+  margin-top: 3px;
   opacity: .65;
 }
 
@@ -493,21 +493,21 @@
 }
 
 .rp-th {
-  font-size: .68rem;
+  font-size: .78rem;
   font-weight: 700;
   color: #444;
   text-align: center;
   white-space: pre-line;
   vertical-align: bottom;
-  padding: 5px 4px 9px;
-  width: 90px;
+  padding: 6px 5px 11px;
+  width: 115px;
   border-radius: 7px 7px 0 0;
   letter-spacing: .03em;
   text-transform: uppercase;
 }
 
 .rp-th-lu {
-  width: 152px;
+  width: 185px;
   text-align: left;
   padding-left: 10px;
   background: #f5f5f5 !important;
@@ -515,37 +515,37 @@
 }
 
 .rp-td {
-  padding: 2px;
+  padding: 3px;
   vertical-align: top;
 }
 
 .rp-td-lu {
-  padding: 2px;
+  padding: 3px;
   vertical-align: top;
-  width: 152px;
+  width: 185px;
 }
 
 .rp-lu-info {
   background: #fff;
   border: 2px solid #ccc;
   border-radius: 10px;
-  padding: 12px 12px 10px;
-  width: 144px;
-  min-height: 120px;
+  padding: 14px 14px 12px;
+  width: 177px;
+  min-height: 140px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 
 .rp-lu-info-ref {
-  font-size: 1.6rem;
+  font-size: 1.9rem;
   font-weight: 800;
   color: #1a1a1a;
   line-height: 1;
 }
 
 .rp-lu-info-name {
-  font-size: .75rem;
+  font-size: .88rem;
   color: #888;
   line-height: 1.3;
 }
@@ -565,7 +565,7 @@
 }
 
 .rp-lu-info-lbl {
-  font-size: .6rem;
+  font-size: .7rem;
   text-transform: uppercase;
   color: #bbb;
   font-weight: 600;
@@ -573,23 +573,23 @@
 }
 
 .rp-lu-info-val {
-  font-size: .8rem;
+  font-size: .92rem;
   font-weight: 800;
   color: #333;
   font-family: monospace;
 }
 
 .rp-empty-cell {
-  width: 86px;
-  height: 106px;
+  width: 109px;
+  height: 134px;
   background: #e8e8e8;
   border: 2px dashed #ccc;
   border-radius: 8px;
 }
 
 .rp-work-cell {
-  width: 86px;
-  min-height: 106px;
+  width: 109px;
+  min-height: 134px;
   background: #fff;
   border: 2px solid;
   border-radius: 8px;
@@ -608,9 +608,9 @@
 }
 
 .rp-work-cell-head {
-  padding: 3px 5px;
+  padding: 4px 7px;
   flex-shrink: 0;
-  font-size: .55rem;
+  font-size: .68rem;
   font-weight: 800;
   color: #fff;
   line-height: 1.25;
@@ -635,7 +635,7 @@
 }
 
 .rp-work-param-label {
-  font-size: .5rem;
+  font-size: .62rem;
   color: #bbb;
   font-weight: 600;
   text-transform: uppercase;
@@ -643,10 +643,10 @@
 }
 
 .rp-work-param-val {
-  font-size: .58rem;
+  font-size: .72rem;
   color: #333;
   font-weight: 500;
-  line-height: 1.25;
+  line-height: 1.3;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -656,8 +656,8 @@
 .rp-work-cell-cost {
   background: rgba(0, 0, 0, .04);
   text-align: right;
-  padding: 2px 5px;
-  font-size: .58rem;
+  padding: 3px 7px;
+  font-size: .7rem;
   font-weight: 700;
   color: #777;
   flex-shrink: 0;
@@ -679,7 +679,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: .77rem;
+  font-size: .9rem;
   color: #666;
   font-weight: 600;
 }

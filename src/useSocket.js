@@ -44,7 +44,25 @@ export default function useSocket() {
         }));
       },
 
+      onTimerExpired: ({ year, phase }) => {
+        console.log(`⏰ [FRONT] timer:expired year=${year} phase=${phase}`);
+        // RESEARCH — ResearchPanel шлёт year:ready сам через свой модал
+        // RESULTS   — бэк сам двигает год через _autoAdvancePhase
+        // REGION_MAP — отдельная логика, не трогаем
+        const EMIT_YEAR_READY_PHASES = [];
+        if (EMIT_YEAR_READY_PHASES.includes(phase)) {
+          console.log(`⏰ [FRONT] emitting year:ready for phase=${phase}`);
+          const socket = getSocket();
+          if (socket?.connected) {
+            socket.emit('year:ready', { year });
+          }
+        } else {
+          console.log(`⏰ [FRONT] NOT emitting year:ready for phase=${phase} (waiting for backend)`);
+        }
+      },
+
       onTimerState: (data) => {
+        console.log(`🕐 [FRONT] timer:state year=${data.currentYear} phase=${data.phase} t=${data.timeRemaining}`);
         useGameStore.setState(st => ({
           globalTimer: {
             ...st.globalTimer,
@@ -60,8 +78,12 @@ export default function useSocket() {
         }));
       },
 
-      onTimerExpired: ({ year, phase }) => {
-        console.log(`⏰ Timer expired year=${year} phase=${phase}`);
+      onYearAdvanced: ({ year }) => {
+        console.log(`📅 [FRONT] year:advanced received year=${year}`);
+        const { resetEventCardsForNewYear, applyYearTransitionForAllLUs } = useGameStore.getState();
+        resetEventCardsForNewYear(year);
+        applyYearTransitionForAllLUs(year - 1);
+        useGameStore.setState({ navigateToResearch: true, yearEndToast: true });
       },
 
       // ── Карта ────────────────────────────────────────────────────────────

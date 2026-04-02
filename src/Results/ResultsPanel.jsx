@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './ResultsPanel.css';
 import useGameStore from '../../store/gameStore';
+import GlobalTimer from '../GlobalTimer';
 import { FIELD_WORK_BLOCKS } from '../FieldWork/Fieldworkdata';
 import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
 import ResultsPanelTour from './ResultsPanelTour';
-import { WORK_SCENE_MAP, getScenario, resolveSceneImage, resolveSceneDesc, debugAllSceneImages } from '../Research/sceneUtils.js';
+import { WORK_SCENE_MAP, getScenario, resolveSceneImage, resolveSceneDesc } from '../Research/sceneUtils.js';
 
 const renderWithSup = (text) => {
   if (!text) return null;
@@ -18,10 +19,6 @@ const renderWithSup = (text) => {
   ));
 };
 
-const formatTime = (s) => {
-  const t = Math.max(0, Math.floor(s));
-  return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
-};
 
 const TABLE_COLUMNS = [
   { mobWorkId: 'srr_2d', label: 'СРР 2D', color: 'gray' },
@@ -245,7 +242,7 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
   const {
     player, research, events, fieldWork, gridCells, licenseUnits,
     advanceToNextYear, resetEventCardsForNewYear, applyYearTransitionForAllLUs,
-    game, setGlobalPhase,
+    game, setGlobalPhase, setNavigateToRefusal,
   } = useGameStore();
 
   const globalTimer = useGameStore(s => s.globalTimer);
@@ -302,6 +299,13 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
     setReadyTeamNames(readyTeamIds);
   }, [readyTeamIds]);
 
+  useEffect(() => {
+    if (timeRemaining > 0) return;
+    if (showConfirm || waiting) return;
+    if ([3, 5].includes(globalYear)) { setNavigateToRefusal(true); return; }
+    handleFinishYear();
+  }, [timeRemaining]);
+
   const ownedLUs = Object.values(gridCells.owned).map(c => ({
     cellRef: c.cellRef,
     name: c.name || `Участок ${c.cellRef}`,
@@ -332,13 +336,6 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
     return 'noWork';
   };
 
-  const timerCls = () => {
-    if (timeRemaining <= 0) return 'rp-timer rp-timer-finished';
-    if (timeRemaining <= 10) return 'rp-timer rp-timer-critical';
-    if (timeRemaining <= 30) return 'rp-timer rp-timer-warning';
-    if (timeRemaining <= 60) return 'rp-timer rp-timer-alert';
-    return 'rp-timer';
-  };
 
   const handleFinishYear = () => setShowConfirm(true);
 
@@ -398,25 +395,12 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
       <div className="rp-nav-controls">
         <button className="rp-nav-btn rp-nav-btn-back" onClick={onBack}>← Назад</button>
         <button className="rp-nav-btn rp-nav-btn-back" onClick={onMenu}>В меню</button>
-        {/* DEBUG — удалить после проверки */}
-        <button className="rp-nav-btn rp-nav-btn-back" onClick={debugAllSceneImages} style={{ background: '#7b1fa2', color: '#fff' }}>🔍 Debug scenes</button>
-        {/* /DEBUG */}
         <button className="rp-nav-btn rp-nav-btn-finish" onClick={handleFinishYear}>
           {isLastYear ? '🏁 Завершить игру' : `✓ Завершить год ${globalYear}`}
         </button>
       </div>
 
-      <div className={timerCls()}>
-        <div className="rp-timer-lbl">Глобальный таймер</div>
-        {timeRemaining > 0
-          ? <div className="rp-timer-val">{formatTime(timeRemaining)}</div>
-          : <div className="rp-timer-val">—</div>}
-        <div className="rp-timer-sub">
-          {isLastYear ? 'Игра завершена'
-            : timeRemaining > 0 ? `Год ${globalYear}`
-              : 'Время вышло'}
-        </div>
-      </div>
+      <GlobalTimer />
 
       <div className="rp-lu-switcher">
         <span className="rp-lu-switcher-label">Выберите участок:</span>
@@ -457,8 +441,9 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
             );
           })}
         </div>
-        <br />
-        <BudgetBar budget={player.budget} spent={totalSpent} theme="light" />
+        <div style={{ marginTop: '12px' }}>
+          <BudgetBar budget={player.budget} spent={totalSpent} theme="light" />
+        </div>
       </div>
 
       {activeLU && (

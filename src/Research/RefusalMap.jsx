@@ -81,7 +81,6 @@ const RefusalMap = ({ ownedCells = {}, selectedRefs = [], maxCount = 1, onToggle
                 >
                   <span className="refusal-cell-label">{cellRef}</span>
                   {isSelected && <span className="refusal-cell-mark">✕</span>}
-                  {isOwned && !isSelected && <span className="refusal-cell-mark refusal-cell-own-mark">●</span>}
                 </div>
               );
             })}

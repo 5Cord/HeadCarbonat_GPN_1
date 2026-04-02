@@ -4,6 +4,7 @@ import GameLobby from './GameLobby';
 import GameBoard from './GameBoard';
 import AdminPanel from './Adminpanel';
 import GameOverScreen from './GameOver/GameOverScreen'; // ← НОВЫЙ ИМПОРТ
+import YearEndToast from './YearEndToast';
 import useGameStore from '../store/gameStore';
 import useGlobalTimer from './useGlobalTimer';
 import useSocket from './useSocket';
@@ -88,6 +89,7 @@ function App() {
 
   const { player, resetGame } = useGameStore();
   const gameStatus = useGameStore(s => s.game.status); // ← НОВАЯ СТРОКА
+  const yearEndToast = useGameStore(s => s.yearEndToast);
 
   // ФИКС порядка хуков: useState и useEffect идут до return null/return <X/>,
   // иначе React падает с "Rendered more hooks than during the previous render".
@@ -155,6 +157,7 @@ function App() {
       <GameBoard />
       <DevResetButton />
       {gameStatus === 'FINISHED' && <GameOverScreen />} // ← НОВАЯ СТРОКА
+      {yearEndToast && <YearEndToast />}
     </>
   );
 }

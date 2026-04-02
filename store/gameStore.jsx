@@ -167,6 +167,10 @@ const useGameStore = create(
           finalScore: 0,
         },
 
+        navigateToResearch: false,
+        navigateToRefusal: false,
+        yearEndToast: false,
+
         // ── Текущий экран ─────────────────────────────────────────────────
         // Вызывать при каждом переходе между экранами:
         //   useGameStore.getState().setCurrentScreen('research')
@@ -178,6 +182,10 @@ const useGameStore = create(
             game: { ...state.game, currentScreen: screen },
           }));
         },
+
+        setNavigateToResearch: (value) => set({ navigateToResearch: value }),
+        setNavigateToRefusal: (value) => set({ navigateToRefusal: value }),
+        setYearEndToast: (value) => set({ yearEndToast: value }),
 
         // ── Таймер: методы ────────────────────────────────────────────────────
 

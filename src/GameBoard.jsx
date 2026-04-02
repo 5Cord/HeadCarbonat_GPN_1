@@ -44,6 +44,8 @@ const GameBoard = () => {
     const {
         game, player, licenseUnits, gridCells,
         purchaseLU, getCurrentLU, globalTimer,
+        navigateToResearch, setNavigateToResearch,
+        navigateToRefusal, setNavigateToRefusal,
     } = useGameStore();
 
     const MAX_LUS_PER_TEAM = player.sessionConfig?.maxLUsPerTeam ?? 5;
@@ -62,12 +64,40 @@ const GameBoard = () => {
     }, []);
 
     useEffect(() => {
+        if (!navigateToResearch) return;
+        setNavigateToResearch(false);
+        if (currentLU) {
+            set(st => ({
+                game: {
+                    ...st.game,
+                    currentLUProgress: {
+                        ...st.game.currentLUProgress,
+                        [currentLU.id]: {
+                            researchCompleted: false,
+                            eventsCompleted: false,
+                            fieldWorkCompleted: false,
+                            resultsCompleted: false,
+                        },
+                    },
+                },
+            }));
+        }
+        setExpandedField(1);
+    }, [navigateToResearch]);
+
+    useEffect(() => {
+        if (!navigateToRefusal) return;
+        setNavigateToRefusal(false);
+        setExpandedField(1);
+    }, [navigateToRefusal]);
+
+    useEffect(() => {
         if (!currentLU && infoCards.length > 0) {
             const firstLU = infoCards[0];
-            set({
-                licenseUnits: { ...licenseUnits, current: firstLU },
-                game: { ...game, currentPhase: 'REGION_MAP' },
-            });
+            set(st => ({
+                licenseUnits: { ...st.licenseUnits, current: firstLU },
+                game: { ...st.game, currentPhase: 'REGION_MAP' },
+            }));
         }
     }, [infoCards.length, currentLU?.id]);
 
@@ -83,17 +113,17 @@ const GameBoard = () => {
             const currentIndex = infoCards.findIndex(lu => lu.id === currentLU.id);
             if (currentIndex >= 0 && currentIndex < infoCards.length - 1) {
                 const nextLU = infoCards[currentIndex + 1];
-                set({
-                    licenseUnits: { ...licenseUnits, current: nextLU },
+                set(st => ({
+                    licenseUnits: { ...st.licenseUnits, current: nextLU },
                     game: {
-                        ...game,
+                        ...st.game,
                         currentPhase: 'REGION_MAP',
                         currentLUProgress: {
-                            ...game.currentLUProgress,
+                            ...st.game.currentLUProgress,
                             [nextLU.id]: {},
                         },
                     },
-                });
+                }));
             }
         }
     }, [game.currentLUProgress, currentLU?.id]);
@@ -164,11 +194,11 @@ const GameBoard = () => {
         }
 
         if (currentLU) {
-            set({
+            set(st => ({
                 game: {
-                    ...game,
+                    ...st.game,
                     currentLUProgress: {
-                        ...game.currentLUProgress,
+                        ...st.game.currentLUProgress,
                         [currentLU.id]: {
                             researchCompleted: false,
                             eventsCompleted: false,
@@ -177,7 +207,7 @@ const GameBoard = () => {
                         },
                     },
                 },
-            });
+            }));
         }
         goToField(1);
     };
@@ -214,15 +244,15 @@ const GameBoard = () => {
                         onBack={() => goToField(0)}
                         onMenu={goToMenu}
                         onComplete={() => {
-                            set({
+                            set(st => ({
                                 game: {
-                                    ...game,
+                                    ...st.game,
                                     currentLUProgress: {
-                                        ...game.currentLUProgress,
-                                        [currentLU?.id]: { ...progress, researchCompleted: true },
+                                        ...st.game.currentLUProgress,
+                                        [currentLU?.id]: { ...st.game.currentLUProgress?.[currentLU?.id], researchCompleted: true },
                                     },
                                 },
-                            });
+                            }));
                             goToField(2);
                         }}
                         currentLU={currentLU}
@@ -233,15 +263,15 @@ const GameBoard = () => {
                         onBack={() => goToField(1)}
                         onMenu={goToMenu}
                         onComplete={() => {
-                            set({
+                            set(st => ({
                                 game: {
-                                    ...game,
+                                    ...st.game,
                                     currentLUProgress: {
-                                        ...game.currentLUProgress,
-                                        [currentLU?.id]: { ...progress, researchCompleted: true, eventsCompleted: true },
+                                        ...st.game.currentLUProgress,
+                                        [currentLU?.id]: { ...st.game.currentLUProgress?.[currentLU?.id], researchCompleted: true, eventsCompleted: true },
                                     },
                                 },
-                            });
+                            }));
                             goToField(3);
                         }}
                         currentLU={currentLU}
@@ -252,15 +282,15 @@ const GameBoard = () => {
                         onBack={() => goToField(2)}
                         onMenu={goToMenu}
                         onComplete={() => {
-                            set({
+                            set(st => ({
                                 game: {
-                                    ...game,
+                                    ...st.game,
                                     currentLUProgress: {
-                                        ...game.currentLUProgress,
-                                        [currentLU?.id]: { ...progress, researchCompleted: true, eventsCompleted: true, fieldWorkCompleted: true },
+                                        ...st.game.currentLUProgress,
+                                        [currentLU?.id]: { ...st.game.currentLUProgress?.[currentLU?.id], researchCompleted: true, eventsCompleted: true, fieldWorkCompleted: true },
                                     },
                                 },
-                            });
+                            }));
                             goToField(4);
                         }}
                         currentLU={currentLU}

@@ -61,62 +61,6 @@
   opacity: 0.6;
 }
 
-/* ── Таймер ── */
-
-.timer {
-  position: fixed;
-  top: 12px;
-  right: 220px;
-  background: #1a237e;
-  color: #fff;
-  border-radius: 12px;
-  padding: 12px 32px;
-  text-align: center;
-  min-width: 200px;
-  border: 2px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
-  z-index: 300;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  pointer-events: none;
-  transition: background 0.35s, border-color 0.35s;
-}
-
-.timerLabel {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  opacity: 0.75;
-  font-family: sans-serif;
-}
-
-.timerValue {
-  font-size: 2.2rem;
-  font-weight: 800;
-  font-family: 'Courier New', monospace;
-  line-height: 1.2;
-  letter-spacing: 0.04em;
-}
-
-.timerSub {
-  font-size: 10px;
-  opacity: 0.6;
-  margin-top: 2px;
-  font-family: sans-serif;
-}
-
-.timerAlert    { background: #e65100; border-color: rgba(255, 152, 0, 0.5); }
-.timerWarning  { background: #b71c1c; border-color: rgba(239, 83, 80, 0.5);  animation: fwPulse 1s ease-in-out infinite; }
-.timerCritical { background: #c62828; border-color: rgba(255, 23, 68, 0.5);  animation: fwPulse 0.5s ease-in-out infinite; }
-.timerFinished { background: #424242; border-color: rgba(117, 117, 117, 0.4); }
-
-@keyframes fwPulse {
-  0%, 100% { opacity: 1;   transform: scale(1); }
-  50%       { opacity: .82; transform: scale(1.025); }
-}
 
 /* ── ЛУ секция ── */
 
@@ -136,6 +80,21 @@
   text-transform: uppercase;
   margin-bottom: 12px;
   font-family: sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progressBadge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #2fa394;
+  background: rgba(47, 163, 148, 0.12);
+  border: 1px solid rgba(47, 163, 148, 0.3);
+  border-radius: 8px;
+  padding: 3px 10px;
+  text-transform: none;
 }
 
 .luCardsRow {
@@ -366,13 +325,23 @@
 
 .optBtn:hover { filter: brightness(1.12); transform: scale(1.015); }
 
+.optSel {
+  box-shadow: 0 0 0 2px rgba(47, 163, 148, 0.7);
+  border-radius: 12px;
+}
+
 .optSel .optDescBlock {
-  background: rgba(60, 100, 70, 0.85) !important;
-  box-shadow: inset 0 0 0 2px rgba(74, 190, 100, 0.5);
+  background: rgba(47, 163, 148, 0.75) !important;
+  box-shadow: none;
 }
 
 .optSel .optCostBadge {
-  background: rgba(60, 100, 70, 0.85) !important;
+  background: rgba(47, 163, 148, 0.75) !important;
+}
+
+.optSel .optDesc {
+  color: #ffffff;
+  font-weight: 700;
 }
 
 .optDescBlock {
@@ -561,6 +530,100 @@
   transition: opacity 0.15s; font-family: sans-serif;
 }
 .modalConfirmBtn:hover { opacity: 0.9; }
+
+.cardCountBadge {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgba(200, 169, 126, 0.6);
+  letter-spacing: 0.04em;
+  font-family: sans-serif;
+}
+
+/* ── Empty state (no research) ── */
+
+.emptyStateNoResearch {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.emptyStateIcon {
+  font-size: 3rem;
+  line-height: 1;
+  opacity: 0.6;
+}
+
+.emptyStateTitle {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: rgba(200, 169, 126, 0.7);
+  letter-spacing: 0.06em;
+  font-family: sans-serif;
+}
+
+.emptyStateHint {
+  font-size: 0.98rem;
+  color: rgba(200, 169, 126, 0.45);
+  font-family: sans-serif;
+  line-height: 1.6;
+  max-width: 380px;
+}
+
+.emptyStateHint strong {
+  color: rgba(200, 169, 126, 0.75);
+}
+
+.emptyStateBtn {
+  margin-top: 8px;
+  padding: 11px 28px;
+  background: rgba(200, 169, 126, 0.08);
+  color: #c8a97e;
+  border: 1.5px solid rgba(200, 169, 126, 0.3);
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: sans-serif;
+  transition: all 0.15s;
+  letter-spacing: 0.04em;
+}
+
+.emptyStateBtn:hover {
+  background: rgba(200, 169, 126, 0.15);
+  border-color: rgba(200, 169, 126, 0.55);
+  transform: translateY(-1px);
+}
+
+/* ── Toast ── */
+
+.savedToast {
+  position: fixed;
+  bottom: 90px;
+  right: 32px;
+  background: rgba(47, 163, 148, 0.92);
+  color: #fff;
+  padding: 13px 26px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 1rem;
+  z-index: 10000;
+  font-family: sans-serif;
+  box-shadow: 0 6px 20px rgba(47, 163, 148, 0.35);
+  animation: toastFade 2.5s ease forwards;
+  pointer-events: none;
+}
+
+@keyframes toastFade {
+  0%   { opacity: 0; transform: translateY(8px); }
+  12%  { opacity: 1; transform: translateY(0); }
+  75%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
 
 /* ── Responsive ── */
 
