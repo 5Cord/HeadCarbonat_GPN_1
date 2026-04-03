@@ -556,6 +556,10 @@ function handleAdminSocket(socket, io) {
   console.log(`🔧  Admin connected [${socket.id}]`);
 
   socket.on('admin:joinSession', ({ sessionId }) => {
+    if (socket._adminSession && socket._adminSession !== sessionId) {
+      socket.leave(socket._adminSession);
+    }
+    socket._adminSession = sessionId;
     socket.join(sessionId);
     const timerState = getTimer(sessionId);
     if (timerState) socket.emit('timer:state', timerState);
@@ -649,6 +653,18 @@ async function _sendFullState(socket, sessionId, team) {
   const auctions = await getActiveAuctions(sessionId);
   const teamRow = await dbGet('SELECT budget FROM teams WHERE id = $1', [team.id]);
 
+  const researchRows = await dbAll(
+    `SELECT lu_id, year, column_id, purchased_works_json, success_rates_json, total_spent, skipped
+     FROM research_progress WHERE session_id = $1 AND team_id = $2`,
+    [sessionId, team.id]
+  );
+
+  const eventsRows = await dbAll(
+    `SELECT lu_id, year, score, money_delta, line_json, completed, skipped
+     FROM events_results WHERE session_id = $1 AND team_id = $2`,
+    [sessionId, team.id]
+  );
+
   socket.emit('state:full', {
     timer,
     cells,
@@ -656,6 +672,8 @@ async function _sendFullState(socket, sessionId, team) {
     budget: teamRow?.budget ?? team.budget,
     teamId: team.id,
     teamName: team.name,
+    researchRows,
+    eventsRows,
   });
 }
 

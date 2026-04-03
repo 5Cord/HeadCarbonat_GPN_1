@@ -696,7 +696,22 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                 {myAuctionCells.map(ref => <div key={ref} className="pending-auction-item"><span className="pending-auction-cell">WAIT {ref}</span></div>)}
               </div>
             )}
-            {selectedLU.length > 0 && (
+
+            {ownedCount > 0 && (
+              <div className="owned-cells-list">
+                <div className="owned-cells-title">Ваши участки:</div>
+                {Object.values(ownedCells).map(cell => (
+                  <div key={cell.cellRef} className={`owned-cell-item owned-cell-item-static ${myContestedCells[cell.cellRef] ? 'owned-cell-item-contested' : ''} ${cell.isAutoAssigned ? 'owned-cell-item-auto' : ''}`}>
+                    <span className="owned-cell-ref">{cell.cellRef}</span>
+                    {myContestedCells[cell.cellRef] && <span className="owned-cell-contested-icon" title="Другая команда претендует на этот участок">⚔️</span>}
+                    {cell.isAutoAssigned && <span className="owned-cell-auto-icon" title="Участок выдан автоматически">🎲</span>}
+                    <span className="owned-cell-name">{cell.name}</span>
+                    {cell.auctionPrice ? <span className="owned-cell-price">{cell.auctionPrice} млн</span> : <span className="owned-cell-free">{cell.isAutoAssigned ? 'авто' : ''}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+                        {selectedLU.length > 0 && (
               <div className="info-panel-section">
                 <h4 className="info-panel-section-title">Карточки информации <span className="section-title-count">{selectedLU.length}</span></h4>
                 <div className="info-panel-cards-list">
@@ -707,20 +722,6 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-            {ownedCount > 0 && (
-              <div className="owned-cells-list">
-                <div className="owned-cells-title">Ваши участки:</div>
-                {Object.values(ownedCells).map(cell => (
-                  <div key={cell.cellRef} className={`owned-cell-item owned-cell-item-static ${myContestedCells[cell.cellRef] ? 'owned-cell-item-contested' : ''} ${cell.isAutoAssigned ? 'owned-cell-item-auto' : ''}`}>
-                    <span className="owned-cell-ref">{cell.cellRef}</span>
-                    {myContestedCells[cell.cellRef] && <span className="owned-cell-contested-icon" title="Другая команда претендует на этот участок">⚔️</span>}
-                    {cell.isAutoAssigned && <span className="owned-cell-auto-icon" title="Участок выдан автоматически">🎲</span>}
-                    <span className="owned-cell-name">{cell.name}</span>
-                    {cell.auctionPrice ? <span className="owned-cell-price">{cell.auctionPrice} млн</span> : <span className="owned-cell-free">{cell.isAutoAssigned ? 'авто' : 'бесплатно'}</span>}
-                  </div>
-                ))}
               </div>
             )}
           </>

@@ -123,7 +123,7 @@ const LoginScreen = ({ onLogin }) => {
     return (
         <div className="login-wrap">
             <div className="login-card">
-                <div className="login-icon">⚙️</div>
+                <div className="login-logo">АП</div>
                 <h2>Админ-панель</h2>
                 <p className="login-hint">Курс на карбонаты</p>
                 <input type="password" className="login-input" placeholder="Пароль администратора"
@@ -150,7 +150,7 @@ const TimersForm = ({ timers, onChange }) => {
     return (
         <div className="timers-form">
             <div className="tf-section">
-                <div className="tf-section-title">🗺️ Карта региона</div>
+                <div className="tf-section-title">Карта региона</div>
                 {[['Выбор участков', 'regionMap.selection'], ['Аукцион', 'regionMap.auction'], ['Допокупка', 'regionMap.postAuction']].map(([label, path]) => (
                     <div key={path} className="tf-row">
                         <label>{label}</label>
@@ -162,7 +162,7 @@ const TimersForm = ({ timers, onChange }) => {
                 ))}
             </div>
             <div className="tf-section">
-                <div className="tf-section-title"> НИР · События · Полевые · Результаты (по годам)</div>
+                <div className="tf-section-title">НИР · События · Полевые · Результаты (по годам)</div>
                 <div className="tf-years-grid">
                     {YEARS.map(y => (
                         <div key={y} className="tf-year-cell">
@@ -220,7 +220,7 @@ const LiveTimersEditor = ({ sessionId, adminSocket }) => {
             </div>
             {loading ? <div className="live-editor-loading">Загрузка…</div> : <TimersForm timers={timers} onChange={setTimers} />}
             <button className={`apply-btn ${saved ? 'apply-btn-saved' : ''}`} onClick={handleApply} disabled={saving || loading || !sessionId}>
-                {saving ? '⏳ Применяю…' : saved ? '✅ Применено!' : '💾 Применить к сессии'}
+                {saving ? 'Применяю…' : saved ? 'Применено!' : 'Применить к сессии'}
             </button>
             <p className="apply-hint">Новое время вступит в силу при следующей смене фазы или года.</p>
         </div>
@@ -272,48 +272,85 @@ const TimerControl = ({ sessionId, sessions, adminSocket, onRefresh }) => {
 
     return (
         <div className="tc-panel">
-            <div className="tc-status">
-                <span className={`dot ${connected ? 'dot-on' : 'dot-off'}`} />
-                <span>{connected ? 'Подключено' : 'Нет соединения'}</span>
-                <code className="tc-sid">{sessionId.slice(0, 8)}…</code>
-                <span className={`badge badge-${status}`}>{status}</span>
-            </div>
-            <div className="tc-action">
-                {status === 'waiting' && <button className="tc-start-btn" onClick={handleStart} disabled={!connected || starting}>{starting ? '⏳ Запуск…' : '🚀 Старт сессии'}</button>}
-                {status === 'active' && <div className="tc-active-row"><div className="tc-active-label">✅ Сессия активна</div><button className="tc-stop-btn" onClick={handleStop}>⏹ Завершить</button></div>}
-                {status === 'finished' && <div className="tc-finished-label">Сессия завершена</div>}
-            </div>
-            <div className="tc-display">
+            {/* ── Левая панель: дисплей ── */}
+            <div className="tc-display-hero">
                 <div className="tc-time">{timer ? fmt(timer.timeRemaining) : '--:--'}</div>
-                {timer && (
+                {timer ? (
                     <div className="tc-meta">
-                        <span>Год {timer.currentYear}/10</span>
+                        <span>Год {timer.currentYear} / 10</span>
                         <span className="tc-phase-label">{PHASE_LABELS[timer.phase] ?? timer.phase}</span>
-                        <span className={`tc-badge ${timer.isRunning && !timer.isPaused ? 'tc-run' : timer.isPaused ? 'tc-pause' : 'tc-stop'}`}>
-                            {timer.isRunning && !timer.isPaused ? 'Идёт' : timer.isPaused ? 'Пауза' : 'Стоп'}
-                        </span>
                     </div>
+                ) : (
+                    <div className="tc-meta">Таймер не запущен</div>
                 )}
-                {timer?.pendingRefusal && <div className="tc-refusal">Отказной период — {fmt(timer.refusalTimeLeft)}</div>}
+                <span className={`tc-badge tc-badge-hero ${timer?.isRunning && !timer?.isPaused ? 'tc-run' : timer?.isPaused ? 'tc-pause' : 'tc-stop'}`}>
+                    {timer?.isRunning && !timer?.isPaused ? '● Идёт' : timer?.isPaused ? '‖ Пауза' : '■ Стоп'}
+                </span>
+                {timer?.pendingRefusal && <div className="tc-refusal">Отказ — {fmt(timer.refusalTimeLeft)}</div>}
+                <div className="tc-status">
+                    <span className={`dot ${connected ? 'dot-on' : 'dot-off'}`} />
+                    <span>{connected ? 'Подключено' : 'Нет связи'}</span>
+                    <code className="tc-sid">{sessionId.slice(0, 8)}…</code>
+                </div>
             </div>
-            <div className="tc-group-label">Управление</div>
-            <div className="tc-btns">
-                <button className="tb tb-green" onClick={() => emit('admin:startTimer')} disabled={!connected || (timer?.isRunning && !timer?.isPaused)}>▶ Старт</button>
-                <button className="tb tb-yellow" onClick={() => emit(timer?.isPaused ? 'admin:resumeTimer' : 'admin:pauseTimer')} disabled={!connected || !timer?.isRunning}>
-                    {timer?.isPaused ? '▶ Продолжить' : '⏸ Пауза'}
-                </button>
-            </div>
-            <div className="tc-group-label">Навигация</div>
-            <div className="tc-btns">
-                <button className="tb tb-gray" onClick={() => emit('admin:advanceYear')} disabled={!connected}>След. год →</button>
-                <button className="tb tb-gray tb-danger" onClick={() => confirm('Сбросить к году 1?') && emit('admin:resetTimer')} disabled={!connected}>↺ Сброс</button>
-            </div>
-            <div className="tc-group-label">Сменить фазу</div>
-            <div className="tc-phase-row">
-                <select className="tc-select" value={phase} onChange={e => setPhase_(e.target.value)}>
-                    {ALL_PHASES.map(p => <option key={p} value={p}>{PHASE_LABELS[p] ?? p}</option>)}
-                </select>
-                <button className="tb tb-gray" onClick={() => emit('admin:setPhase', { phase })} disabled={!connected}>Применить</button>
+
+            {/* ── Правая панель: контролы ── */}
+            <div className="tc-controls">
+
+                {/* Сессия */}
+                <div className="tc-ctrl-row">
+                    <span className="tc-ctrl-label">Сессия</span>
+                    <div className="tc-ctrl-btns">
+                        {status === 'waiting' && (
+                            <button className="tc-start-btn" onClick={handleStart} disabled={!connected || starting}>
+                                {starting ? 'Запуск…' : '▶ Старт сессии'}
+                            </button>
+                        )}
+                        {status === 'active' && (
+                            <>
+                                <span className="tc-active-label">● Активна</span>
+                                <button className="tc-stop-btn" onClick={handleStop}>■ Завершить</button>
+                            </>
+                        )}
+                        {status === 'finished' && <span className="tc-finished-label">Завершена</span>}
+                    </div>
+                </div>
+
+                <div className="tc-ctrl-divider" />
+
+                {/* Таймер */}
+                <div className="tc-ctrl-row">
+                    <span className="tc-ctrl-label">Таймер</span>
+                    <div className="tc-ctrl-btns">
+                        <button className="tb tb-green" onClick={() => emit('admin:startTimer')} disabled={!connected || (timer?.isRunning && !timer?.isPaused)}>▶ Старт</button>
+                        <button className="tb tb-yellow" onClick={() => emit(timer?.isPaused ? 'admin:resumeTimer' : 'admin:pauseTimer')} disabled={!connected || !timer?.isRunning}>
+                            {timer?.isPaused ? '▶ Продолжить' : '‖ Пауза'}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Год */}
+                <div className="tc-ctrl-row">
+                    <span className="tc-ctrl-label">Год</span>
+                    <div className="tc-ctrl-btns">
+                        <button className="tb tb-gray" onClick={() => emit('admin:advanceYear')} disabled={!connected}>→ Следующий год</button>
+                        <button className="tb tb-gray tb-danger" onClick={() => confirm('Сбросить к году 1?') && emit('admin:resetTimer')} disabled={!connected}>↺ Сброс</button>
+                    </div>
+                </div>
+
+                <div className="tc-ctrl-divider" />
+
+                {/* Фаза */}
+                <div className="tc-ctrl-row">
+                    <span className="tc-ctrl-label">Фаза</span>
+                    <div className="tc-ctrl-btns tc-ctrl-btns--phase">
+                        <select className="tc-select tc-select-phase" value={phase} onChange={e => setPhase_(e.target.value)}>
+                            {ALL_PHASES.map(p => <option key={p} value={p}>{PHASE_LABELS[p] ?? p}</option>)}
+                        </select>
+                        <button className="tb tb-gray" onClick={() => emit('admin:setPhase', { phase })} disabled={!connected}>Применить</button>
+                    </div>
+                </div>
+
             </div>
         </div>
     );
@@ -351,17 +388,17 @@ const CreateSessionTab = () => {
     if (step === 'done' && created) {
         return (
             <div className="created-screen">
-                <div className="created-icon">✅</div>
+                <div className="created-icon created-icon-ok">✓</div>
                 <h2>Сессия создана!</h2>
                 <div className="code-box">
                     <div className="code-label">Код для команд</div>
                     <div className="code-value">{created.sessionCode}</div>
                     <button className="copy-btn" onClick={() => { navigator.clipboard.writeText(created.sessionCode); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
-                        {copied ? '✅ Скопировано' : ' Копировать'}
+                        {copied ? '✓ Скопировано' : 'Копировать'}
                     </button>
                 </div>
                 <p className="created-hint">Таймер → выберите сессию → нажмите «Старт сессии»</p>
-                <button className="secondary-btn" onClick={() => { setStep('form'); setCreated(null); setCopied(false); }}>＋ Создать ещё</button>
+                <button className="secondary-btn" onClick={() => { setStep('form'); setCreated(null); setCopied(false); }}>+ Создать ещё</button>
             </div>
         );
     }
@@ -372,7 +409,7 @@ const CreateSessionTab = () => {
                 <div className="fs">
                     <div className="fs-title">Режим игры</div>
                     <div className="toggle-row">
-                        {[['online', '🌐 Онлайн'], ['solo', '👤 Одиночная']].map(([v, l]) => (
+                        {[['online', 'Онлайн'], ['solo', 'Одиночная']].map(([v, l]) => (
                             <button key={v} className={`tog ${form.gameMode === v ? 'tog-on' : ''}`} onClick={() => sf('gameMode', v)}>{l}</button>
                         ))}
                     </div>
@@ -380,14 +417,14 @@ const CreateSessionTab = () => {
                 <div className="fs">
                     <div className="fs-title">Тип игроков</div>
                     <div className="toggle-row">
-                        {[['students', '🎓 Студенты'], ['professionals', '💼 Профессионалы']].map(([v, l]) => (
+                        {[['students', 'Студенты'], ['professionals', 'Профессионалы']].map(([v, l]) => (
                             <button key={v} className={`tog ${form.playerType === v ? 'tog-on' : ''}`} onClick={() => sf('playerType', v)}>{l}</button>
                         ))}
                     </div>
                 </div>
                 <div className="fs">
                     <div className="fs-title">Бюджеты (млн ₽)</div>
-                    {[['students', '🎓 Студенты'], ['professionals', '💼 Профессионалы']].map(([key, label]) => (
+                    {[['students', 'Студенты'], ['professionals', 'Профессионалы']].map(([key, label]) => (
                         <div key={key} className="tf-row">
                             <label>{label}</label>
                             <div className="tf-row-right">
@@ -420,7 +457,7 @@ const CreateSessionTab = () => {
                 </div>
                 {error && <div className="form-error">{error}</div>}
                 <button className="create-btn" onClick={handleCreate} disabled={loading}>
-                    {loading ? 'Создание…' : '🚀 Создать сессию'}
+                    {loading ? 'Создание…' : 'Создать сессию'}
                 </button>
             </div>
         </div>
@@ -490,8 +527,8 @@ const CardAnswerModal = ({ card, onClose }) => {
                                 <div key={i} style={{ padding: '10px 14px', borderRadius: 8, border: `1.5px solid ${border}`, background: bg, color: textColor, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <span style={{ fontWeight: 700, minWidth: 20 }}>{i + 1}.</span>
                                     <span style={{ flex: 1 }}>{opt}</span>
-                                    {isSel && isCorr && <span style={{ fontSize: 16 }}>✅</span>}
-                                    {isSel && !isCorr && <span style={{ fontSize: 16 }}>❌</span>}
+                                    {isSel && isCorr && <span style={{ fontSize: 13, fontWeight: 700, color: '#16a34a' }}>✓</span>}
+                                    {isSel && !isCorr && <span style={{ fontSize: 13, fontWeight: 700, color: '#dc2626' }}>✗</span>}
                                     {!isSel && isCorr && <span style={{ fontSize: 13, color: '#15803d', fontWeight: 600 }}>← правильный</span>}
                                 </div>
                             );
@@ -500,7 +537,7 @@ const CardAnswerModal = ({ card, onClose }) => {
                 )}
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center', paddingTop: 12, borderTop: '1px solid #e2e8f0' }}>
                     <span style={{ fontSize: 14, fontWeight: 600, color: isCorrect ? '#16a34a' : skipped ? '#64748b' : '#dc2626' }}>
-                        {skipped ? '⏭ Пропущено' : isCorrect ? '✅ Правильно' : '❌ Неправильно'}
+                        {skipped ? 'Пропущено' : isCorrect ? '✓ Правильно' : '✗ Неправильно'}
                     </span>
                     <span style={{ fontSize: 13, color: '#64748b' }}>Очков: <strong>{points > 0 ? '+' + points : points}</strong></span>
                 </div>
@@ -527,7 +564,7 @@ const EventLineDetail = ({ line }) => {
                     {line.cards.filter(c => c.cardType === 'opportunity').map((card, i) => {
                         const bg = card.skipped ? '#f1f5f9' : card.isCorrect ? '#dcfce7' : '#fee2e2';
                         const border = card.skipped ? '#cbd5e1' : card.isCorrect ? '#86efac' : '#fca5a5';
-                        const icon = card.skipped ? '⏭' : card.isCorrect ? '✅' : '❌';
+                        const icon = card.skipped ? '–' : card.isCorrect ? '✓' : '✗';
                         return (
                             <button key={i} onClick={() => setOpenCard(card)} title="Нажмите для просмотра" style={{ background: bg, border: `1.5px solid ${border}`, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 5 }}>
                                 <span>{icon}</span>
@@ -1170,8 +1207,8 @@ const AdminPanel = () => {
     const [sessions, setSessions] = useState([]);
     const [teams, setTeams] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [timerSess, setTimerSess] = useState(null);
-    const [monitorSess, setMonitorSess] = useState(null);
+    const [controlSess, setControlSess] = useState(null);
+    const [headerTimer, setHeaderTimer] = useState(null);
     const adminSocketRef = useRef(null);
 
     useEffect(() => {
@@ -1189,8 +1226,10 @@ const AdminPanel = () => {
         if (adminSocketRef.current) return;
         const sock = socketIO(WS_URL, { auth: { role: 'admin' }, transports: ['websocket'], reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 1000 });
         adminSocketRef.current = sock;
-        sock.on('connect', () => console.log('🔧 admin ws connected'));
-        sock.on('disconnect', () => console.log('🔧 admin ws disconnected'));
+        sock.on('connect', () => console.log('[admin ws] connected'));
+        sock.on('disconnect', () => console.log('[admin ws] disconnected'));
+        sock.on('timer:state', d => setHeaderTimer(d));
+        sock.on('timer:tick', d => setHeaderTimer(p => p ? { ...p, ...d } : d));
     }, [loggedIn]);
 
     useEffect(() => { if (loggedIn) { const t = sessionStorage.getItem('admin_tab') || 'create'; setTab(t); } }, []);
@@ -1211,7 +1250,7 @@ const AdminPanel = () => {
 
     const changeTab = t => {
         setTab(t); sessionStorage.setItem('admin_tab', t);
-        if (['sessions', 'timer', 'monitor'].includes(t)) loadSessions();
+        if (['sessions', 'control'].includes(t)) loadSessions();
         if (t === 'teams') loadTeams();
         if (t === 'dashboard') loadDash();
     };
@@ -1226,88 +1265,91 @@ const AdminPanel = () => {
     };
 
     const TABS = [
-        { id: 'create', label: '＋ Создать' },
-        { id: 'timer', label: '⏱ Таймер' },
-        { id: 'monitor', label: '👁 Мониторинг' },
-        { id: 'sessions', label: '🎮 Сессии' },
-        { id: 'teams', label: '👥 Команды' },
-        { id: 'dashboard', label: ' Статистика' },
+        { id: 'create',    label: '+ Создать' },
+        { id: 'control',   label: 'Управление сессией' },
+        { id: 'sessions',  label: 'Сессии' },
+        // { id: 'teams',     label: 'Команды' },
+        // { id: 'dashboard', label: 'Статистика' },
     ];
 
     return (
         <div className="ap">
             <header className="ap-header">
-                <h1>⚙️ Админ-панель · Курс на карбонаты</h1>
+                <h1>Админ-панель · Курс на карбонаты</h1>
+                {headerTimer?.isRunning && (
+                    <div className="htw" onClick={() => changeTab('control')} title="Перейти к управлению">
+                        <span className="htw-year">Год {headerTimer.currentYear}/10</span>
+                        <span className={`htw-time${headerTimer.timeRemaining <= 30 ? ' htw-critical' : headerTimer.timeRemaining <= 120 ? ' htw-warn' : ''}`}>
+                            {fmt(headerTimer.timeRemaining)}
+                        </span>
+                        <span className="htw-phase">{PHASE_LABELS[headerTimer.phase] ?? headerTimer.phase}</span>
+                        <span className={`htw-dot ${headerTimer.isPaused ? 'htw-dot-pause' : 'htw-dot-run'}`} />
+                    </div>
+                )}
                 <button className="ap-logout" onClick={logout}>Выйти</button>
             </header>
             <nav className="ap-nav">
                 {TABS.map(t => <button key={t.id} className={`ap-tab ${tab === t.id ? 'ap-tab-on' : ''}`} onClick={() => changeTab(t.id)}>{t.label}</button>)}
             </nav>
-            <main className="ap-main">
+            <main className={`ap-main${tab === 'control' ? ' ap-main--control' : ''}`}>
                 {loading && <div className="ap-loading">Загрузка…</div>}
 
                 {tab === 'create' && <CreateSessionTab />}
 
-                {tab === 'timer' && (
-                    <div className="timer-tab-wrap">
-                        <h2>Управление таймером</h2>
+                {tab === 'control' && (
+                    <div className="control-wrap">
+                        <h2>Управление сессией</h2>
                         <div className="tc-select-row">
-                            <select className="tc-select" value={timerSess || ''} onChange={e => setTimerSess(e.target.value || null)}>
+                            <select className="tc-select" value={controlSess || ''} onChange={e => setControlSess(e.target.value || null)}>
                                 <option value="">— выберите сессию —</option>
                                 {sessions.map(s => <option key={s.id} value={s.id}>{s.code} · {s.status} · {s.teamsCount ?? 0} команд</option>)}
                             </select>
                             <button className="tb tb-gray" onClick={loadSessions}>↻ Обновить</button>
                         </div>
-                        <div className="timer-columns">
-                            <TimerControl sessionId={timerSess} sessions={sessions} adminSocket={adminSocketRef} onRefresh={loadSessions} />
-                            {timerSess && (
-                                <div className="live-editor-card">
-                                    <div className="live-editor-card-title"> Таймеры сессии</div>
-                                    <LiveTimersEditor sessionId={timerSess} adminSocket={adminSocketRef} />
-                                </div>
-                            )}
+                        <div className="control-layout">
+                            <div className="control-left">
+                                <TimerControl sessionId={controlSess} sessions={sessions} adminSocket={adminSocketRef} onRefresh={loadSessions} />
+                                {controlSess && (
+                                    <div className="live-editor-card" style={{ marginTop: '1rem' }}>
+                                        <div className="live-editor-card-title">Таймеры сессии</div>
+                                        <LiveTimersEditor sessionId={controlSess} adminSocket={adminSocketRef} />
+                                    </div>
+                                )}
+                            </div>
+                            <div className="control-right">
+                                <TeamsMonitor sessionId={controlSess} />
+                            </div>
                         </div>
-                    </div>
-                )}
-
-                {tab === 'monitor' && (
-                    <div className="monitor-tab-wrap">
-                        <h2>Мониторинг команд</h2>
-                        <div className="tc-select-row">
-                            <select className="tc-select" value={monitorSess || ''} onChange={e => setMonitorSess(e.target.value || null)}>
-                                <option value="">— выберите сессию —</option>
-                                {sessions.map(s => <option key={s.id} value={s.id}>{s.code} · {s.status} · {s.teamsCount ?? 0} команд</option>)}
-                            </select>
-                            <button className="tb tb-gray" onClick={loadSessions}>↻ Обновить список</button>
-                        </div>
-                        <TeamsMonitor sessionId={monitorSess} />
                     </div>
                 )}
 
                 {tab === 'sessions' && (
                     <div>
                         <h2>Сессии</h2>
-                        {sessions.length === 0 ? <p className="ap-empty">Нет сессий. Создайте во вкладке «Создать».</p> : (
-                            <div className="ap-table-wrap">
-                                <table className="ap-table">
-                                    <thead><tr><th>Код</th><th>Статус</th><th>Режим</th><th>ЛУ</th><th>Команды</th><th>Действия</th></tr></thead>
-                                    <tbody>
-                                        {sessions.map(s => (
-                                            <tr key={s.id}>
-                                                <td><strong className="code-cell">{s.code}</strong></td>
-                                                <td><span className={`badge badge-${s.status}`}>{s.status}</span></td>
-                                                <td>{s.game_mode === 'online' ? '🌐 Онлайн' : '👤 Одиночная'}</td>
-                                                <td>{s.max_lus ?? s.maxLUsPerTeam ?? '—'}</td>
-                                                <td>{s.teamsCount || 0}</td>
-                                                <td className="ap-actions">
-                                                    {s.status === 'waiting' && <button className="ab ab-green" onClick={async () => { try { await apiAction(`/api/admin/sessions/${s.id}/start`); loadSessions(); } catch (e) { alert(e.message); } }}>▶ Старт</button>}
-                                                    <button className="ab" onClick={() => { setTimerSess(s.id); changeTab('timer'); }}>⏱ Таймер</button>
-                                                    <button className="ab ab-red" onClick={async () => { if (!confirm('Удалить сессию?')) return; try { await deleteSession(s.id); loadSessions(); } catch (e) { alert(e.message); } }}>🗑 Удалить</button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                        {sessions.length === 0 ? (
+                            <p className="ap-empty">Нет сессий. Создайте во вкладке «+ Создать».</p>
+                        ) : (
+                            <div className="sessions-grid">
+                                {sessions.map(s => (
+                                    <div key={s.id} className={`session-card sc-${s.status}`}>
+                                        <div className="sc-header">
+                                            <span className="sc-code">{s.code}</span>
+                                            <span className={`badge badge-${s.status}`}>{s.status}</span>
+                                        </div>
+                                        <div className="sc-meta">
+                                            <span className="sc-meta-item">{s.game_mode === 'online' ? 'Онлайн' : 'Одиночная'}</span>
+                                            <span className="sc-meta-item">{s.teamsCount || 0} команд</span>
+                                            <span className="sc-meta-item">Макс. {s.max_lus ?? s.maxLUsPerTeam ?? '—'} ЛУ</span>
+                                        </div>
+                                        <div className="sc-actions">
+                                            {s.status === 'waiting' && (
+                                                <button className="ab ab-green" onClick={async () => { try { await apiAction(`/api/admin/sessions/${s.id}/start`); loadSessions(); } catch (e) { alert(e.message); } }}>▶ Старт</button>
+                                            )}
+                                            <button className="ab" onClick={() => { setControlSess(s.id); changeTab('control'); }}>Управление →</button>
+                                            <button className="ab ab-red" onClick={async () => { if (!confirm('Удалить сессию?')) return; try { await deleteSession(s.id); loadSessions(); } catch (e) { alert(e.message); } }}>Удалить</button>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>
@@ -1324,10 +1366,10 @@ const AdminPanel = () => {
                                         {teams.map(t => (
                                             <tr key={t.id}>
                                                 <td><strong>{t.name}</strong></td>
-                                                <td>{t.experience === 'students' ? '🎓 Студенты' : '💼 Профессионалы'}</td>
+                                                <td>{t.experience === 'students' ? 'Студенты' : 'Профессионалы'}</td>
                                                 <td>{t.members_json?.length || 0}</td>
                                                 <td>{t.session_code || '—'}</td>
-                                                <td><button className="ab" onClick={async () => { if (!confirm('Сбросить команду?')) return; try { await resetTeam(t.id); loadTeams(); } catch (e) { alert(e.message); } }}>🔄 Сброс</button></td>
+                                                <td><button className="ab" onClick={async () => { if (!confirm('Сбросить команду?')) return; try { await resetTeam(t.id); loadTeams(); } catch (e) { alert(e.message); } }}>Сброс</button></td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -1343,17 +1385,16 @@ const AdminPanel = () => {
                         {stats ? (
                             <>
                                 <div className="stats-row">
-                                    {[['🎮', stats.totalSessions || 0, 'Сессий'], ['👥', stats.totalTeams || 0, 'Команд'], ['🟢', stats.activeSessions || 0, 'Активных']].map(([icon, val, label]) => (
-                                        <div key={label} className="stat-card">
-                                            <div className="stat-icon">{icon}</div>
+                                    {[['sessions', stats.totalSessions || 0, 'Сессий'], ['teams', stats.totalTeams || 0, 'Команд'], ['active', stats.activeSessions || 0, 'Активных']].map(([key, val, label]) => (
+                                        <div key={label} className={`stat-card stat-card-${key}`}>
                                             <div className="stat-val">{val}</div>
                                             <div className="stat-label">{label}</div>
                                         </div>
                                     ))}
                                 </div>
                                 <div className="export-row">
-                                    <button className="tb tb-gray" onClick={() => handleExport('sessions')}>📥 Сессии CSV</button>
-                                    <button className="tb tb-gray" onClick={() => handleExport('teams')}>📥 Команды CSV</button>
+                                    <button className="tb tb-gray" onClick={() => handleExport('sessions')}>Сессии CSV ↓</button>
+                                    <button className="tb tb-gray" onClick={() => handleExport('teams')}>Команды CSV ↓</button>
                                 </div>
                             </>
                         ) : <p className="ap-empty">Загрузка…</p>}

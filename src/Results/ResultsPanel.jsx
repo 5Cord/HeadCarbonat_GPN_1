@@ -272,10 +272,8 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
 
     const onYearAdvanced = ({ year }) => {
       setWaiting(false);
-      const nextYear = year;
-      resetEventCardsForNewYear(nextYear);
-      applyYearTransitionForAllLUs(nextYear - 1);
-      advanceToNextYear();
+      resetEventCardsForNewYear(year);
+      applyYearTransitionForAllLUs(year - 1);
       onComplete();
     };
 
@@ -448,12 +446,6 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
 
       {activeLU && (
         <div className="rp-table-section">
-          {workedYears.length > 1 && (
-            <div style={{ padding: '0 20px 6px', fontSize: '0.75rem', color: '#aaa' }}>
-              Таблица показывает все годы. Итоговая строка содержит карточки за всё время.
-              Ниже — строки по каждому году отдельно.
-            </div>
-          )}
           <div className="rp-table-scroll">
             <table className="rp-table">
               <thead>

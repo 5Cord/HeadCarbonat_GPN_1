@@ -4,40 +4,32 @@ import ResearchPanel from './Research/ResearchPanel';
 import EventsZone from './Events/EventsZone';
 import FieldWorkPanel from './FieldWork/FieldWorkPanel';
 import ResultsPanel from './Results/ResultsPanel';
+import GlobalTimer from './GlobalTimer';
 import useGameStore from '../store/gameStore';
 import styles from './GameBoard.module.css';
 
-// ── Хелперы sessionStorage ────────────────────────────────────────────────────
-const FIELD_KEY = 'gameboard_expanded_field';
-
-const saveField = (val) => {
-    if (val === null) {
-        sessionStorage.removeItem(FIELD_KEY);
-    } else {
-        sessionStorage.setItem(FIELD_KEY, String(val));
-    }
-};
-
-const loadField = () => {
-    const raw = sessionStorage.getItem(FIELD_KEY);
-    if (raw === null || raw === undefined) return null;
-    const n = parseInt(raw, 10);
-    return isNaN(n) ? null : n;
-};
+// Маппинг экрана (строка в Zustand) ↔ expandedField (число в компоненте)
+const SCREEN_TO_FIELD = { region_map: 0, research: 1, events: 2, field_work: 3, results: 4 };
+const FIELD_TO_SCREEN = { 0: 'region_map', 1: 'research', 2: 'events', 3: 'field_work', 4: 'results' };
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 const GameBoard = () => {
-    // Восстанавливаем expandedField из sessionStorage при монтировании
-    const [expandedField, setExpandedFieldRaw] = useState(() => loadField());
+    const setCurrentScreen = useGameStore(s => s.setCurrentScreen);
+    const savedScreen      = useGameStore(s => s.game.currentScreen);
+
+    // Восстанавливаем expandedField из Zustand (localStorage) при монтировании
+    const [expandedField, setExpandedFieldRaw] = useState(() =>
+        savedScreen != null ? (SCREEN_TO_FIELD[savedScreen] ?? null) : null
+    );
     const [showInfoCards, setShowInfoCards] = useState(false);
     const [selectedInfoCard, setSelectedInfoCard] = useState(null);
     const [isWideScreen, setIsWideScreen] = useState(window.innerWidth > 1580);
     const [viewMode, setViewMode] = useState(null);
 
-    // Обёртка: при каждом изменении сохраняем в sessionStorage
+    // Обёртка: при каждом изменении сохраняем в Zustand → localStorage
     const setExpandedField = (val) => {
-        saveField(val);
+        setCurrentScreen(val != null ? (FIELD_TO_SCREEN[val] ?? null) : null);
         setExpandedFieldRaw(val);
     };
 
@@ -313,6 +305,8 @@ const GameBoard = () => {
     return (
         <div className={styles.gameBoardFullscreen}>
 
+            <GlobalTimer />
+
             <div className={styles.gameLogo}>
                 <div className={styles.logoIcon}>⚙️</div>
                 <div className={styles.logoText}>
@@ -321,88 +315,70 @@ const GameBoard = () => {
                 </div>
             </div>
 
-            <div className={`${styles.gameInfoPanel} ${!isWideScreen ? styles.ultraCompact : ''}`}>
-                {!isWideScreen ? (
-                    <>
-                        <div className={styles.infoRow}>
-                            <span className={styles.infoLabel}></span>
-                            <span className={styles.infoValue}>{player.name}</span>
+            {/* ── Единый левый сайдбар ── */}
+            <div className={styles.sidebar}>
+                <div className={styles.sidebarStats}>
+                    <div className={styles.statTeam}>{player.name}</div>
+
+                    <div className={styles.statRow}>
+                        <span className={styles.statLabel}>Год</span>
+                        <span className={styles.statValue}>{currentYear} / 10</span>
+                    </div>
+                    <div className={styles.yearProgress}>
+                        <div className={styles.yearProgressFill} style={{ width: `${(currentYear / 10) * 100}%` }} />
+                    </div>
+
+                    <div className={styles.statRow}>
+                        <span className={styles.statLabel}>Бюджет</span>
+                        <span className={styles.statValue}>{player.budget.toLocaleString('ru-RU')} млн ₽</span>
+                    </div>
+
+                    <div className={styles.statRow}>
+                        <span className={styles.statLabel}>ЛУ куплено</span>
+                        <span className={styles.statValue}>{ownedGridCellsCount} / {MAX_LUS_PER_TEAM}</span>
+                    </div>
+
+                    {ownedGridCellsCount > 0 && (
+                        <div className={styles.ownedCellsCompact}>
+                            {ownedGridCells.map(cell => (
+                                <span key={cell.cellRef} className={styles.ownedCellBadge}>
+                                    {cell.cellRef}
+                                </span>
+                            ))}
                         </div>
-                        <div className={`${styles.infoRow} ${styles.iconsOnly}`}>
-                            <span className={styles.infoLabel}>Год:</span>
-                            <span className={styles.infoValue}>{currentYear}/10</span>
-                            <span className={styles.infoLabel}>₽</span>
-                            <span className={styles.infoValue}>{player.budget}млн</span>
+                    )}
+                </div>
+
+                {infoCards.length > 0 && (
+                    <div className={styles.sidebarCards}>
+                        <div className={styles.sidebarCardsHeader}>
+                            <span>Карточки информации</span>
+                            <span className={styles.sidebarCardsBadge}>{infoCards.length}</span>
                         </div>
-                        <div className={`${styles.infoRow} ${styles.iconsOnly}`}>
-                            <span className={styles.infoLabel}>ЛУ:</span>
-                            <span className={styles.infoValue}>{ownedGridCellsCount}/{MAX_LUS_PER_TEAM}</span>
-                            <span className={styles.infoLabel}>Карт.:</span>
-                            <span className={styles.infoValue}>{infoCards.length}</span>
+                        <div className={styles.sidebarCardsList}>
+                            {infoCards.map((lu) => (
+                                <div
+                                    key={lu.id}
+                                    className={styles.compactInfoCard}
+                                    onClick={() => { setViewMode('sidebar'); setSelectedInfoCard(lu); }}
+                                >
+                                    <div className={styles.compactCardHeader}>
+                                        <span className={styles.compactCardTitle}>{lu.name}</span>
+                                        <span className={styles.compactCardCost}>{lu.cost} млн ₽</span>
+                                    </div>
+                                    <div className={styles.compactCardHint}>Подробнее →</div>
+                                </div>
+                            ))}
                         </div>
-                        {infoCards.length > 0 && (
-                            <button
-                                className={`${styles.infoCardsToggleBtn} ${styles.microBtn}`}
-                                onClick={() => { setViewMode('button'); setShowInfoCards(true); }}
-                            >
-                                {infoCards.length}
-                            </button>
-                        )}
-                    </>
-                ) : (
-                    <>
-                        <div className={styles.infoRow}>
-                            <span className={styles.infoLabel}>Команда:</span>
-                            <span className={styles.infoValue}>{player.name}</span>
-                        </div>
-                        <div className={styles.infoRow}>
-                            <span className={styles.infoLabel}>Текущий год:</span>
-                            <span className={styles.infoValue}>{currentYear} / 10</span>
-                        </div>
-                        <div className={styles.infoRow}>
-                            <span className={styles.infoLabel}>Бюджет:</span>
-                            <span className={styles.infoValue}>{player.budget.toLocaleString('ru-RU')} млн ₽</span>
-                        </div>
-                        <div className={styles.infoRow}>
-                            <span className={styles.infoLabel}>ЛУ куплено:</span>
-                            <span className={styles.infoValue}>{ownedGridCellsCount} / {MAX_LUS_PER_TEAM}</span>
-                        </div>
-                        {ownedGridCellsCount > 0 && (
-                            <div className={styles.ownedCellsCompact}>
-                                {ownedGridCells.map(cell => (
-                                    <span key={cell.cellRef} className={styles.ownedCellBadge}>
-                                        {cell.cellRef}
-                                    </span>
-                                ))}
-                            </div>
-                        )}
-                        <div className={styles.infoRow}>
-                            <span className={styles.infoLabel}>Карточки информации:</span>
-                            <span className={styles.infoValue}>{infoCards.length}</span>
-                        </div>
-                    </>
+                    </div>
                 )}
             </div>
 
-            {infoCards.length > 0 && isWideScreen && (
-                <div className={styles.infoCardsSidebar}>
-                    <h3>Карточки информации</h3>
-                    <div className={styles.compactCardsList}>
-                        {infoCards.map((lu) => (
-                            <div
-                                key={lu.id}
-                                className={styles.compactInfoCard}
-                                onClick={() => { setViewMode('sidebar'); setSelectedInfoCard(lu); }}
-                            >
-                                <div className={styles.compactCardHeader}>
-                                    <span className={styles.compactCardTitle}>{lu.name}</span>
-                                    <span className={styles.compactCardCost}>{lu.cost} млн ₽</span>
-                                </div>
-                                <div className={styles.compactCardHint}>Подробнее →</div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+            {/* Кнопка на маленьких экранах */}
+            {infoCards.length > 0 && (
+                <button className={styles.cardsFloatBtn} onClick={() => { setViewMode('button'); setShowInfoCards(true); }}>
+                    Карточки · {infoCards.length}
+                </button>
             )}
 
             <div className={styles.gameBoardGridNew}>

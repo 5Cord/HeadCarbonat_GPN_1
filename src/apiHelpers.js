@@ -82,14 +82,9 @@ async function apiFetch(endpoint, options = {}) {
   const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
     if (res.status === 401) {
-      const storedToken = localStorage.getItem('auth_token');
-      console.warn('[apiFetch] 401 Unauthorized');
-      console.warn('[apiFetch] URL:', url);
-      console.warn('[apiFetch] Token in localStorage:', storedToken ? `"${storedToken.slice(0, 10)}..."` : '(null/empty)');
-      console.warn('[apiFetch] Authorization header sent:', headers.Authorization || '(none)');
-      // Не сбрасываем на экране логина — только для защищённых запросов
-      if (!endpoint.endsWith('/admin/login')) {
-        localStorage.removeItem('auth_token');
+      // Диспатчим admin:unauthorized ТОЛЬКО для admin-эндпоинтов (не для game-сайд запросов).
+      // auth_token не трогаем — его чистит только явный logout в AdminPanel.
+      if (endpoint.startsWith('/admin/') && !endpoint.endsWith('/admin/login')) {
         window.dispatchEvent(new CustomEvent('admin:unauthorized'));
       }
     }

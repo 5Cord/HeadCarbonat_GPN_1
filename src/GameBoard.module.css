@@ -50,52 +50,149 @@
 }
 
 
-.gameInfoPanel {
+/* ── Unified sidebar ── */
+.sidebar {
   position: fixed;
-  top: 10%;
+  top: 50%;
   left: 20px;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 12px;
-  padding: 16px 20px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  transform: translateY(-50%);
+  width: 260px;
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.97);
+  border-radius: 14px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(12px);
   z-index: 100;
-  min-width: 300px;
-  backdrop-filter: blur(10px);
+  overflow: hidden;
 }
 
-.gameInfoPanel .infoRow {
+.sidebarStats {
+  flex-shrink: 0;
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid #e8ecf0;
+}
+
+.statTeam {
+  font-size: 15px;
+  font-weight: 800;
+  color: #1a2540;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #2fa394;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.statRow {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  font-size: 14px;
-  margin-bottom: 8px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 7px;
+  font-size: 13px;
 }
 
-.gameInfoPanel .infoRow:last-of-type {
-  border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
-}
-
-.gameInfoPanel .infoRow.currentLu {
-  background: rgba(47, 163, 148, 0.1);
-  padding: 8px;
-  border-radius: 6px;
-  border-bottom: none;
-  margin-top: 8px;
-}
-
-.gameInfoPanel .infoLabel {
-  color: #333;
+.statLabel {
+  color: #5a6a85;
   font-weight: 600;
 }
 
-.gameInfoPanel .infoValue {
+.statValue {
   color: #2fa394;
   font-weight: 700;
+}
+
+.yearProgress {
+  height: 5px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  margin: -2px 0 10px;
+  overflow: hidden;
+}
+
+.yearProgressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #2fa394, #1e8074);
+  border-radius: 3px;
+  transition: width 0.6s ease;
+  min-width: 4px;
+}
+
+/* ── Cards section inside sidebar ── */
+.sidebarCards {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebarCardsHeader {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 18px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a2540;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #f4f6fb;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.sidebarCardsBadge {
+  background: #2fa394;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 20px;
+  letter-spacing: 0;
+}
+
+.sidebarCardsList {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebarCardsList::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebarCardsList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebarCardsList::-webkit-scrollbar-thumb {
+  background: #c0ccd8;
+  border-radius: 4px;
+}
+
+/* Float button — only on small screens */
+.cardsFloatBtn {
+  display: none;
+  position: fixed;
+  bottom: 24px;
+  left: 20px;
+  padding: 10px 18px;
+  background: linear-gradient(135deg, #2fa394, #1e8074);
+  color: #fff;
+  border: none;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(47, 163, 148, 0.4);
+  z-index: 100;
 }
 
 .luSelectorCompact {
@@ -362,33 +459,10 @@
 }
 
 
-.infoCardsSidebar {
-  position: fixed;
-  left: 20px;
-  top: 57%;
-  transform: translateY(-50%);
-  width: 300px;
-  max-height: calc(100vh - 200px);
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-  overflow-y: auto;
-  z-index: 90;
-}
-
-.infoCardsSidebar h3 {
-  margin: 0 0 15px 0;
-  color: #2fa394;
-  font-size: 18px;
-  font-weight: 700;
-  text-align: center;
-}
-
 .compactCardsList {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .compactInfoCard {
@@ -598,34 +672,34 @@
     grid-template-columns: repeat(4, 1fr);
     grid-template-rows: repeat(6, 1fr);
   }
-  
+
   .field1 {
     grid-column: 1 / 2;
     grid-row: 1 / 7;
   }
-  
+
   .field0 {
     grid-column: 2 / 4;
     grid-row: 2 / 5;
   }
-  
+
   .field2 {
     grid-column: 4 / 5;
     grid-row: 1 / 4;
   }
-  
+
   .field3 {
     grid-column: 2 / 5;
     grid-row: 5 / 7;
   }
-  
+
   .field4 {
     grid-column: 4 / 5;
     grid-row: 4 / 5;
   }
-  
-  .infoCardsSidebar {
-    display: none;
+
+  .sidebar {
+    width: 220px;
   }
 }
 
@@ -636,7 +710,7 @@
     height: auto;
     padding: 20px 10px;
   }
-  
+
   .field1,
   .field0,
   .field2,
@@ -646,23 +720,25 @@
     grid-row: auto;
     min-height: 150px;
   }
-  
+
   .gameLogo {
     top: 10px;
   }
-  
+
   .logoTitle {
     font-size: 20px;
   }
-  
+
   .logoIcon {
     font-size: 32px;
   }
-  
-  .gameInfoPanel {
-    top: 80px;
-    left: 10px;
-    min-width: 250px;
+
+  .sidebar {
+    display: none;
+  }
+
+  .cardsFloatBtn {
+    display: block;
   }
 }
 /* === ДОБАВИТЬ В GameBoard.module.css === */

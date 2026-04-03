@@ -52,7 +52,6 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
       setWaiting(false);
       resetEventCardsForNewYear(year);
       applyYearTransitionForAllLUs(year - 1);
-      advanceToNextYear();
       onComplete();
     };
 
@@ -424,13 +423,7 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
             <div className={styles.emptyStateNoResearch}>
               <div className={styles.emptyStateIcon}>🔬</div>
               <div className={styles.emptyStateTitle}>Нет научных исследований</div>
-              <div className={styles.emptyStateHint}>
-                Для участка <strong>{activeLU.cellRef}</strong> не выбраны работы НИР.<br />
-                Вернитесь в «Научные исследования» и выберите направление.
-              </div>
-              <button className={styles.emptyStateBtn} onClick={handleBack}>
-                ← Вернуться к НИР
-              </button>
+
             </div>
           ) : (
             <div className={styles.emptyMsg}>

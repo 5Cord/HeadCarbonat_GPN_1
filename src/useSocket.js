@@ -163,7 +163,7 @@ export default function useSocket() {
       },
 
       // ── Полный стейт при коннекте / реконнекте ───────────────────────────
-      onFullState: ({ timer, cells, auctions, budget }) => {
+      onFullState: ({ timer, cells, auctions, budget, researchRows, eventsRows }) => {
         useGameStore.setState(st => {
           const newTimer = timer ? {
             ...st.globalTimer,
@@ -190,12 +190,59 @@ export default function useSocket() {
             if (a) activeAuctions[a.cell_ref] = _fmt(a);
           });
 
+          // Восстановление НИР из БД (только если localStorage пуст)
+          let restoredResearch = st.research;
+          if ((researchRows || []).length > 0 && Object.keys(st.research.progressByLU || {}).length === 0) {
+            const progressByLU = {};
+            for (const row of researchRows) {
+              const luId = row.lu_id;
+              if (!progressByLU[luId]) {
+                progressByLU[luId] = {
+                  purchasedWorks: [], purchasedWorksByYear: {},
+                  mobilizedColumns: [], mobilizedColumnsByYear: {}, columnsByYear: {},
+                  totalSpent: 0, successRates: {}, successRatesByYear: {},
+                  skippedYears: [], completedColumns: [],
+                  purchasedCells: {}, purchasedCellsByYear: {},
+                };
+              }
+              const prog = progressByLU[luId];
+              const yearWorks = Array.isArray(row.purchased_works_json) ? row.purchased_works_json : [];
+              prog.purchasedWorksByYear[row.year] = yearWorks;
+              prog.purchasedWorks = [...new Set([...prog.purchasedWorks, ...yearWorks])];
+              prog.totalSpent += row.total_spent || 0;
+              if (row.success_rates_json && typeof row.success_rates_json === 'object') {
+                Object.assign(prog.successRates, row.success_rates_json);
+              }
+              if (row.column_id) {
+                if (!prog.mobilizedColumns.includes(row.column_id)) prog.mobilizedColumns.push(row.column_id);
+                prog.columnsByYear[row.year] = row.column_id;
+              }
+              if (row.skipped) prog.skippedYears.push(row.year);
+            }
+            restoredResearch = { ...st.research, progressByLU };
+          }
+
+          // Восстановление событий из БД (только если localStorage пуст)
+          let restoredEvents = st.events;
+          if ((eventsRows || []).length > 0 && Object.keys(st.events.lineScores || {}).length === 0) {
+            const lineScores = {};
+            const historyByYear = {};
+            for (const row of eventsRows) {
+              if (row.score != null) lineScores[row.lu_id] = (lineScores[row.lu_id] || 0) + row.score;
+              if (!historyByYear[row.year]) historyByYear[row.year] = { lineScores: {} };
+              historyByYear[row.year].lineScores[row.lu_id] = row.score || 0;
+            }
+            restoredEvents = { ...st.events, lineScores, historyByYear };
+          }
+
           return {
             globalTimer: newTimer,
             game:        { ...st.game, currentYear: newTimer.currentYear },
             gridCells:   { owned, allTeams },
             auctions:    { ...st.auctions, active: activeAuctions },
             player:      budget != null ? { ...st.player, budget } : st.player,
+            research:    restoredResearch,
+            events:      restoredEvents,
           };
         });
       },

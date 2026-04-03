@@ -143,7 +143,6 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
       setWaiting(false);
       resetEventCardsForNewYear(year);
       applyYearTransitionForAllLUs(year - 1);
-      advanceToNextYear();
       onComplete();
     };
 
