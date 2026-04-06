@@ -484,7 +484,7 @@ export const RANDOM_CARDS = [
 ];
 
 
-export const generateEventLine = (successRate) => {
+export const generateEventLine = (successRate, excludeIds = new Set()) => {
   let opportunityCount;
   if (successRate >= 60) opportunityCount = 3;
   else if (successRate >= 40) opportunityCount = 2;
@@ -496,17 +496,23 @@ export const generateEventLine = (successRate) => {
 
   const cards = [];
 
-  const shuffledQ = [...OPPORTUNITY_QUESTIONS].sort(() => Math.random() - 0.5);
+  const filteredQ = OPPORTUNITY_QUESTIONS.filter(q => !excludeIds.has(q.id));
+  const poolQ = filteredQ.length >= opportunityCount ? filteredQ : OPPORTUNITY_QUESTIONS;
+  const shuffledQ = [...poolQ].sort(() => Math.random() - 0.5);
   for (let i = 0; i < opportunityCount; i++) {
     cards.push({ type: CARD_TYPES.OPPORTUNITY, position: i, data: shuffledQ[i] });
   }
 
-  const shuffledR = [...RISK_CARDS].sort(() => Math.random() - 0.5);
+  const filteredR = RISK_CARDS.filter(r => !excludeIds.has(r.id));
+  const poolR = filteredR.length >= riskCount ? filteredR : RISK_CARDS;
+  const shuffledR = [...poolR].sort(() => Math.random() - 0.5);
   for (let i = 0; i < riskCount; i++) {
     cards.push({ type: CARD_TYPES.RISK, position: opportunityCount + i, data: shuffledR[i] });
   }
 
-  const randomCard = RANDOM_CARDS[Math.floor(Math.random() * RANDOM_CARDS.length)];
+  const filteredRnd = RANDOM_CARDS.filter(r => !excludeIds.has(r.id));
+  const poolRnd = filteredRnd.length > 0 ? filteredRnd : RANDOM_CARDS;
+  const randomCard = poolRnd[Math.floor(Math.random() * poolRnd.length)];
   cards.push({ type: CARD_TYPES.RANDOM, position: 5, data: randomCard });
 
   return cards.sort((a, b) => a.position - b.position);

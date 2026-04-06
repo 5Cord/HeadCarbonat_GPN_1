@@ -186,6 +186,15 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
   };
 
   useEffect(() => {
+    // Собираем ID карточек, уже выданных другим ЛУ в этом году — чтобы не повторяться
+    const usedCardIds = new Set();
+    ownedLUs.forEach((lu) => {
+      const existing = events.linesByLU[lu.id];
+      if (existing && existing.year === globalYear) {
+        existing.cards.forEach(c => { if (c.data?.id) usedCardIds.add(c.data.id); });
+      }
+    });
+
     ownedLUs.forEach((lu) => {
       const hasResearch = hasResearchForLU(lu.id);
       const existingLine = events.linesByLU[lu.id];
@@ -198,9 +207,13 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
         const rates = Object.values(yearRates);
         if (rates.length > 0) avgSuccess = rates.reduce((s, r) => s + r, 0) / rates.length;
 
+        const generatedCards = generateEventLine(avgSuccess, usedCardIds);
+        // Регистрируем новые карточки как использованные
+        generatedCards.forEach(c => { if (c.data?.id) usedCardIds.add(c.data.id); });
+
         const lineData = {
           luId: lu.id, luName: lu.name, year: globalYear,
-          cards: generateEventLine(avgSuccess),
+          cards: generatedCards,
           successRate: Math.round(avgSuccess),
           generatedAt: Date.now(), hasResearch: true,
         };

@@ -261,10 +261,6 @@ export default function useSocket() {
 
       onConnect: () => {
         console.log('✅ WS connected — таймер с сервера');
-
-        // ФИКС: явно запрашиваем актуальное состояние после реконнекта.
-        // Это гарантирует синхронизацию таймера и ячеек даже если пропустили события
-        // пока соединение было разорвано (например, при обновлении страницы).
         const socket = getSocket();
         if (socket) {
           socket.emit('request_full_state');
@@ -277,7 +273,24 @@ export default function useSocket() {
       },
     });
 
+    // При возврате на вкладку — переподключаемся если сокет упал
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return;
+      const socket = getSocket();
+      if (!socket) return;
+      if (!socket.connected) {
+        console.log('👁 Tab visible — reconnecting socket');
+        socket.connect();
+      } else {
+        // Сокет жив — всё равно синхронизируем состояние
+        socket.emit('request_full_state');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       disconnectSocket();
       connectedRef.current = false;
     };
