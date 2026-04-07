@@ -44,11 +44,9 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const fmt = (sec) => { const s = Math.max(0, Math.floor(sec ?? 0)); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
 const fmtMln = (n) => Number(n || 0).toLocaleString('ru-RU', { maximumFractionDigits: 0 });
 
-const BYPASS_TOKEN = 'tmp-bypass-2026';
-
 const getSavedToken = () => {
     const token = localStorage.getItem('auth_token');
-    return token && token.length > 0 ? token : BYPASS_TOKEN;
+    return token && token.length > 0 ? token : null;
 };
 
 const apiAction = async (path, method = 'POST', body) => {
