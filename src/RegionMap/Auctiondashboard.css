@@ -39,7 +39,7 @@
 /* ── Шапка ── */
 .auction-dashboard-header {
   padding: 22px 28px 18px;
-  border-bottom: 2px solid #2fa394;
+  border-bottom: 2px solid #29A694;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -49,7 +49,7 @@
 .auction-dashboard-title {
   font-size: 18px;
   font-weight: 700;
-  color: #2fa394;
+  color: #29A694;
   text-transform: uppercase;
   letter-spacing: 0.07em;
   display: flex;
@@ -81,9 +81,9 @@
 }
 
 .auction-summary-chip-total {
-  background: #f0faf9;
-  color: #2fa394;
-  border: 1px solid #c8ede8;
+  background: #f0f9f8;
+  color: #29A694;
+  border: 1px solid #d0ece9;
 }
 
 .auction-summary-chip-leading {
@@ -110,7 +110,7 @@
 
 .auction-dashboard-cards::-webkit-scrollbar { width: 4px; }
 .auction-dashboard-cards::-webkit-scrollbar-track { background: transparent; }
-.auction-dashboard-cards::-webkit-scrollbar-thumb { background: #c8ede8; border-radius: 2px; }
+.auction-dashboard-cards::-webkit-scrollbar-thumb { background: #d0ece9; border-radius: 2px; }
 
 /* ── Одна карточка ── */
 .auction-card {
@@ -120,7 +120,7 @@
 }
 
 .auction-card:hover { background: #fafafa; }
-.auction-card-leading { border-left-color: #2fa394; }
+.auction-card-leading { border-left-color: #29A694; }
 
 .auction-card-losing {
   border-left-color: #e57373;
@@ -149,7 +149,7 @@
 .auction-card-ref {
   font-size: 32px;
   font-weight: 900;
-  color: #1e8074;
+  color: #1a7a6e;
   letter-spacing: 0.04em;
 }
 
@@ -209,7 +209,7 @@
   white-space: nowrap;
 }
 
-.bid-team-me    { color: #2fa394; }
+.bid-team-me    { color: #29A694; }
 .bid-team-other { color: #e57373; }
 
 /* Статус "лидирую" */
@@ -217,15 +217,15 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  background: #f0faf9;
-  border: 1px solid #c8ede8;
+  background: #f0f9f8;
+  border: 1px solid #d0ece9;
   border-radius: 10px;
   padding: 14px 16px;
 }
 
 .auction-leading-icon {
   font-size: 22px;
-  color: #2fa394;
+  color: #29A694;
   font-weight: 900;
   flex-shrink: 0;
 }
@@ -239,7 +239,7 @@
 
 .auction-leading-text strong {
   font-size: 15px;
-  color: #2fa394;
+  color: #29A694;
   font-weight: 700;
 }
 
@@ -280,7 +280,7 @@
   width: 100%;
   padding: 12px 48px 12px 14px;
   background: #fff;
-  border: 2px solid #c8ede8;
+  border: 2px solid #d0ece9;
   border-radius: 8px;
   color: #333;
   font-size: 18px;
@@ -291,8 +291,8 @@
 
 .auction-bid-input-field:focus {
   outline: none;
-  border-color: #2fa394;
-  box-shadow: 0 0 0 3px rgba(47, 163, 148, 0.12);
+  border-color: #29A694;
+  box-shadow: 0 0 0 3px rgba(41, 166, 148, 0.12);
 }
 
 .auction-bid-input-field::-webkit-inner-spin-button,
@@ -311,7 +311,7 @@
 
 .auction-place-bid-btn {
   padding: 12px 22px;
-  background: linear-gradient(135deg, #2fa394, #1e8074);
+  background: linear-gradient(135deg, #29A694, #1a7a6e);
   border: none;
   border-radius: 8px;
   color: white;
@@ -324,9 +324,9 @@
 }
 
 .auction-place-bid-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #1e8074, #146b5f);
+  background: linear-gradient(135deg, #1a7a6e, #146b5f);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(47, 163, 148, 0.35);
+  box-shadow: 0 4px 14px rgba(41, 166, 148, 0.35);
 }
 
 .auction-place-bid-btn:disabled {
@@ -371,9 +371,9 @@
 }
 
 .auction-msg-success {
-  background: #f0faf9;
-  color: #2fa394;
-  border: 1px solid #c8ede8;
+  background: #f0f9f8;
+  color: #29A694;
+  border: 1px solid #d0ece9;
 }
 
 .auction-msg-error {
@@ -399,7 +399,7 @@
 }
 
 .bid-mini-me {
-  color: #2fa394;
+  color: #29A694;
   font-weight: 700;
 }
 
@@ -417,7 +417,7 @@
 }
 
 .auction-dashboard-footer strong {
-  color: #2fa394;
+  color: #29A694;
   font-weight: 800;
   font-size: 18px;
 }

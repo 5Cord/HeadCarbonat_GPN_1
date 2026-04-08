@@ -6,6 +6,7 @@ import GlobalTimer from '../GlobalTimer';
 import styles from './EventsZone.module.css';
 import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
+import EventsZoneTour from './Eventszonetour';
 
 
 const CardImage = ({ src, alt = '123', className = '' }) => {
@@ -1003,6 +1004,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
           </div>
         </div>
       )}
+      <EventsZoneTour globalYear={globalYear} onDone={() => {}} />
     </div>
   );
 };

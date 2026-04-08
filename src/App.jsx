@@ -87,7 +87,7 @@ function App() {
   useSocket();
   useGlobalTimer();
 
-  const { player, resetGame } = useGameStore();
+  const { player, resetGame, leaveSession } = useGameStore();
   const gameStatus = useGameStore(s => s.game.status); // ← НОВАЯ СТРОКА
   const yearEndToast = useGameStore(s => s.yearEndToast);
 
@@ -152,11 +152,34 @@ function App() {
 
   if (!player.name) return <GameLobby />;
 
+  const handleLeave = () => {
+    import('./apiHelpers').then(({ disconnectSocket }) => disconnectSocket());
+    leaveSession();
+  };
+
   return (
     <>
       <GameBoard />
-      <DevResetButton />
-      {gameStatus === 'FINISHED' && <GameOverScreen />} // ← НОВАЯ СТРОКА
+      <div style={{ position: 'fixed', bottom: 56, right: 16, zIndex: 9999 }}>
+        <button
+          onClick={handleLeave}
+          style={{
+            padding: '6px 14px',
+            background: 'rgba(10,34,64,0.85)',
+            color: '#fff',
+            border: '1.5px solid rgba(255,255,255,0.2)',
+            borderRadius: 8,
+            fontSize: '0.8rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            backdropFilter: 'blur(6px)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Выйти из сессии
+        </button>
+      </div>
+      {gameStatus === 'FINISHED' && <GameOverScreen />}
       {yearEndToast && <YearEndToast />}
     </>
   );

@@ -5,6 +5,7 @@ import GlobalTimer from '../GlobalTimer';
 import styles from './FieldWorkPanel.module.css';
 import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
+import FieldWorkPanelTour from './Fieldworkpaneltour';
 
 
 
@@ -578,6 +579,7 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
           </div>
         </div>
       )}
+      <FieldWorkPanelTour globalYear={globalYear} onDone={() => {}} />
     </div>
   );
 };

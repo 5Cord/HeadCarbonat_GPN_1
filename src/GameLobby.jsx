@@ -4,11 +4,16 @@ import { getSessionByCode, joinSession } from './apiHelpers';
 import './GameLobby.css';
 
 const ROLES = [
-    { value: 'Геолог',                icon: '' },
-    { value: 'Геофизик',              icon: '📡' },
-    { value: 'Инженер по бурению',    icon: '⚙️' },
-    { value: 'Экономист',             icon: '📊' },
-    { value: 'Менеджер проекта',      icon: '🗂️' },
+    { value: 'Геолог' },
+    { value: 'Геофизик' },
+    { value: 'Петрофизик' },
+    { value: 'Разработчик' },
+    { value: 'Инженер по бурению' },
+    { value: 'Экономист' },
+    { value: 'Менеджер' },
+    { value: 'Седиментолог' },
+    { value: 'Геохимик' },
+    { value: 'Другое' },
 ];
 
 // ── Шаг 1: ввод кода сессии ───────────────────────────────────────────────────
@@ -185,7 +190,7 @@ const StepTeam = ({ sessionCode, sessionConfig, onJoin }) => {
                 {members.map((m, i) => (
                     <div key={i} className={`member-tile ${m.name.trim() ? 'filled' : ''}`}>
                         <div className="member-tile-header">
-                            <span className="member-avatar">{getRoleIcon(m.role)}</span>
+                            <span className="member-avatar">👤</span>
                             <span className="member-index">Участник {i + 1}</span>
                             {m.name.trim() && <span className="member-done">✓</span>}
                         </div>
@@ -204,7 +209,6 @@ const StepTeam = ({ sessionCode, sessionConfig, onJoin }) => {
                                     onClick={() => updateMember(i, 'role', r.value)}
                                     title={r.value}
                                 >
-                                    <span>{r.icon}</span>
                                     <span className="role-chip-label">{r.value}</span>
                                 </button>
                             ))}

@@ -7,8 +7,8 @@
 .game-lobby {
   min-height: 100vh;
   min-width: 100vw;
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #0A2240 0%, #0070BA 100%);
+  font-family: 'GPN_DIN', 'Segoe UI', sans-serif;
   display: flex;
   flex-direction: column;
   color: #333;
@@ -28,7 +28,7 @@
 
 .lobby-header h1 {
   margin: 0;
-  color: #1e3c72;
+  color: #0A2240;
   font-size: 1.8rem;
   font-weight: 800;
 }
@@ -36,15 +36,15 @@
 .lobby-back-btn {
   padding: 0.5rem 1.25rem;
   background: transparent;
-  border: 2px solid #1e3c72;
+  border: 2px solid #0A2240;
   border-radius: 8px;
-  color: #1e3c72;
+  color: #0A2240;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 }
 
-.lobby-back-btn:hover { background: #1e3c72; color: white; }
+.lobby-back-btn:hover { background: #0A2240; color: white; }
 
 /* ── Content ── */
 
@@ -94,7 +94,7 @@
 .step-icon { font-size: 3.5rem; margin-bottom: 0.5rem; }
 
 .lobby-step h2 {
-  color: #1e3c72;
+  color: #0A2240;
   margin: 0 0 0.5rem;
   font-size: 1.8rem;
   font-weight: 800;
@@ -116,17 +116,17 @@
   text-align: center;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  border: 3px solid #c8ede8;
+  border: 3px solid #d0ece9;
   border-radius: 14px;
-  color: #1e8074;
+  color: #1a7a6e;
   background: #f9fefe;
   transition: all 0.2s;
 }
 
 .code-input:focus {
   outline: none;
-  border-color: #2fa394;
-  box-shadow: 0 0 0 4px rgba(47,163,148,0.12);
+  border-color: #29A694;
+  box-shadow: 0 0 0 4px rgba(41,166,148,0.12);
 }
 
 .code-input::placeholder { color: #ccc; font-weight: 400; font-size: 1.5rem; }
@@ -204,7 +204,7 @@
 }
 
 .team-setup-header h2 {
-  color: #1e3c72;
+  color: #0A2240;
   margin: 0 0 0.4rem;
   font-size: 1.75rem;
   font-weight: 800;
@@ -230,7 +230,7 @@
   display: block;
   font-size: 0.8rem;
   font-weight: 700;
-  color: #1e3c72;
+  color: #0A2240;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 0.85rem;
@@ -248,9 +248,9 @@
 }
 
 .team-name-field-wrap:focus-within {
-  border-color: #2fa394;
+  border-color: #29A694;
   background: white;
-  box-shadow: 0 0 0 3px rgba(47,163,148,0.1);
+  box-shadow: 0 0 0 3px rgba(41,166,148,0.1);
 }
 
 .team-name-prefix { font-size: 1.4rem; flex-shrink: 0; }
@@ -269,7 +269,7 @@
 .team-name-field::placeholder { color: #bbb; font-weight: 400; }
 
 .team-name-ok {
-  color: #2fa394;
+  color: #29A694;
   font-size: 1.2rem;
   font-weight: 800;
   flex-shrink: 0;
@@ -306,17 +306,17 @@
 }
 
 .size-pill:hover {
-  border-color: #2fa394;
-  color: #2fa394;
+  border-color: #29A694;
+  color: #29A694;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(47,163,148,0.15);
+  box-shadow: 0 4px 12px rgba(41,166,148,0.15);
 }
 
 .size-pill.active {
-  background: linear-gradient(135deg, #2fa394, #1e8074);
+  background: linear-gradient(135deg, #29A694, #1a7a6e);
   border-color: transparent;
   color: white;
-  box-shadow: 0 4px 14px rgba(47,163,148,0.35);
+  box-shadow: 0 4px 14px rgba(41,166,148,0.35);
   transform: translateY(-2px);
 }
 
@@ -341,8 +341,8 @@
 }
 
 .member-tile.filled {
-  border-color: #c8ede8;
-  box-shadow: 0 4px 16px rgba(47,163,148,0.12);
+  border-color: #d0ece9;
+  box-shadow: 0 4px 16px rgba(41,166,148,0.12);
 }
 
 .member-tile-header {
@@ -354,14 +354,14 @@
 .member-avatar {
   width: 40px;
   height: 40px;
-  background: #f0faf9;
+  background: #f0f9f8;
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.4rem;
   flex-shrink: 0;
-  border: 1.5px solid #c8ede8;
+  border: 1.5px solid #d0ece9;
 }
 
 .member-index {
@@ -374,7 +374,7 @@
 }
 
 .member-done {
-  color: #2fa394;
+  color: #29A694;
   font-size: 1.1rem;
   font-weight: 800;
 }
@@ -393,9 +393,9 @@
 }
 
 .member-name-input:focus {
-  border-color: #2fa394;
+  border-color: #29A694;
   background: white;
-  box-shadow: 0 0 0 3px rgba(47,163,148,0.1);
+  box-shadow: 0 0 0 3px rgba(41,166,148,0.1);
 }
 
 .member-name-input::placeholder { color: #bbb; font-weight: 400; }
@@ -425,16 +425,16 @@
 }
 
 .role-chip:hover {
-  border-color: #2fa394;
-  color: #1e8074;
-  background: #f0faf9;
+  border-color: #29A694;
+  color: #1a7a6e;
+  background: #f0f9f8;
 }
 
 .role-chip.active {
-  background: #1e3c72;
-  border-color: #1e3c72;
+  background: #0A2240;
+  border-color: #0A2240;
   color: white;
-  box-shadow: 0 2px 8px rgba(30,60,114,0.25);
+  box-shadow: 0 2px 8px rgba(10,34,64,0.25);
 }
 
 .role-chip-label { line-height: 1; }
@@ -467,7 +467,7 @@
 .lobby-btn-primary {
   width: 100%;
   padding: 1.15rem;
-  background: linear-gradient(135deg, #ff6b35, #ff8c42);
+  background: linear-gradient(135deg, #CF7D22, #CF7D22);
   color: white;
   border: none;
   border-radius: 14px;
@@ -475,13 +475,13 @@
   font-weight: 800;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 4px 16px rgba(255,107,53,0.3);
+  box-shadow: 0 4px 16px rgba(207,125,34,0.3);
   letter-spacing: 0.01em;
 }
 
 .lobby-btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(255,107,53,0.4);
+  box-shadow: 0 8px 24px rgba(207,125,34,0.4);
 }
 
 .lobby-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }

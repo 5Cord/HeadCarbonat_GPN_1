@@ -84,7 +84,7 @@
 }
 
 .rpt-tooltip-refusal .rpt-title {
-  color: #e65100;
+  color: #CF7D22;
 }
 
 .rpt-tooltip-refusal .rpt-text {
@@ -93,7 +93,7 @@
 
 .rpt-tooltip-refusal .rpt-step-label-refusal {
   background: rgba(230, 81, 0, 0.1);
-  color: #e65100;
+  color: #CF7D22;
 }
 
 .rpt-tooltip-fade {
@@ -195,7 +195,7 @@
 }
 
 .rpt-tooltip-refusal .rpt-dot-active {
-  background: #e65100;
+  background: #CF7D22;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -273,26 +273,26 @@
 }
 
 .rpt-btn-finish {
-  background: linear-gradient(135deg, #2fa394, #1a7a6e);
+  background: linear-gradient(135deg, #29A694, #1a7a6e);
   color: white;
   padding: 9px 20px;
-  box-shadow: 0 3px 10px rgba(47, 163, 148, 0.4);
+  box-shadow: 0 3px 10px rgba(41, 166, 148, 0.4);
 }
 
 .rpt-btn-finish:hover {
   background: linear-gradient(135deg, #1a7a6e, #116058);
   transform: translateY(-1px);
-  box-shadow: 0 5px 14px rgba(47, 163, 148, 0.5);
+  box-shadow: 0 5px 14px rgba(41, 166, 148, 0.5);
 }
 
 /* Кнопка финиша для тура отказа */
 .rpt-btn-finish-refusal {
-  background: linear-gradient(135deg, #ff9800, #f57c00);
+  background: linear-gradient(135deg, #CF7D22, #CF7D22);
   box-shadow: 0 3px 10px rgba(255, 152, 0, 0.4);
 }
 
 .rpt-btn-finish-refusal:hover {
-  background: linear-gradient(135deg, #f57c00, #e65100);
+  background: linear-gradient(135deg, #CF7D22, #CF7D22);
   box-shadow: 0 5px 14px rgba(255, 152, 0, 0.5);
 }
 

@@ -6,6 +6,7 @@ import GlobalTimer from '../GlobalTimer';
 import AuctionDashboard from './Auctiondashboard';
 import RegionMapTour from './Regionmaptour';
 import { getSocket } from '../apiHelpers';
+import { getScenario, resolveSceneImage, WORK_SCENE_MAP } from '../Research/sceneUtils.js';
 
 const LICENSE_UNITS = [
   { id: 'well1', name: 'Парам. скважина №1', shortName: '1', cost: 10, cellRef: 'A2', position: 'top-left', customStyle: { top: '-130px', left: '0px' }, description: 'Целевой комплекс: светлые слоистые строматолитовые доломиты с прослоями гипса и ангидрита. Свойства: доломиты слабо пористые, с редкими выпотами густой нефти.', hasImage: false },
@@ -114,7 +115,7 @@ const isRegionMapPhase = (serverPhase) =>
 
 const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const {
-    player, licenseUnits, gridCells, auctions,
+    player, licenseUnits, gridCells, auctions, fieldWork, events,
     purchaseLU, purchaseGridCell, placeBid, finalizeAuction,
     registerForAuction, getMyAuctionParticipation, simulateOtherTeamOwns,
     unpurchaseGridCell, unregisterFromAuction,
@@ -172,6 +173,47 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
   const mapDone = !isOurPhase && serverPhase !== 'LOBBY' && !isRegionMapPhase(serverPhase);
   const hasLUs  = ownedCount > 0;
+
+  // Картинка для вражеской ячейки — по сценарию без данных противника (ранги 2→1→3)
+  const getEnemyCellSceneImage = (cellRef) => {
+    if (!mapDone) return null;
+    const scenario = getScenario(cellRef);
+    if (scenario == null || scenario === 0) return null;
+    for (const rank of [2, 1, 3]) {
+      for (const workId of Object.keys(WORK_SCENE_MAP)) {
+        const img = resolveSceneImage(scenario, workId, rank, 'к');
+        if (img) return img;
+      }
+    }
+    return null;
+  };
+
+  // Возвращает картинку результата для ячейки (если фаза карты пройдена и данные есть)
+  const getCellSceneImage = (cellRef) => {
+    if (!mapDone) return null;
+    const scenario = getScenario(cellRef);
+    if (scenario == null || scenario === 0) return null;
+    const fwData = fieldWork?.selectionsByLU?.[cellRef];
+    if (!fwData) return null;
+    // Находим отработанные годы
+    const selByYear = fwData.selectionsByYear
+      ?? (fwData.byYear ? Object.fromEntries(Object.entries(fwData.byYear).map(([y, d]) => [y, d?.selections])) : {});
+    const years = Object.keys(selByYear).map(Number)
+      .filter(y => selByYear[y] && Object.keys(selByYear[y]).length > 0)
+      .sort((a, b) => a - b);
+    if (!years.length) return null;
+    const lastYear = years[years.length - 1];
+    const avgRank = fwData?.metaByYear?.[lastYear]?.avgRank ?? null;
+    if (!avgRank) return null;
+    const evScore = events?.lineScores?.[cellRef] ?? 0;
+    if (evScore < 0) return null;
+    // Перебираем workId и возвращаем первую найденную картинку
+    for (const workId of Object.keys(WORK_SCENE_MAP)) {
+      const img = resolveSceneImage(scenario, workId, avgRank, 'к');
+      if (img) return img;
+    }
+    return null;
+  };
 
   const [showNirHint, setShowNirHint] = useState(false);
   const nirHintShownRef = useRef(sessionStorage.getItem('nirHintShown') === '1');
@@ -777,15 +819,32 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                           onMouseMove={(e) => setCellTooltip({ cellId, x: e.clientX, y: e.clientY })}
                           onMouseLeave={() => setCellTooltip(null)}
                         >
-                          <span className="cell-label">{cellId}</span>
+                          {ownedByMe && getCellSceneImage(cellId)
+                            ? (
+                              <div className="cell-scene-img-wrap">
+                                <img src={getCellSceneImage(cellId)} alt={cellId} className="cell-scene-img" />
+                                <span className="cell-scene-label">{cellId}</span>
+                              </div>
+                            )
+                            : ownedByOther && getEnemyCellSceneImage(cellId)
+                              ? (
+                                <div className="cell-scene-img-wrap cell-scene-img-wrap--enemy">
+                                  <img src={getEnemyCellSceneImage(cellId)} alt={cellId} className="cell-scene-img" />
+                                  <div className="cell-scene-enemy-overlay" />
+                                  <span className="cell-scene-label">{cellId}</span>
+                                  <span className="cell-scene-enemy-badge">⚔</span>
+                                </div>
+                              )
+                              : <span className="cell-label">{cellId}</span>
+                          }
                           {ownedByMe && isContested && <span className="cell-mark cell-mark-contested">⚔</span>}
                           {ownedByMe && !isContested && isAutoAssigned && <span className="cell-mark cell-mark-auto">🎲</span>}
                           {ownedByMe && !isContested && !isAutoAssigned && <span className="cell-mark cell-mark-own">OK</span>}
-                          {ownedByOther && <span className="cell-mark cell-mark-other">!</span>}
+                          {ownedByOther && !getEnemyCellSceneImage(cellId) && <span className="cell-mark cell-mark-other">!</span>}
                           {hasActiveAuction && !ownedByMe && !ownedByOther && <span className="cell-mark cell-mark-auction">LIVE</span>}
                           {isPendingAuction && <span className="cell-mark cell-mark-pending">WAIT</span>}
-                          {blockedType && <span className="cell-mark cell-mark-blocked">X</span>}
-                          {isDisabled && !blockedType && !hasActiveAuction && <span className="cell-mark cell-mark-timer">X</span>}
+                          {blockedType && <span className="cell-mark cell-mark-blocked"></span>}
+                          {isDisabled && !blockedType && !hasActiveAuction && <span className="cell-mark cell-mark-timer"></span>}
                         </div>
 
                         {lu && (
@@ -917,6 +976,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
       <NoInfoCardModal isOpen={noCardModal} onClose={() => setNoCardModal(false)} onGoToBuyCard={() => setNoCardModal(false)} />
       <AlertModal isOpen={!!alertModal} onClose={() => setAlertModal(null)} title={alertModal?.title || 'Внимание'}><p>{alertModal?.message}</p></AlertModal>
 
+      <RegionMapTour onDone={() => {}} />
     </div>
   );
 };

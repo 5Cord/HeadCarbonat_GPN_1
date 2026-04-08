@@ -66,7 +66,7 @@
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.28),
         0 2px 8px rgba(0, 0, 0, 0.12),
-        0 0 0 1px rgba(47, 163, 148, 0.2);
+        0 0 0 1px rgba(41, 166, 148, 0.2);
     z-index: 10000;
     animation: tour-tooltip-appear 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
     position: fixed;
@@ -110,8 +110,8 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: #2fa394;
-    background: rgba(47, 163, 148, 0.1);
+    color: #29A694;
+    background: rgba(41, 166, 148, 0.1);
     padding: 3px 8px;
     border-radius: 20px;
 }
@@ -157,7 +157,7 @@
 }
 
 .tour-dot-active {
-    background: #2fa394;
+    background: #29A694;
     width: 18px;
     border-radius: 3px;
 }
@@ -204,27 +204,27 @@
 }
 
 .tour-btn-next {
-    background: linear-gradient(135deg, #2fa394, #1a7a6e);
+    background: linear-gradient(135deg, #29A694, #1a7a6e);
     color: white;
     padding: 9px 20px;
-    box-shadow: 0 3px 10px rgba(47, 163, 148, 0.35);
+    box-shadow: 0 3px 10px rgba(41, 166, 148, 0.35);
 }
 
 .tour-btn-next:hover {
     background: linear-gradient(135deg, #1a7a6e, #126058);
     transform: translateY(-1px);
-    box-shadow: 0 5px 14px rgba(47, 163, 148, 0.45);
+    box-shadow: 0 5px 14px rgba(41, 166, 148, 0.45);
 }
 
 .tour-btn-finish {
-    background: linear-gradient(135deg, #ff9800, #f57c00);
+    background: linear-gradient(135deg, #CF7D22, #CF7D22);
     color: white;
     padding: 9px 20px;
     box-shadow: 0 3px 10px rgba(255, 152, 0, 0.4);
 }
 
 .tour-btn-finish:hover {
-    background: linear-gradient(135deg, #f57c00, #e65100);
+    background: linear-gradient(135deg, #CF7D22, #CF7D22);
     transform: translateY(-1px);
     box-shadow: 0 5px 14px rgba(255, 152, 0, 0.5);
 }
@@ -287,20 +287,20 @@
    (применяется через JS — добавляем класс к элементу)
    ══════════════════════════════════════════════════════════════ */
 .tour-pulse-ring {
-    box-shadow: 0 0 0 0 rgba(47, 163, 148, 0.7) !important;
+    box-shadow: 0 0 0 0 rgba(41, 166, 148, 0.7) !important;
     animation: tour-pulse 1.4s ease-out infinite !important;
 }
 
 @keyframes tour-pulse {
     0% {
-        box-shadow: 0 0 0 0 rgba(47, 163, 148, 0.7);
+        box-shadow: 0 0 0 0 rgba(41, 166, 148, 0.7);
     }
 
     70% {
-        box-shadow: 0 0 0 14px rgba(47, 163, 148, 0);
+        box-shadow: 0 0 0 14px rgba(41, 166, 148, 0);
     }
 
     100% {
-        box-shadow: 0 0 0 0 rgba(47, 163, 148, 0);
+        box-shadow: 0 0 0 0 rgba(41, 166, 148, 0);
     }
 }

@@ -71,7 +71,7 @@
 }
 
 .ezt-tooltip:focus-visible {
-  outline: 2px solid #ff9800;
+  outline: 2px solid #CF7D22;
   outline-offset: 2px;
 }
 
@@ -112,7 +112,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #ff9800;
+  color: #CF7D22;
   background: rgba(255, 152, 0, 0.15);
   padding: 3px 8px;
   border-radius: 20px;
@@ -160,7 +160,7 @@
 }
 
 .ezt-dot-active {
-  background: #ff9800;
+  background: #CF7D22;
   width: 18px;
   border-radius: 3px;
 }
@@ -209,7 +209,7 @@
 }
 
 .ezt-btn-next {
-  background: linear-gradient(135deg, #e65100, #bf360c);
+  background: linear-gradient(135deg, #CF7D22, #bf360c);
   color: white;
   padding: 9px 20px;
   box-shadow: 0 3px 10px rgba(230, 81, 0, 0.4);
@@ -222,14 +222,14 @@
 }
 
 .ezt-btn-finish {
-  background: linear-gradient(135deg, #ff9800, #f57c00);
+  background: linear-gradient(135deg, #CF7D22, #CF7D22);
   color: white;
   padding: 9px 20px;
   box-shadow: 0 3px 10px rgba(255, 152, 0, 0.45);
 }
 
 .ezt-btn-finish:hover {
-  background: linear-gradient(135deg, #f57c00, #e65100);
+  background: linear-gradient(135deg, #CF7D22, #CF7D22);
   transform: translateY(-1px);
   box-shadow: 0 5px 14px rgba(255, 152, 0, 0.55);
 }

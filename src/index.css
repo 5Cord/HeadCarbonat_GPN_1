@@ -1,12 +1,66 @@
+/* ── GPN DIN Font Face ───────────────────────────────────────────────────────
+   Положи файлы шрифтов в /public/fonts/:
+     GPN_DIN_Bold.woff2 / GPN_DIN_Bold.ttf
+     GPN_DIN_Medium.woff2 / GPN_DIN_Medium.ttf
+     GPN_DIN_Italic.woff2 / GPN_DIN_Italic.ttf
+── */
+@font-face {
+  font-family: 'GPN_DIN';
+  src: url('/fonts/GPN_DIN_Bold.woff2') format('woff2'),
+       url('/fonts/GPN_DIN_Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'GPN_DIN';
+  src: url('/fonts/GPN_DIN_Medium.woff2') format('woff2'),
+       url('/fonts/GPN_DIN_Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'GPN_DIN';
+  src: url('/fonts/GPN_DIN_Italic.woff2') format('woff2'),
+       url('/fonts/GPN_DIN_Italic.ttf') format('truetype');
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* ── Цветовая палитра (GPN НИРы) ─────────────────────────────────────────── */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  /* Основные */
+  --color-primary:      #0070BA;
+  --color-primary-dark: #005a96;
+  --color-dark-blue:    #0A2240;
+  --color-sand:         #D9B98A;
+  --color-orange:       #CF7D22;
+  --color-teal:         #29A694;
+
+  /* Производные */
+  --color-teal-dark:    #1a7a6e;
+  --color-teal-light:   #d0ece9;
+
+  /* Нейтральные */
+  --color-text:         #0A2240;
+  --color-text-muted:   #5a6a85;
+  --color-bg:           #f5f5f5;
+  --color-white:        #ffffff;
+  --color-border:       #dce3f0;
+
+  /* ── Типографика ── */
+  --font-main: 'GPN_DIN', 'Segoe UI', sans-serif;
+
+  font-family: var(--font-main);
   line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
+  font-weight: 500;
+  color-scheme: light;
+  color: var(--color-text);
+  background-color: var(--color-bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -15,11 +69,11 @@
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: var(--color-primary);
   text-decoration: inherit;
 }
 a:hover {
-  color: #535bf2;
+  color: var(--color-primary-dark);
 }
 
 body {
@@ -28,6 +82,11 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-main);
+  font-weight: 700;
 }
 
 h1 {
@@ -41,28 +100,54 @@ button {
   padding: 0.6em 1.2em;
   font-size: 1em;
   font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
+  font-family: var(--font-main);
   cursor: pointer;
   transition: border-color 0.25s;
 }
-button:hover {
-  border-color: #646cff;
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
 }
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(50px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-50px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-50px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(50px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@media (max-width: 768px) {
+  html { font-size: 14px; }
+}
+@media (max-width: 480px) {
+  html { font-size: 13px; }
 }

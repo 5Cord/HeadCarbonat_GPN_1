@@ -2,7 +2,7 @@
   width: 100%;
   max-width: 100%;
   padding: 5.5rem 2rem 2rem 2rem;
-  background: #2b4059;
+  background: #0A2240;
   min-height: 100vh;
   position: relative;
 }
@@ -23,35 +23,35 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 14px rgba(43, 64, 89, 0.25);
+  box-shadow: 0 4px 14px rgba(10, 34, 64, 0.25);
 }
 
 .researchBackBtn {
-  background: #3b5a7a;
+  background: #0070BA;
   color: #ffffff;
-  border: 2px solid #3b5a7a;
+  border: 2px solid #0070BA;
 }
 
 .researchBackBtn:hover {
-  background: #3b5a7a;
+  background: #0070BA;
   color: #ffffff;
   transform: translateY(-2px);
 }
 
 .researchNextBtn {
-  background: #3b5a7a;
+  background: #0070BA;
   color: #ffffff;
   border: none;
 }
 
 .researchNextBtn:hover:not(:disabled) {
-  background: #1f3145;
+  background: #0A2240;
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(31, 49, 69, 0.35);
 }
 
 .researchNextBtn:disabled {
-  background: #5c7fa3;
+  background: #0070BA;
   opacity: 0.6;
   cursor: not-allowed;
   box-shadow: none;
@@ -67,7 +67,7 @@
 
 .researchHeader h2 {
   margin: 0 0 1rem 0;
-  color: #2fa394;
+  color: #29A694;
   font-size: 2.4rem;
   font-weight: 700;
   padding-bottom: 0.75rem;
@@ -95,7 +95,7 @@
 
 .luSelect {
   padding: 0.6rem 1rem;
-  border: 2px solid #2fa394;
+  border: 2px solid #29A694;
   border-radius: 8px;
   background: white;
   color: #333;
@@ -107,7 +107,7 @@
 
 .luSelect:focus {
   outline: none;
-  border-color: #1e8074;
+  border-color: #1a7a6e;
 }
 
 .budgetInfo {
@@ -129,7 +129,7 @@
 }
 
 .successValue {
-  color: #2fa394;
+  color: #29A694;
   font-weight: 700;
 }
 
@@ -138,7 +138,7 @@
   padding: 1.2rem 1.5rem;
   border-radius: 12px;
   margin-bottom: 1.5rem;
-  border-left: 4px solid #2fa394;
+  border-left: 4px solid #29A694;
 }
 
 .researchInfoBanner p {
@@ -149,7 +149,7 @@
 }
 
 .roundIndicator {
-  background: linear-gradient(135deg, #2b4059 0%, #3a5475 100%);
+  background: linear-gradient(135deg, #0A2240 0%, #3a5475 100%);
   padding: 1.2rem 1.5rem;
   border-radius: 12px;
   margin-bottom: 1.5rem;
@@ -200,7 +200,7 @@
 .round1Warning {
   width: 100%;
   background: rgba(255, 152, 0, 0.2);
-  border: 2px solid #ff9800;
+  border: 2px solid #CF7D22;
   border-radius: 8px;
   padding: 0.8rem 1rem;
   color: white;
@@ -216,7 +216,7 @@
 
 .nextIterationBtn {
   padding: 0.6rem 1.2rem;
-  background: #3b5a7a;
+  background: #0070BA;
   color: white;
   border: none;
   border-radius: 8px;
@@ -227,7 +227,7 @@
 }
 
 .nextIterationBtn:hover:not(:disabled) {
-  background: #1f3145;
+  background: #0A2240;
   transform: translateY(-2px);
 }
 
@@ -532,7 +532,7 @@
 
 .cell.repeatable {
   background: #fff3e0;
-  border: 2px solid #ff9800;
+  border: 2px solid #CF7D22;
   cursor: pointer;
 }
 
@@ -673,7 +673,7 @@
 }
 
 .totalSuccess.medium {
-  color: #f57c00;
+  color: #CF7D22;
 }
 
 .totalSuccess.low {
@@ -763,7 +763,7 @@
 }
 
 .infoRow.total {
-  background: #2fa394;
+  background: #29A694;
   color: white;
   font-size: 1.15rem;
   font-weight: 700;
@@ -771,7 +771,7 @@
 
 .infoRow.mystery {
   background: #fff3e0;
-  border: 2px solid #ff9800;
+  border: 2px solid #CF7D22;
   color: #333;
   font-weight: 700;
 }
@@ -806,7 +806,7 @@
 .purchaseModalBtn {
   flex: 1;
   padding: 1rem;
-  background: #2fa394;
+  background: #29A694;
   color: white;
   border: none;
   border-radius: 8px;
@@ -817,7 +817,7 @@
 }
 
 .purchaseModalBtn:hover:not(:disabled) {
-  background: #1e8074;
+  background: #1a7a6e;
   transform: translateY(-2px);
 }
 
@@ -852,7 +852,7 @@
 
 .purchaseHistory h4 {
   margin: 0 0 1rem 0;
-  color: #2fa394;
+  color: #29A694;
   font-size: 1.1rem;
   font-weight: 700;
 }
@@ -870,7 +870,7 @@
   padding: 0.8rem 1rem;
   background: #f8f9fa;
   border-radius: 6px;
-  border-left: 3px solid #2fa394;
+  border-left: 3px solid #29A694;
   font-size: 1.05rem;
 }
 
@@ -885,7 +885,7 @@
 
 .historyCost {
   font-weight: 700;
-  color: #2fa394;
+  color: #29A694;
 }
 
 .historySuccess {
@@ -915,16 +915,16 @@
 }
 
 .luCard:hover {
-  border-color: #2fa394;
-  box-shadow: 0 4px 12px rgba(47, 163, 148, 0.15);
+  border-color: #29A694;
+  box-shadow: 0 4px 12px rgba(41, 166, 148, 0.15);
   transform: translateY(-1px);
 }
 
 .luCardActive {
-  border-color: #2fa394 !important;
-  background: #2fa394 !important;
+  border-color: #29A694 !important;
+  background: #29A694 !important;
   color: #fff !important;
-  box-shadow: 0 4px 12px rgba(47, 163, 148, 0.3) !important;
+  box-shadow: 0 4px 12px rgba(41, 166, 148, 0.3) !important;
   transform: translateY(-2px) !important;
 }
 
@@ -1007,7 +1007,7 @@
   position: fixed;
   top: 16px;
   right: 80px;
-  background: #1a237e;
+  background: #0A2240;
   color: white;
   border-radius: 12px;
   padding: 10px 28px;
@@ -1057,8 +1057,8 @@
 }
 
 .timerAlert {
-  background: #e65100;
-  border-color: #ff9800;
+  background: #CF7D22;
+  border-color: #CF7D22;
 }
 
 .timerWarning {
@@ -1164,7 +1164,7 @@
 
 .nextYearBtn {
   padding: 0.6rem 1.2rem;
-  background: #3b5a7a;
+  background: #0070BA;
   color: white;
   border: none;
   border-radius: 8px;
@@ -1175,7 +1175,7 @@
 }
 
 .nextYearBtn:hover:not(:disabled) {
-  background: #1f3145;
+  background: #0A2240;
   transform: translateY(-2px);
 }
 

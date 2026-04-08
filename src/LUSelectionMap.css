@@ -1,6 +1,6 @@
 .lu-selection-map {
   min-height: 100vh;
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  background: linear-gradient(135deg, #0A2240 0%, #0070BA 100%);
   padding: 1rem;
 }
 
@@ -20,7 +20,7 @@
 
 .team-display h2 {
   margin: 0 0 0.25rem 0;
-  color: #1e3c72;
+  color: #0A2240;
   font-size: 1.5rem;
 }
 
@@ -52,7 +52,7 @@
 .budget-item .value {
   font-size: 1.3rem;
   font-weight: 700;
-  color: #1e3c72;
+  color: #0A2240;
 }
 
 .budget-item .value.spent {
@@ -119,7 +119,7 @@
   background: rgba(255, 255, 255, 0.95);
   padding: 1rem 1.5rem;
   border-radius: 12px;
-  border-left: 4px solid #ff6b35;
+  border-left: 4px solid #CF7D22;
 }
 
 .instructions p {
@@ -129,7 +129,7 @@
 }
 
 .instructions strong {
-  color: #ff6b35;
+  color: #CF7D22;
 }
 
 .selected-lu-panel {
@@ -143,7 +143,7 @@
 
 .selected-lu-panel h3 {
   margin: 0 0 1.5rem 0;
-  color: #1e3c72;
+  color: #0A2240;
   text-align: center;
   font-size: 1.5rem;
 }
@@ -254,7 +254,7 @@
   width: 100%;
   padding: 1.25rem;
   margin-top: 1.5rem;
-  background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%);
+  background: linear-gradient(135deg, #CF7D22 0%, #CF7D22 100%);
   color: white;
   border: none;
   border-radius: 12px;
@@ -262,12 +262,12 @@
   font-weight: 700;
   cursor: pointer;
   transition: all 0.3s;
-  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+  box-shadow: 0 4px 12px rgba(207, 125, 34, 0.3);
 }
 
 .start-game-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(255, 107, 53, 0.4);
+  box-shadow: 0 8px 20px rgba(207, 125, 34, 0.4);
 }
 
 .start-game-btn:disabled {

@@ -4,7 +4,7 @@
   background: linear-gradient(135deg, #d4915e 0%, #c17a45 100%);
   display: flex;
   flex-direction: column;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'GPN_DIN', 'Segoe UI', sans-serif;
 }
 
 .researchMapControls {
@@ -23,7 +23,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 14px rgba(43, 64, 89, 0.25);
+  box-shadow: 0 4px 14px rgba(10, 34, 64, 0.25);
 }
 
 .researchBackBtn {
@@ -50,7 +50,7 @@
 }
 
 .researchNextBtn:disabled {
-  background: #5c7fa3;
+  background: #0070BA;
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -122,9 +122,9 @@
 }
 
 .luCardActive {
-  background: rgba(47, 163, 148, 0.25) !important;
+  background: rgba(41, 166, 148, 0.25) !important;
   border-color: #5dd8ca !important;
-  box-shadow: 0 6px 16px rgba(47, 163, 148, 0.3);
+  box-shadow: 0 6px 16px rgba(41, 166, 148, 0.3);
   transform: translateY(-3px) !important;
 }
 
@@ -238,7 +238,7 @@
   position: sticky;
   top: 76px;
   z-index: 500;
-  background: linear-gradient(90deg, #1a237e, #283593);
+  background: linear-gradient(90deg, #0A2240, #283593);
   color: white;
   padding: 14px 32px;
   display: flex;
@@ -308,7 +308,7 @@
 }
 
 .eventLine.newLine {
-  border-color: #8b5a2b;
+  border-color: #CF7D22;
   box-shadow: 0 0 24px rgba(139, 90, 43, 0.4);
 }
 
@@ -332,7 +332,7 @@
 
 .lineHeader h3 {
   margin: 0;
-  color: #6b4423;
+  color: #CF7D22;
   font-size: 1.3rem;
   font-weight: 700;
 }
@@ -346,7 +346,7 @@
 
 .successRate {
   background: rgba(193, 122, 69, 0.15);
-  color: #6b4423;
+  color: #CF7D22;
   padding: 5px 12px;
   border-radius: 8px;
   font-weight: 700;
@@ -377,19 +377,19 @@
   border-radius: 8px;
   font-weight: 700;
   font-size: 0.85rem;
-  background: #8b5a2b;
+  background: #CF7D22;
   color: white;
 }
 
 .lineStatus.skipped {
-  background: #ff9800;
+  background: #CF7D22;
 }
 
 .skipLineBtn {
   padding: 6px 14px;
   background: white;
-  color: #8b5a2b;
-  border: 2px solid #8b5a2b;
+  color: #CF7D22;
+  border: 2px solid #CF7D22;
   border-radius: 8px;
   font-weight: 700;
   cursor: pointer;
@@ -398,7 +398,7 @@
 }
 
 .skipLineBtn:hover {
-  background: #8b5a2b;
+  background: #CF7D22;
   color: white;
 }
 
@@ -424,7 +424,7 @@
 
 /* Режим выбора — карточку можно нажать */
 .riskPickable {
-  border-color: #1a237e !important;
+  border-color: #0A2240 !important;
   cursor: pointer !important;
   box-shadow: 0 0 0 3px #7986cb, 0 6px 18px rgba(26, 35, 126, 0.4) !important;
   animation: pulsePickable 1.4s ease-in-out infinite;
@@ -579,7 +579,7 @@
 .points {
   font-size: 2rem;
   font-weight: 900;
-  color: #6b4423;
+  color: #CF7D22;
 }
 
 .cardFront {
@@ -596,7 +596,7 @@
 .randomCard {
   position: relative;
   aspect-ratio: 3/4;
-  border: 3px dashed #ff9800;
+  border: 3px dashed #CF7D22;
   border-radius: 12px;
   overflow: hidden;
   background: #fff8e1;
@@ -677,7 +677,7 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  border-top: 2px solid #ff9800;
+  border-top: 2px solid #CF7D22;
   z-index: 5;
 }
 
@@ -748,7 +748,7 @@
   bottom: 8px;
   right: 8px;
   background: white;
-  color: #8b5a2b;
+  color: #CF7D22;
   width: 24px;
   height: 24px;
   border-radius: 50%;
@@ -767,7 +767,7 @@
   border: 1px solid rgba(255, 152, 0, 0.35);
   border-radius: 8px;
   font-size: 0.88rem;
-  color: #6b4423;
+  color: #CF7D22;
   font-style: italic;
 }
 
@@ -781,7 +781,7 @@
 
 .noResearchLabel {
   margin: 0 0 10px;
-  color: #8b5a2b;
+  color: #CF7D22;
   font-size: 0.9rem;
   font-weight: 600;
 }
@@ -796,7 +796,7 @@
   padding: 6px 14px;
   background: rgba(193, 122, 69, 0.15);
   border-radius: 8px;
-  color: #6b4423;
+  color: #CF7D22;
   font-size: 0.9rem;
   font-weight: 600;
 }
@@ -828,11 +828,11 @@
 
 .cardModal h3 {
   margin: 0 0 12px;
-  color: #6b4423;
+  color: #CF7D22;
   text-align: center;
   font-size: 1.8rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #6b4423 0%, #8b5a2b 100%);
+  background: linear-gradient(135deg, #CF7D22 0%, #CF7D22 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -844,7 +844,7 @@
   border-radius: 10px;
   padding: 10px 16px;
   font-size: 0.9rem;
-  color: #8b5a2b;
+  color: #CF7D22;
   font-style: normal;
   text-align: center;
   margin-bottom: 20px;
@@ -872,7 +872,7 @@
 .question,
 .description {
   font-size: 1.1rem;
-  color: #6b4423;
+  color: #CF7D22;
   text-align: center;
   /* margin-bottom: 1.5rem; */
   line-height: 1.6;
@@ -882,7 +882,7 @@
 .randomCardTitle {
   font-size: 1.2rem;
   font-weight: 800;
-  color: #6b4423;
+  color: #CF7D22;
   text-align: center;
   margin-bottom: 6px;
 }
@@ -946,18 +946,18 @@
   width: 100%;
   gap: 10px;
   font-weight: 500;
-  color: #6b4423;
+  color: #CF7D22;
 }
 
 .optionBtn:hover:not(.optionBtnSelected) {
   background: rgba(193, 122, 69, 0.1);
-  border-color: #8b5a2b;
+  border-color: #CF7D22;
   transform: translateX(4px);
 }
 
 /* Стили для выделенных кнопок ответа */
 .optionBtnSelected {
-  background: linear-gradient(135deg, #6b4423 0%, #8b5a2b 100%);
+  background: linear-gradient(135deg, #CF7D22 0%, #CF7D22 100%);
   border: 2px solid #c17a45;
   color: #fff8eb;
   font-weight: 600;
@@ -995,7 +995,7 @@
   background: rgba(193, 122, 69, 0.15);
   border-radius: 20px;
   font-size: 0.85rem;
-  color: #8b5a2b;
+  color: #CF7D22;
   font-weight: 600;
   border: 1px solid rgba(193, 122, 69, 0.3);
 }
@@ -1026,7 +1026,7 @@
 
 /* Активная кнопка */
 .confirmActive {
-  background: linear-gradient(135deg, #8b5a2b 0%, #c17a45 100%);
+  background: linear-gradient(135deg, #CF7D22 0%, #c17a45 100%);
   color: white;
   box-shadow: 0 4px 15px rgba(139, 90, 43, 0.4);
   border: 1px solid rgba(255, 248, 235, 0.3);
@@ -1087,7 +1087,7 @@
 
 .pointsInfo {
   text-align: center;
-  color: #8b5a2b;
+  color: #CF7D22;
   font-weight: 700;
   font-size: 1rem;
   margin-top: 15px;
@@ -1104,7 +1104,7 @@
 .skipBtn {
   flex: 1;
   padding: 1.1rem;
-  border: 2px solid #8b5a2b;
+  border: 2px solid #CF7D22;
   border-radius: 10px;
   font-size: 1rem;
   font-weight: 700;
@@ -1113,22 +1113,22 @@
 }
 
 .playBtn {
-  background: #8b5a2b;
+  background: #CF7D22;
   color: white;
 }
 
 .playBtn:hover {
   background: white;
-  color: #8b5a2b;
+  color: #CF7D22;
 }
 
 .skipBtn {
   background: white;
-  color: #8b5a2b;
+  color: #CF7D22;
 }
 
 .skipBtn:hover {
-  background: #8b5a2b;
+  background: #CF7D22;
   color: white;
 }
 

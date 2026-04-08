@@ -71,7 +71,7 @@
 }
 
 .fwt-tooltip:focus-visible {
-  outline: 2px solid #c8a97e;
+  outline: 2px solid #D9B98A;
   outline-offset: 2px;
 }
 
@@ -105,7 +105,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: #c8a97e;
+  color: #D9B98A;
   background: rgba(200, 169, 126, 0.12);
   padding: 3px 8px;
   border-radius: 20px;
@@ -154,7 +154,7 @@
 }
 
 .fwt-dot-active {
-  background: #c8a97e;
+  background: #D9B98A;
   width: 18px;
   border-radius: 3px;
 }
@@ -189,7 +189,7 @@
 
 .fwt-btn-back:hover {
   background: rgba(200, 169, 126, 0.15);
-  color: #c8a97e;
+  color: #D9B98A;
 }
 
 .fwt-btn-next {
@@ -206,17 +206,17 @@
 }
 
 .fwt-btn-finish {
-  background: linear-gradient(135deg, #2fa394, #1a7a6e);
+  background: linear-gradient(135deg, #29A694, #1a7a6e);
   color: #ffffff;
   padding: 9px 20px;
-  box-shadow: 0 3px 10px rgba(47, 163, 148, 0.4);
+  box-shadow: 0 3px 10px rgba(41, 166, 148, 0.4);
   letter-spacing: 0.04em;
 }
 
 .fwt-btn-finish:hover {
   background: linear-gradient(135deg, #1a7a6e, #116058);
   transform: translateY(-1px);
-  box-shadow: 0 5px 14px rgba(47, 163, 148, 0.5);
+  box-shadow: 0 5px 14px rgba(41, 166, 148, 0.5);
 }
 
 /* ══════════════════════════════════════════════════════════════

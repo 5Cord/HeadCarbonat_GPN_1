@@ -566,6 +566,7 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
           teamNames={readyTeamNames}
         />
       )}
+      <ResultsPanelTour globalYear={globalYear} onDone={() => {}} />
     </div>
   );
 };

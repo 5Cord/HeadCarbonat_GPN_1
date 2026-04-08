@@ -225,7 +225,7 @@
   border: 1.5px solid #f9a825;
 }
 
-.refusal-cell-blocked-settlement .refusal-cell-label { color: #e65100; }
+.refusal-cell-blocked-settlement .refusal-cell-label { color: #CF7D22; }
 
 .refusal-cell-blocked-company {
   background: linear-gradient(135deg, #ffe0b2, #ffcc80);

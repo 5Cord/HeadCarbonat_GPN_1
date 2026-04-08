@@ -39,7 +39,7 @@
   to   { opacity: 1; }
 }
 
-/* Пульсирующая пунктирная рамка — зелёный, под акцент ResultsPanel (#2fa394) */
+/* Пульсирующая пунктирная рамка — зелёный, под акцент ResultsPanel (#29A694) */
 .rpt2-highlight-border {
   animation: rpt2-dash-march 1.8s linear infinite;
 }
@@ -62,16 +62,16 @@
   box-shadow:
     0 10px 40px rgba(0, 0, 0, 0.22),
     0 2px 8px rgba(0, 0, 0, 0.1),
-    0 0 0 1px rgba(47, 163, 148, 0.2);
+    0 0 0 1px rgba(41, 166, 148, 0.2);
   z-index: 10000;
   animation: rpt2-appear 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: fixed;
-  border: 1px solid rgba(47, 163, 148, 0.18);
+  border: 1px solid rgba(41, 166, 148, 0.18);
   outline: none;
 }
 
 .rpt2-tooltip:focus-visible {
-  outline: 2px solid #2fa394;
+  outline: 2px solid #29A694;
   outline-offset: 2px;
 }
 
@@ -105,8 +105,8 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: #2fa394;
-  background: rgba(47, 163, 148, 0.1);
+  color: #29A694;
+  background: rgba(41, 166, 148, 0.1);
   padding: 3px 8px;
   border-radius: 20px;
 }
@@ -149,12 +149,12 @@
 }
 
 .rpt2-dot-done {
-  background: rgba(47, 163, 148, 0.35);
+  background: rgba(41, 166, 148, 0.35);
   width: 8px;
 }
 
 .rpt2-dot-active {
-  background: #2fa394;
+  background: #29A694;
   width: 18px;
   border-radius: 3px;
 }
@@ -206,17 +206,17 @@
 }
 
 .rpt2-btn-finish {
-  background: linear-gradient(135deg, #2fa394, #1a7a6e);
+  background: linear-gradient(135deg, #29A694, #1a7a6e);
   color: #ffffff;
   padding: 9px 20px;
-  box-shadow: 0 3px 10px rgba(47, 163, 148, 0.4);
+  box-shadow: 0 3px 10px rgba(41, 166, 148, 0.4);
   letter-spacing: 0.03em;
 }
 
 .rpt2-btn-finish:hover {
   background: linear-gradient(135deg, #1a7a6e, #116058);
   transform: translateY(-1px);
-  box-shadow: 0 5px 14px rgba(47, 163, 148, 0.5);
+  box-shadow: 0 5px 14px rgba(41, 166, 148, 0.5);
 }
 
 /* ══════════════════════════════════════════════════════════════

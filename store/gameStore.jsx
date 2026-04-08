@@ -937,6 +937,17 @@ const useGameStore = create(
           });
         },
 
+        // Выход из сессии без сброса данных.
+        // Очищает только player, game.currentScreen и таймер.
+        // Данные игры (research/fieldWork/events/gridCells) остаются —
+        // они восстановятся с сервера через state:sync при переподключении.
+        leaveSession: () => {
+          set((state) => ({
+            player: { ...defaultPlayer },
+            game: { ...state.game, currentScreen: null },
+          }));
+        },
+
         getCurrentLU: () => get().licenseUnits.current,
 
         getOwnedGridCellsAsLU: () =>
