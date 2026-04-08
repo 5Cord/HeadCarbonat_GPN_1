@@ -72,6 +72,52 @@ const DevResetButton = () => {
   );
 };
 
+// ─── Admin Access Button ──────────────────────────────────────────────────────
+
+const AdminAccessButton = ({ onLogin, onLogout }) => {
+  const [hasToken, setHasToken] = useState(() => !!localStorage.getItem('auth_token'));
+
+  useEffect(() => {
+    const sync = () => setHasToken(!!localStorage.getItem('auth_token'));
+    window.addEventListener('admin:unauthorized', sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener('admin:unauthorized', sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, []);
+
+  const btnStyle = {
+    padding: '6px 14px',
+    background: 'rgba(10,34,64,0.85)',
+    color: '#fff',
+    border: '1.5px solid rgba(255,255,255,0.2)',
+    borderRadius: 8,
+    fontSize: '0.8rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    backdropFilter: 'blur(6px)',
+    whiteSpace: 'nowrap',
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('auth_token');
+    sessionStorage.removeItem('admin_tab');
+    setHasToken(false);
+    onLogout?.();
+  };
+
+  return (
+    <div style={{ position: 'fixed', bottom: 16, left: 16, zIndex: 9999 }}>
+      {hasToken ? (
+        <button style={btnStyle} onClick={handleLogout}>Выйти из панели</button>
+      ) : (
+        <button style={btnStyle} onClick={() => { setHasToken(false); onLogin?.(); }}>Войти в панель</button>
+      )}
+    </div>
+  );
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const isAdminRoute = () =>
@@ -148,9 +194,14 @@ function App() {
     );
   }
 
-  if (showAdmin) return <AdminPanel />;
+  if (showAdmin) return <AdminPanel onLogout={() => setShowAdmin(false)} />;
 
-  if (!player.name) return <GameLobby />;
+  if (!player.name) return (
+    <>
+      <GameLobby />
+      <AdminAccessButton onLogin={() => setShowAdmin(true)} onLogout={() => setShowAdmin(false)} />
+    </>
+  );
 
   const handleLeave = () => {
     import('./apiHelpers').then(({ disconnectSocket }) => disconnectSocket());
@@ -160,6 +211,7 @@ function App() {
   return (
     <>
       <GameBoard />
+      <AdminAccessButton onLogin={() => setShowAdmin(true)} onLogout={() => setShowAdmin(false)} />
       <div style={{ position: 'fixed', bottom: 56, right: 16, zIndex: 9999 }}>
         <button
           onClick={handleLeave}

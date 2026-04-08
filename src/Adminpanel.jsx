@@ -56,6 +56,11 @@ const apiAction = async (path, method = 'POST', body) => {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: body ? JSON.stringify(body) : undefined,
     });
+    if (res.status === 401) {
+        localStorage.removeItem('auth_token');
+        window.dispatchEvent(new Event('admin:unauthorized'));
+        throw new Error('Unauthorized');
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
 };
@@ -356,7 +361,7 @@ const TimerControl = ({ sessionId, sessions, adminSocket, onRefresh }) => {
     );
 };
 
-const CreateSessionTab = () => {
+const CreateSessionTab = ({ onGoToControl }) => {
     const [step, setStep] = useState('form');
     const [loading, setLoad] = useState(false);
     const [error, setError] = useState('');
@@ -398,7 +403,10 @@ const CreateSessionTab = () => {
                     </button>
                 </div>
                 <p className="created-hint">Таймер → выберите сессию → нажмите «Старт сессии»</p>
-                <button className="secondary-btn" onClick={() => { setStep('form'); setCreated(null); setCopied(false); }}>+ Создать ещё</button>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                    <button className="create-btn" onClick={() => onGoToControl?.(created.id)}>Перейти к управлению →</button>
+                    <button className="secondary-btn" onClick={() => { setStep('form'); setCreated(null); setCopied(false); }}>+ Создать ещё</button>
+                </div>
             </div>
         );
     }
@@ -1200,7 +1208,7 @@ const TeamsMonitor = ({ sessionId }) => {
 };
 
 // ── Главный компонент AdminPanel ───────────────────────────────────────────────
-const AdminPanel = () => {
+const AdminPanel = ({ onLogout }) => {
     const [loggedIn, setLoggedIn] = useState(() => !!getSavedToken());
     const [tab, setTab] = useState('create');
     const [stats, setStats] = useState(null);
@@ -1242,6 +1250,7 @@ const AdminPanel = () => {
         adminSocketRef.current?.disconnect(); adminSocketRef.current = null;
         localStorage.removeItem('auth_token'); sessionStorage.removeItem('admin_tab');
         setLoggedIn(false);
+        onLogout?.();
     };
 
     const loadSessions = async () => { setLoading(true); try { setSessions(await apiAction('/api/admin/sessions', 'GET')); } catch (e) { console.error(e); } finally { setLoading(false); } };
@@ -1253,6 +1262,12 @@ const AdminPanel = () => {
         if (['sessions', 'control'].includes(t)) loadSessions();
         if (t === 'teams') loadTeams();
         if (t === 'dashboard') loadDash();
+    };
+
+    const goToControl = async (sessionId) => {
+        await loadSessions();
+        setControlSess(sessionId);
+        changeTab('control');
     };
 
     const handleExport = async (type) => {
@@ -1294,7 +1309,7 @@ const AdminPanel = () => {
             <main className={`ap-main${tab === 'control' ? ' ap-main--control' : ''}`}>
                 {loading && <div className="ap-loading">Загрузка…</div>}
 
-                {tab === 'create' && <CreateSessionTab />}
+                {tab === 'create' && <CreateSessionTab onGoToControl={goToControl} />}
 
                 {tab === 'control' && (
                     <div className="control-wrap">
