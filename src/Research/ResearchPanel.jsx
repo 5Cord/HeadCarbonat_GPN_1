@@ -70,8 +70,8 @@ function applyYearTransition(prog, prevYear, eventsScore) {
 
 
 const MOB_GROUPS = [
-  { ids: ['srr_2d', 'srr_3d'], label: 'ГЕОЛОГОРАЗВЕДКА', cls: 'colGroupGray' },
-  { ids: ['1pr', '3r'], label: 'ПРОЕКТИРОВАНИЕ РАЗРАБОТКИ', cls: 'colGroupOrange' },
+  { ids: ['srr_2d', 'srr_3d'], label: 'СЕЙСМОРАЗВЕДКА', cls: 'colGroupGray' },
+  { ids: ['1pr', '3r'], label: 'ПОИСКОВО-РАЗВЕДОЧНОЕ БУРЕНИЕ', cls: 'colGroupOrange' },
   { ids: ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'], label: 'ПРОЕКТИРОВАНИЕ РАЗРАБОТКИ', cls: 'colGroupBeige' },
   { ids: ['depression', 'bsko', 'ppd', '3bs'], label: 'УПРАВЛЕНИЕ РАЗРАБОТКОЙ', cls: 'colGroupBlue' },
 ];
@@ -829,16 +829,19 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       <div className={styles.groupLegend}>
         <div className={styles.legendItem}>
           <span className={styles.legendColor} style={{ background: '#757575' }} />
+          <span className={styles.legendText}>Сейсморазведка</span>
+        </div>
+        <div className={styles.legendItem}>
           <span className={styles.legendColor} style={{ background: '#f4511e' }} />
-          <span className={styles.legendText}>ГЕОЛОГОРАЗВЕДКА</span>
+          <span className={styles.legendText}>Поисково-разведочное бурение</span>
         </div>
         <div className={styles.legendItem}>
           <span className={styles.legendColor} style={{ background: '#8d6e63' }} />
-          <span className={styles.legendText}>ПРОЕКТИРОВАНИЕ РАЗРАБОТКИ</span>
+          <span className={styles.legendText}>Проектирование разработки</span>
         </div>
         <div className={styles.legendItem}>
           <span className={styles.legendColor} style={{ background: '#1976d2' }} />
-          <span className={styles.legendText}>УПРАВЛЕНИЕ РАЗРАБОТКОЙ</span>
+          <span className={styles.legendText}>Управление разработкой</span>
         </div>
       </div>
 
