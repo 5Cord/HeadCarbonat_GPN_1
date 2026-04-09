@@ -86,7 +86,7 @@ const RESULTS_TOUR_STEPS = [
   {
     id: 'done',
     title: 'Всё готово',
-    text: 'Теперь вы знаете, как читать итоги года. Этот тур больше не появится. Для сброса: localStorage.removeItem("resultsPanel_tourDone") в консоли браузера.',
+    text: 'Теперь вы знаете, как читать итоги года. Удачи!',
     target: null,
     placement: 'center',
   },

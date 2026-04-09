@@ -120,7 +120,7 @@ const RESEARCH_TOUR_STEPS = [
     id: 'done',
     icon: '',
     title: 'Всё готово — начинайте!',
-    text: 'Теперь вы знаете основы. Удачи в исследованиях! Этот тур больше не появится. Для сброса: localStorage.removeItem("researchPanel_tourDone") в консоли.',
+    text: 'Теперь вы знаете основы. Удачи в исследованиях!',
     target: null,
     placement: 'center',
   },

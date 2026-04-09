@@ -9,6 +9,10 @@ import { getSocket } from '../apiHelpers';
 import EventsZoneTour from './Eventszonetour';
 
 
+const RISK_BACK_IMG = new URL('../assets/cards/card_back/risk.jpg', import.meta.url).href;
+const POSSIBILITY_BACK_IMG = new URL('../assets/cards/card_back/possibility.jpg', import.meta.url).href;
+const RANDOM_BACK_IMG = new URL('../assets/cards/card_back/random.jpg', import.meta.url).href;
+
 const CardImage = ({ src, alt = '123', className = '' }) => {
   const [failed, setFailed] = useState(false);
   if (!src || failed) return null;
@@ -101,6 +105,9 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
   const [cancelPickMode, setCancelPickMode] = useState(false);
   const [cancelSource, setCancelSource] = useState(null);
   const [skipConfirmData, setSkipConfirmData] = useState(null);
+  const [flippedCards, setFlippedCards] = useState(new Set());
+
+  const flipCard = (key) => setFlippedCards(prev => new Set([...prev, key]));
 
   const [showYearEndModal, setShowYearEndModal] = useState(false);
   const [waiting, setWaiting] = useState(false);
@@ -135,6 +142,10 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
   useEffect(() => {
     setGlobalPhase('EVENTS');
   }, []);
+
+  useEffect(() => {
+    setFlippedCards(new Set());
+  }, [globalYear]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -208,7 +219,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
         const rates = Object.values(yearRates);
         if (rates.length > 0) avgSuccess = rates.reduce((s, r) => s + r, 0) / rates.length;
 
-        const generatedCards = generateEventLine(avgSuccess, usedCardIds);
+        const generatedCards = generateEventLine(avgSuccess, usedCardIds, player.experienceLevel);
         // Регистрируем новые карточки как использованные
         generatedCards.forEach(c => { if (c.data?.id) usedCardIds.add(c.data.id); });
 
@@ -430,6 +441,35 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     updateEventLineScore(luId, pts);
     setSelectedCard(null);
     setSelectedAnswers([]);
+  };
+
+  const doPlayRandom = (card, cardKey, luId) => {
+    const effect = card.data.effect
+      || (typeof card.data.points === 'number' ? { type: 'points', value: card.data.points } : { type: 'points', value: 0 });
+
+    if (effect.type === 'cancel') {
+      revealEventCard(luId, cardKey, { revealed: true, played: true, points: 0 });
+      setCancelSource({ cardKey, luId });
+      setCancelPickMode(true);
+      return;
+    }
+
+    if (!lineStatsRef.current[luId]) {
+      lineStatsRef.current[luId] = { correct: 0, wrong: 0, moneyDelta: 0, cardAnswers: [], _saved: false };
+    }
+    lineStatsRef.current[luId]._saved = false;
+
+    if (effect.type === 'points') {
+      revealEventCard(luId, cardKey, { revealed: true, played: true, points: effect.value });
+      updateEventLineScore(luId, effect.value);
+    }
+
+    if (effect.type === 'money') {
+      revealEventCard(luId, cardKey, { revealed: true, played: true, money: effect.value });
+      useGameStore.setState(st => ({ player: { ...st.player, budget: st.player.budget + effect.value } }));
+      updateEventMoneySpent(effect.value);
+      lineStatsRef.current[luId].moneyDelta += effect.value;
+    }
   };
 
   const handlePlayRandom = () => {
@@ -685,26 +725,39 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     }
 
     if (card.type === CARD_TYPES.OPPORTUNITY) {
+      const isFlipped = flippedCards.has(cardKey);
       return (
         <div key={cardIndex}
           className={`${styles.eventCard} ${styles.opportunity} ${rev?.revealed ? `${styles.revealed} ${styles.answered}` : ''}`}
-          onClick={() => !rev?.revealed && !skipped && handleCardClick(lineIndex, cardIndex, card)}
+          onClick={() => {
+            if (rev?.revealed || skipped) return;
+            if (!isFlipped) flipCard(cardKey);
+            handleCardClick(lineIndex, cardIndex, card);
+          }}
           style={{ cursor: rev?.revealed || skipped ? 'default' : 'pointer' }}
+          title={!isFlipped && !rev?.revealed ? 'Нажмите, чтобы открыть карту' : undefined}
         >
-          <div className={styles.cardFront}>
-            {rev?.revealed ? (
-              <div className={styles.opportunityResult}>
-                <span>{rev.correct ? '✅' : '❌'}</span>
-                <span className={styles.points}>{rev.points > 0 ? `+${rev.points}` : '0'}</span>
-              </div>
-            ) : (
-              <div className={styles.opportunityPreview}>
-                <span style={{ fontSize: '2rem' }}></span>
-                <span className={styles.points} style={{ color: '#2e7d32', fontSize: '1.5rem' }}>+{card.data.points}</span>
-                <span style={{ fontSize: '0.75rem', color: '#666', marginTop: '5px' }}>Нажмите</span>
-              </div>
-            )}
-          </div>
+          {!isFlipped && !rev?.revealed ? (
+            <>
+              <img src={POSSIBILITY_BACK_IMG} alt="Возможность (рубашка)" className={styles.cardBackImg} />
+              <div className={styles.opportunityPointsBadge}>+{card.data.points}</div>
+            </>
+          ) : (
+            <div className={styles.cardFront}>
+              {rev?.revealed ? (
+                <div className={styles.opportunityResult}>
+                  <span>{rev.correct ? '✅' : '❌'}</span>
+                  <span className={styles.points}>{rev.points > 0 ? `+${rev.points}` : '0'}</span>
+                </div>
+              ) : (
+                <div className={styles.opportunityPreview}>
+                  <span style={{ fontSize: '2rem' }}></span>
+                  <span className={styles.points} style={{ color: '#2e7d32', fontSize: '1.5rem' }}>+{card.data.points}</span>
+                  <span style={{ fontSize: '0.75rem', color: '#666', marginTop: '5px' }}>Нажмите</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       );
     }
@@ -720,9 +773,8 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
       >
         {!rev?.revealed ? (
           <div className={styles.randomBack}>
-            <CardImage src={card.data.image} alt="Случайность" className={styles.randomBgImage} />
+            <img src={RANDOM_BACK_IMG} alt="Случайность (рубашка)" className={styles.cardBackImg} />
             <div className={styles.randomBackOverlay}>
-              <span className={styles.cardTypeIcon}>🎲</span>
               <span className={styles.optionalBadge}>необяз.</span>
             </div>
           </div>
@@ -873,7 +925,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
 
       {selectedCard && (
         <div className={styles.cardModalOverlay}>
-          <div className={styles.cardModal} onClick={e => e.stopPropagation()}>
+          <div className={`${styles.cardModal} ${selectedCard?.card?.type === CARD_TYPES.RANDOM ? styles.cardModalRandom : ''}`} onClick={e => e.stopPropagation()}>
             {selectedCard.card.type === CARD_TYPES.OPPORTUNITY && (() => {
               const isMultipleChoice = selectedCard.card.data.correctAnswer &&
                 Array.isArray(selectedCard.card.data.correctAnswer);
@@ -931,24 +983,21 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
                 || (typeof selectedCard.card.data.points === 'number' ? { type: 'points', value: selectedCard.card.data.points } : { type: 'points', value: 0 });
               const isPos = effectIsPositive(effect);
               return (
-                <div className={styles.randomModal}>
-                  <h3>🎲 Карточка случайности</h3>
-                  <div className={styles.mustAnswerHint}>Выберите действие, чтобы продолжить</div>
-                  <div className={styles.cardContent}>
-                    {selectedCard.card.data.image && (
-                      <div className={styles.modalImageWrap}>
-                        <CardImage src={selectedCard.card.data.image} alt="Случайность" className={styles.modalImage} />
-                      </div>
+                <div className={styles.randomCardFace}>
+                  <div className={styles.randomCardFaceImage}>
+                    <CardImage src={selectedCard.card.data.image} alt="Случайность" className={styles.randomCardFaceImg} />
+                    <div className={styles.randomCardFaceTypeBadge}>🎲 СЛУЧАЙНОСТЬ</div>
+                  </div>
+                  <div className={styles.randomCardFaceBody}>
+                    <p className={styles.randomCardFaceTitle}>{selectedCard.card.data.title}</p>
+                    {selectedCard.card.data.description && (
+                      <p className={styles.randomCardFaceDesc}>{selectedCard.card.data.description}</p>
                     )}
-                    <p className={styles.randomCardTitle}>{selectedCard.card.data.title}</p>
-                    <p className={styles.description}>{selectedCard.card.data.description}</p>
-                    <div className={[styles.effectPreview, isPos ? styles.effectPos : styles.effectNeg].join(' ')}>
+                    <div className={[styles.randomCardFaceEffect, isPos ? styles.effectPos : styles.effectNeg].join(' ')}>
                       {fmtEffect(effect)}
-                      {effect.type === 'cancel' && <span className={styles.effectHint}> — нажмите «Сыграть», затем выберите карточку риска</span>}
+                      {effect.type === 'cancel' && <span className={styles.effectHint}> — выберите карточку риска для отмены</span>}
                     </div>
-                    <div className={styles.randomActions}>
-                      <button className={styles.playBtn} onClick={handlePlayRandom}>Сыграть карточку</button>
-                    </div>
+                    <button className={styles.randomCardFaceBtn} onClick={handlePlayRandom}>Сыграть карточку</button>
                   </div>
                 </div>
               );
