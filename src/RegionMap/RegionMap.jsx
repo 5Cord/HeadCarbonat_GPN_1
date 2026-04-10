@@ -554,6 +554,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
     <div className="region-map-fullscreen">
 
       <GlobalTimer
+        className="region-timer"
         label={
           currentPhase === 'selection'   ? 'Покупка ЛУ' :
           currentPhase === 'auction'     ? 'Аукцион' :

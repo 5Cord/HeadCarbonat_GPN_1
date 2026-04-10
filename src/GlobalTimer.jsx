@@ -17,6 +17,7 @@ const GlobalTimer = ({
   finishedText,
   forceWarning = false,
   forceFinished = false,
+  className,
 }) => {
   const timeRemaining = useGameStore(s => s.globalTimer.timeRemaining);
   const currentYear   = useGameStore(s => s.globalTimer.currentYear);
@@ -24,12 +25,13 @@ const GlobalTimer = ({
   const isFinished = (forceFinished || timeRemaining <= 0) && !valueOverride;
 
   const timerCls = () => {
-    if (forceWarning)   return `${styles.timer} ${styles.timerWarning}`;
-    if (isFinished)     return `${styles.timer} ${styles.timerFinished}`;
-    if (timeRemaining <= 30)  return `${styles.timer} ${styles.timerCritical}`;
-    if (timeRemaining <= 120) return `${styles.timer} ${styles.timerWarning}`;
-    if (timeRemaining <= 300) return `${styles.timer} ${styles.timerAlert}`;
-    return styles.timer;
+    const extra = className ? ` ${className}` : '';
+    if (forceWarning)   return `${styles.timer} ${styles.timerWarning}${extra}`;
+    if (isFinished)     return `${styles.timer} ${styles.timerFinished}${extra}`;
+    if (timeRemaining <= 30)  return `${styles.timer} ${styles.timerCritical}${extra}`;
+    if (timeRemaining <= 120) return `${styles.timer} ${styles.timerWarning}${extra}`;
+    if (timeRemaining <= 300) return `${styles.timer} ${styles.timerAlert}${extra}`;
+    return `${styles.timer}${extra}`;
   };
 
   if (isFinished && finishedText) {
