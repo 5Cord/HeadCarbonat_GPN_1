@@ -297,10 +297,10 @@
 }
 
 .researchTable thead th {
-  padding: 0.8rem 0.5rem;
+  padding: 1rem 0.6rem;
   text-align: center;
   font-weight: 700;
-  font-size: 0.75rem;
+  font-size: 0.9rem;
   border: 1px solid #333;
   position: sticky;
   top: 0;
@@ -370,11 +370,11 @@
   flex-direction: column;
   align-items: center;
   gap: 0.15rem;
-  font-size: 0.7rem;
+  font-size: 0.8rem;
 }
 
 .mobName {
-  font-size: 0.85rem;
+  font-size: 1rem;
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: 0.03em;
@@ -382,7 +382,7 @@
 }
 
 .mobCost {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: inherit;
   opacity: 0.95;
@@ -393,7 +393,7 @@
 }
 
 .mobSuccess {
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   margin-top: 0.2rem;
   font-weight: 600;
   color: inherit;
@@ -402,7 +402,7 @@
 .mobYears {
   display: block;
   margin-top: 0.2rem;
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   opacity: 0.9;
   font-weight: 500;
   color: inherit;

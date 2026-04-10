@@ -234,6 +234,112 @@
 
 .refusal-cell-blocked-company .refusal-cell-label { color: #bf360c; }
 
+/* ── Режим обмена: отдаёте (свой, выбранный) ── */
+
+.refusal-cell-give {
+  background: linear-gradient(135deg, #ffcdd2 0%, #ef9a9a 100%);
+  border: 2.5px solid #c62828;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(198, 40, 40, 0.3);
+  animation: selectedPulse 1.8s ease-in-out infinite;
+}
+
+.refusal-cell-give .refusal-cell-label {
+  color: #b71c1c;
+  font-weight: 800;
+  font-size: 0.78rem;
+}
+
+.refusal-cell-give:hover {
+  background: linear-gradient(135deg, #ef9a9a 0%, #e57373 100%);
+  transform: scale(1.1);
+  z-index: 5;
+}
+
+/* ── Режим обмена: участок компании (доступен) ── */
+
+.refusal-cell-company-avail {
+  background: linear-gradient(135deg, #ffe0b2 0%, #ffb74d 100%);
+  border: 2px solid #e65100;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(230, 81, 0, 0.2);
+}
+
+.refusal-cell-company-avail .refusal-cell-label {
+  color: #bf360c;
+  font-weight: 800;
+  font-size: 0.78rem;
+}
+
+.refusal-cell-company-avail:hover {
+  background: linear-gradient(135deg, #ffb74d 0%, #ffa726 100%);
+  transform: scale(1.1);
+  z-index: 5;
+  box-shadow: 0 4px 14px rgba(230, 81, 0, 0.45);
+  border-color: #bf360c;
+}
+
+/* ── Режим обмена: получаете (участок компании, выбранный) ── */
+
+.refusal-cell-receive {
+  background: linear-gradient(135deg, #bbdefb 0%, #64b5f6 100%);
+  border: 2.5px solid #1565c0;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(21, 101, 192, 0.3);
+  animation: receivePulse 1.8s ease-in-out infinite;
+}
+
+.refusal-cell-receive .refusal-cell-label {
+  color: #0d47a1;
+  font-weight: 800;
+  font-size: 0.78rem;
+}
+
+.refusal-cell-receive:hover {
+  background: linear-gradient(135deg, #64b5f6 0%, #42a5f5 100%);
+  transform: scale(1.1);
+  z-index: 5;
+}
+
+@keyframes receivePulse {
+  0%, 100% { box-shadow: 0 2px 8px rgba(21, 101, 192, 0.3); }
+  50%       { box-shadow: 0 2px 16px rgba(21, 101, 192, 0.6); }
+}
+
+/* ── Легенда обмена ── */
+
+.refusal-legend-give {
+  background: #ffcdd2;
+  border-color: #c62828;
+  color: #b71c1c;
+}
+
+.refusal-legend-company-avail {
+  background: #ffe0b2;
+  border-color: #e65100;
+  color: #bf360c;
+}
+
+.refusal-legend-receive {
+  background: #bbdefb;
+  border-color: #1565c0;
+  color: #0d47a1;
+}
+
+/* ── Итог обмена ── */
+
+.refusal-summary-exchange-ready {
+  color: #1b5e20;
+  background: #e8f5e9;
+  padding: 9px 18px;
+  border-radius: 9px;
+  border: 2px solid #81c784;
+  display: inline-block;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 /* ── Итог выбора ── */
 
 .refusal-map-selection-summary {

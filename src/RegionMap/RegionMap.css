@@ -511,11 +511,13 @@
 
 .lu-name-text {
   font-weight: 700;
+  font-size: 0.91rem;
 }
 
 .lu-cost-text {
   font-size: 10px;
   color: #ffffff;
+  font-size: 0.7rem;
 }
 
 .game-info-panel {

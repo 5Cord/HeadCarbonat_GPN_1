@@ -6,17 +6,16 @@ import GlobalTimer from '../GlobalTimer';
 import AuctionDashboard from './Auctiondashboard';
 import RegionMapTour from './Regionmaptour';
 import { getSocket } from '../apiHelpers';
-import { getScenario, resolveSceneImage, WORK_SCENE_MAP } from '../Research/sceneUtils.js';
 
 const LICENSE_UNITS = [
-  { id: 'well1', name: 'Парам. скважина №1', shortName: '1', cost: 10, cellRef: 'A2', position: 'top-left', customStyle: { top: '-130px', left: '0px' }, description: 'Целевой комплекс: светлые слоистые строматолитовые доломиты с прослоями гипса и ангидрита. Свойства: доломиты слабо пористые, с редкими выпотами густой нефти.', hasImage: false },
-  { id: 'well2', name: 'Парам. скважина №2', shortName: '2', cost: 10, cellRef: 'A5', position: 'top-left', customStyle: { top: '-130px', left: '0px' }, description: 'Целевой комплекс: светлые тонкослоистые известняки и доломиты, прослоями зернистые. Свойства: межзерновая пористость, признаки нефтенасыщения по порам.', hasImage: false },
-  { id: 'seismic', name: 'ОиИ архивных СРР 2D', shortName: 'И', cost: 30, cellRef: 'A10', position: 'corner-bottom-left', customStyle: { top: '-130px', left: '80px' }, description: 'По данным двухмерной сейсморазведки выделяются ориентированные с юго-запада на северо-восток объекты, похожие на структурные валы. В центральной части территории между ними фиксируется палеопрогиб.', hasImage: false },
-  { id: 'well3', name: 'Парам. скважина №3', shortName: '3', cost: 10, cellRef: 'B10', position: 'right', customStyle: { top: '0', left: '85px' }, description: 'Целевой комплекс: тонкослоистые черные кремнистые известняки с повышенным содержанием органического углерода. Свойства: мощность комплекса сильно сокращена.', hasImage: false },
-  { id: 'well4', name: 'Парам. скважина №4', shortName: '4', cost: 20, cellRef: 'E10', position: 'right', customStyle: { top: '0px', left: '85px' }, description: 'Целевой комплекс: массивные трещиновато-кавернозные известняки с кораллами и губками. Свойства: по кавернам обильные выполы (выпоты) нефти.', hasImage: false },
-  { id: 'well5', name: 'Парам. скважина №5', shortName: '5', cost: 20, cellRef: 'J8', position: 'right', customStyle: { top: '85px', left: '0px' }, description: 'Целевой комплекс: светлые слоистые известняки и доломиты (зернистые и микритовые). Свойства: прослоями породы пористые, с признаками углеводородов.', hasImage: false },
-  { id: 'well6', name: 'Парам. скважина №6', shortName: '6', cost: 10, cellRef: 'J3', position: 'right', customStyle: { top: '85px', left: '0px' }, description: 'Целевой комплекс: тонкослоистые черные кремнистые известняки с повышенным содержанием органического углерода, с остатками планктонной фауны. Свойства: мощность комплекса сильно сокращена.', hasImage: false },
-  { id: 'research', name: 'Региональная НИР', shortName: 'Н', cost: 70, cellRef: 'J1', position: 'corner-top-right', customStyle: { top: '85px', left: '-118px' }, description: 'Выполнены: космогеологическое моделирование, структурно-генетическое моделирование, бассейновое моделирование, оценка ресурсов. Карта плотности ресурсов углеводородов (тысяч тонн условного топлива на квадратный километр): 10-50, 5-10, менее 5.', hasImage: true, imagePath: '/src/svgs/RegNir.svg' },
+  { id: 'well1', name: 'Парам. скважина №1', shortName: '1', cost: 10, cellRef: 'A2', position: 'top-left', customStyle: { top: '-130px', left: '0px' }, labelLeft: '0px', description: 'Целевой комплекс: светлые слоистые строматолитовые доломиты с прослоями гипса и ангидрита. Свойства: доломиты слабо пористые, с редкими выпотами густой нефти.', hasImage: false },
+  { id: 'well2', name: 'Парам. скважина №2', shortName: '2', cost: 10, cellRef: 'A5', position: 'top-left', customStyle: { top: '-130px', left: '0px' }, labelLeft: '0px', description: 'Целевой комплекс: светлые тонкослоистые известняки и доломиты, прослоями зернистые. Свойства: межзерновая пористость, признаки нефтенасыщения по порам.', hasImage: false },
+  { id: 'seismic', name: 'ОиИ архивных СРР 2D', shortName: 'И', cost: 30, cellRef: 'A10', position: 'corner-bottom-left', customStyle: { top: '-130px', left: '80px' }, labelLeft: '100px', description: 'По данным двухмерной сейсморазведки выделяются ориентированные с юго-запада на северо-восток объекты, похожие на структурные валы. В центральной части территории между ними фиксируется палеопрогиб.', hasImage: false },
+  { id: 'well3', name: 'Парам. скважина №3', shortName: '3', cost: 10, cellRef: 'B10', position: 'right', customStyle: { top: '0', left: '85px' }, labelLeft: '85px', description: 'Целевой комплекс: тонкослоистые черные кремнистые известняки с повышенным содержанием органического углерода. Свойства: мощность комплекса сильно сокращена.', hasImage: false },
+  { id: 'well4', name: 'Парам. скважина №4', shortName: '4', cost: 20, cellRef: 'E10', position: 'right', customStyle: { top: '0px', left: '85px' }, labelLeft: '85px', description: 'Целевой комплекс: массивные трещиновато-кавернозные известняки с кораллами и губками. Свойства: по кавернам обильные выполы (выпоты) нефти.', hasImage: false },
+  { id: 'well5', name: 'Парам. скважина №5', shortName: '5', cost: 20, cellRef: 'J8', position: 'right', customStyle: { top: '85px', left: '0px' }, labelLeft: '0px', description: 'Целевой комплекс: светлые слоистые известняки и доломиты (зернистые и микритовые). Свойства: прослоями породы пористые, с признаками углеводородов.', hasImage: false },
+  { id: 'well6', name: 'Парам. скважина №6', shortName: '6', cost: 10, cellRef: 'J3', position: 'right', customStyle: { top: '85px', left: '0px' }, labelLeft: '0px', description: 'Целевой комплекс: тонкослоистые черные кремнистые известняки с повышенным содержанием органического углерода, с остатками планктонной фауны. Свойства: мощность комплекса сильно сокращена.', hasImage: false },
+  { id: 'research', name: 'Региональная НИР', shortName: 'Н', cost: 70, cellRef: 'J1', position: 'corner-top-right', customStyle: { top: '85px', left: '-118px' }, labelLeft: '-120px', description: 'Выполнены: космогеологическое моделирование, структурно-генетическое моделирование, бассейновое моделирование, оценка ресурсов. Карта плотности ресурсов углеводородов (тысяч тонн условного топлива на квадратный километр): 10-50, 5-10, менее 5.', hasImage: true, imagePath: '/src/svgs/RegNir.svg' },
   { id: 'quarry', name: 'Карьер', shortName: 'К', cost: 20, cellRef: 'F1', position: 'left', customStyle: { top: '0', left: '-130px' }, description: 'Горные породы: известняки и доломиты массивные, химически чистые, органогенные, кавернозно-трещиноватые. Тип: разрабатываемый содовый карьер.', hasImage: false },
   { id: 'outcrop', name: 'Обнажение', shortName: 'О', cost: 10, cellRef: 'D1', position: 'left', customStyle: { top: '0', left: '-130px' }, description: 'Горные породы: ритмично-слоистые светло-серые известняки и доломиты с микробиальными биотермами до 10 м толщиной. Встречаются поры, каверны и трещины с запахом углеводородов.', hasImage: false },
 ];
@@ -115,7 +114,7 @@ const isRegionMapPhase = (serverPhase) =>
 
 const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const {
-    player, licenseUnits, gridCells, auctions, fieldWork, events,
+    player, licenseUnits, gridCells, auctions,
     purchaseLU, purchaseGridCell, placeBid, finalizeAuction,
     registerForAuction, getMyAuctionParticipation, simulateOtherTeamOwns,
     unpurchaseGridCell, unregisterFromAuction,
@@ -174,46 +173,6 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const mapDone = !isOurPhase && serverPhase !== 'LOBBY' && !isRegionMapPhase(serverPhase);
   const hasLUs  = ownedCount > 0;
 
-  // Картинка для вражеской ячейки — по сценарию без данных противника (ранги 2→1→3)
-  const getEnemyCellSceneImage = (cellRef) => {
-    if (!mapDone) return null;
-    const scenario = getScenario(cellRef);
-    if (scenario == null || scenario === 0) return null;
-    for (const rank of [2, 1, 3]) {
-      for (const workId of Object.keys(WORK_SCENE_MAP)) {
-        const img = resolveSceneImage(scenario, workId, rank, 'к');
-        if (img) return img;
-      }
-    }
-    return null;
-  };
-
-  // Возвращает картинку результата для ячейки (если фаза карты пройдена и данные есть)
-  const getCellSceneImage = (cellRef) => {
-    if (!mapDone) return null;
-    const scenario = getScenario(cellRef);
-    if (scenario == null || scenario === 0) return null;
-    const fwData = fieldWork?.selectionsByLU?.[cellRef];
-    if (!fwData) return null;
-    // Находим отработанные годы
-    const selByYear = fwData.selectionsByYear
-      ?? (fwData.byYear ? Object.fromEntries(Object.entries(fwData.byYear).map(([y, d]) => [y, d?.selections])) : {});
-    const years = Object.keys(selByYear).map(Number)
-      .filter(y => selByYear[y] && Object.keys(selByYear[y]).length > 0)
-      .sort((a, b) => a - b);
-    if (!years.length) return null;
-    const lastYear = years[years.length - 1];
-    const avgRank = fwData?.metaByYear?.[lastYear]?.avgRank ?? null;
-    if (!avgRank) return null;
-    const evScore = events?.lineScores?.[cellRef] ?? 0;
-    if (evScore < 0) return null;
-    // Перебираем workId и возвращаем первую найденную картинку
-    for (const workId of Object.keys(WORK_SCENE_MAP)) {
-      const img = resolveSceneImage(scenario, workId, avgRank, 'к');
-      if (img) return img;
-    }
-    return null;
-  };
 
   const [showNirHint, setShowNirHint] = useState(false);
   const nirHintShownRef = useRef(sessionStorage.getItem('nirHintShown') === '1');
@@ -376,10 +335,14 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
 
   // ── Вспомогательные ──────────────────────────────────────────────────────
-  const getBlockedType = (ref) =>
-    BLOCKED_CELLS.reserve.includes(ref) ? 'reserve' :
-      BLOCKED_CELLS.settlement.includes(ref) ? 'settlement' :
-        BLOCKED_CELLS.company.includes(ref) ? 'company' : null;
+  const getBlockedType = (ref) => {
+    if (ownedCells[ref]) return null;                          // наша после обмена с компанией
+    if (gridCells.allTeams[ref]?.ownedByTeamId) return null;  // чужая после обмена — не блокируем
+    if (BLOCKED_CELLS.reserve.includes(ref))    return 'reserve';
+    if (BLOCKED_CELLS.settlement.includes(ref)) return 'settlement';
+    if (BLOCKED_CELLS.company.includes(ref))    return 'company';
+    return null;
+  };
 
   const isBlocked = (ref) => !!getBlockedType(ref);
   const getBlockedLabel = (type) => ({ reserve: 'Природный заказник', settlement: 'Населённый пункт', company: 'Занято нефтяной компанией' }[type] || 'Заблокировано');
@@ -819,28 +782,11 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                           onMouseMove={(e) => setCellTooltip({ cellId, x: e.clientX, y: e.clientY })}
                           onMouseLeave={() => setCellTooltip(null)}
                         >
-                          {ownedByMe && getCellSceneImage(cellId)
-                            ? (
-                              <div className="cell-scene-img-wrap">
-                                <img src={getCellSceneImage(cellId)} alt={cellId} className="cell-scene-img" />
-                                <span className="cell-scene-label">{cellId}</span>
-                              </div>
-                            )
-                            : ownedByOther && getEnemyCellSceneImage(cellId)
-                              ? (
-                                <div className="cell-scene-img-wrap cell-scene-img-wrap--enemy">
-                                  <img src={getEnemyCellSceneImage(cellId)} alt={cellId} className="cell-scene-img" />
-                                  <div className="cell-scene-enemy-overlay" />
-                                  <span className="cell-scene-label">{cellId}</span>
-                                  <span className="cell-scene-enemy-badge">⚔</span>
-                                </div>
-                              )
-                              : <span className="cell-label">{cellId}</span>
-                          }
+                          <span className="cell-label">{cellId}</span>
                           {ownedByMe && isContested && <span className="cell-mark cell-mark-contested">⚔</span>}
                           {ownedByMe && !isContested && isAutoAssigned && <span className="cell-mark cell-mark-auto">🎲</span>}
                           {ownedByMe && !isContested && !isAutoAssigned && <span className="cell-mark cell-mark-own">OK</span>}
-                          {ownedByOther && !getEnemyCellSceneImage(cellId) && <span className="cell-mark cell-mark-other">!</span>}
+                          {ownedByOther && <span className="cell-mark cell-mark-other">!</span>}
                           {hasActiveAuction && !ownedByMe && !ownedByOther && <span className="cell-mark cell-mark-auction">LIVE</span>}
                           {isPendingAuction && <span className="cell-mark cell-mark-pending">WAIT</span>}
                           {blockedType && <span className="cell-mark cell-mark-blocked"></span>}
@@ -860,7 +806,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                               <span className="lu-marker-number">{lu.shortName}</span>
                               {isLUSelected(lu.id) && <span className="lu-marker-check"></span>}
                             </div>
-                            <div className="lu-name-label" style={{ position: 'absolute', top: lu.customStyle?.top || '0', left: lu.customStyle?.left || '0', transform: getLUNamePosition(lu.position), whiteSpace: 'nowrap' }}>
+                            <div className="lu-name-label" style={{ position: 'absolute', top: lu.customStyle?.top || '0', left: lu.labelLeft ?? lu.customStyle?.left ?? '0', transform: getLUNamePosition(lu.position), whiteSpace: 'nowrap' }}>
                               <div className="lu-name-text">{lu.name}</div>
                               <div className="lu-cost-text">{lu.cost} млн руб.</div>
                             </div>
@@ -976,7 +922,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
       <NoInfoCardModal isOpen={noCardModal} onClose={() => setNoCardModal(false)} onGoToBuyCard={() => setNoCardModal(false)} />
       <AlertModal isOpen={!!alertModal} onClose={() => setAlertModal(null)} title={alertModal?.title || 'Внимание'}><p>{alertModal?.message}</p></AlertModal>
 
-      <RegionMapTour onDone={() => {}} />
+      <RegionMapTour onDone={() => {}} maxLUs={MAX_LUS_PER_TEAM} />
     </div>
   );
 };

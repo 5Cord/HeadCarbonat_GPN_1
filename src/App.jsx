@@ -205,7 +205,9 @@ function App() {
 
   const handleLeave = () => {
     import('./apiHelpers').then(({ disconnectSocket }) => disconnectSocket());
-    leaveSession();
+    resetGame();
+    localStorage.clear();
+    sessionStorage.clear();
   };
 
   return (

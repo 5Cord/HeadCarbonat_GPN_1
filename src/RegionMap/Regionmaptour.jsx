@@ -17,7 +17,7 @@ import './Regionmaptour.css';
 //   placement — 'top' | 'bottom' | 'left' | 'right' | 'center'
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TOUR_STEPS = [
+const getTourSteps = (maxLUs) => [
   {
     id: 'welcome',
     icon: '',
@@ -38,7 +38,7 @@ const TOUR_STEPS = [
     id: 'info_panel',
     icon: '',
     title: 'Информационная панель',
-    text: 'Здесь отображается ваш бюджет, количество купленных карточек и участков. Максимум 5 участков на команду (включая аукционы).',
+    text: `Здесь отображается ваш бюджет, количество купленных карточек и участков. Максимум ${maxLUs} участков на команду (включая аукционы).`,
     target: '.game-info-panel',
     placement: 'right',
   },
@@ -78,7 +78,7 @@ const TOUR_STEPS = [
     id: 'finish_btn',
     icon: '',
     title: 'Завершение выбора',
-    text: 'Когда вы выбрали все нужные участки — нажмите «Завершить выбор». После этого начнётся фаза аукциона для спорных участков. Не забудьте про лимит в 5 участков!',
+    text: `Когда вы выбрали все нужные участки — нажмите «Завершить выбор». После этого начнётся фаза аукциона для спорных участков. Не забудьте про лимит в ${maxLUs} участков!`,
     target: '.finish-selection-btn',
     placement: 'bottom',
   },
@@ -86,7 +86,7 @@ const TOUR_STEPS = [
     id: 'post_auction',
     icon: '',
     title: 'Докупка участков',
-    text: 'После аукциона у вас будет дополнительное время, чтобы приобрести свободные участки напрямую (без аукциона). Воспользуйтесь этим, если у вас меньше 5 участков.',
+    text: `После аукциона у вас будет дополнительное время, чтобы приобрести свободные участки напрямую (без аукциона). Воспользуйтесь этим, если у вас меньше ${maxLUs} участков.`,
     target: null,
     placement: 'center',
   },
@@ -245,7 +245,9 @@ function Arrow({ placement }) {
 // ГЛАВНЫЙ КОМПОНЕНТ
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function RegionMapTour({ onDone }) {
+export default function RegionMapTour({ onDone, maxLUs = 5 }) {
+  const TOUR_STEPS = getTourSteps(maxLUs);
+
   const [step, setStep] = useState(0);
   const [visible, setVisible] = useState(false);
   const [rect, setRect] = useState(null);

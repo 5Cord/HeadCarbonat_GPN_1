@@ -11,8 +11,10 @@ import { getSocket } from '../apiHelpers';
 
 const REFUSAL_YEARS = [3, 5];
 const REFUSAL_DURATION = 10 * 60;
-const MAX_REFUSAL_COUNT = 2;
 const RESULTS_DURATION = 2 * 60;
+
+// ЛУ крупной нефтегазовой компании, доступные для обмена
+const COMPANY_LU_CELLS = ['B5', 'C5', 'B6', 'C6'];
 
 const COLS_BY_YEAR = {
   1: ['srr_2d', 'srr_3d', '1pr'],
@@ -100,8 +102,15 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
 
   const [showFinalModal, setShowFinalModal] = useState(false);
   const [showRefusalModal, setShowRefusalModal] = useState(false);
+  const [showPostRefusalModal, setShowPostRefusalModal] = useState(false);
+  const [showCompanyExchangeModal, setShowCompanyExchangeModal] = useState(false);
+  const [exchangeMyRef, setExchangeMyRef] = useState(null);
+  const [exchangeCompanyRef, setExchangeCompanyRef] = useState(null);
   const [showYearConfirm, setShowYearConfirm] = useState(false);
   const [refusalRefs, setRefusalRefs] = useState([]);
+
+  const keepCount = globalYear === 5 ? 1 : 2;
+  const requiredRefusalCount = Math.max(0, Object.keys(gridCells.owned).length - keepCount);
   const [purchaseModal, setPurchaseModal] = useState(null);
 
   const [refusalLeft, setRefusalLeft] = useState(0);
@@ -299,9 +308,14 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     }
 
     setRefusalRefs([]);
-    goToNextYear();
-    setTimeout(() => setShowYearResultsModal(true), 200);
-  }, [isOnline, socket, goToNextYear, stopRefusalTimer]);
+    setShowRefusalModal(false);
+    if (globalYear === 3) {
+      setShowPostRefusalModal(true);
+    } else {
+      goToNextYear();
+      setTimeout(() => setShowYearResultsModal(true), 200);
+    }
+  }, [isOnline, socket, stopRefusalTimer, globalYear, goToNextYear]);
 
   const _applyRefusalLocally = (refsToRemove) => {
     const st = useGameStore.getState();
@@ -316,10 +330,59 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     setSelectedLUs(p => p.filter(id => !refsToRemove.includes(id)));
   };
 
+  const handleCompanyExchange = () => {
+    if (!exchangeMyRef || !exchangeCompanyRef) return;
+    const st = useGameStore.getState();
+    const newOwned = { ...st.gridCells.owned };
+    const newAll   = { ...st.gridCells.allTeams };
+
+    // Отдаём свой ЛУ
+    delete newOwned[exchangeMyRef];
+    delete newAll[exchangeMyRef];
+
+    // Получаем ЛУ компании
+    newOwned[exchangeCompanyRef] = {
+      cellRef: exchangeCompanyRef,
+      name: `Участок ${exchangeCompanyRef}`,
+      ownedByTeamId: player.teamId,
+      ownedByTeamName: player.teamName,
+      auctionPrice: 0,
+      fromCompanyExchange: true,
+    };
+    newAll[exchangeCompanyRef] = {
+      cellRef: exchangeCompanyRef,
+      ownedByTeamId: player.teamId,
+      ownedByTeamName: player.teamName,
+    };
+
+    useGameStore.setState({
+      gridCells: { owned: newOwned, allTeams: newAll },
+      licenseUnits: { ...st.licenseUnits, current: Object.values(newOwned)[0] || null },
+    });
+
+    if (activeLU?.cellRef === exchangeMyRef) setActiveLU(null);
+    setSelectedLUs(p => p.filter(id => id !== exchangeMyRef));
+
+    if (isOnline && socket?.connected) {
+      socket.emit('cell:company_exchange', {
+        releaseRef: exchangeMyRef,
+        acquireRef: exchangeCompanyRef,
+      });
+    }
+
+    setExchangeMyRef(null);
+    setExchangeCompanyRef(null);
+    setShowCompanyExchangeModal(false);
+    goToNextYear();
+    setTimeout(() => setShowYearResultsModal(true), 200);
+  };
+
   const toggleRefusalRef = (cellRef) => {
+    const keep = globalYear === 5 ? 1 : 2;
+    const maxRefusal = Math.max(0, Object.keys(useGameStore.getState().gridCells.owned).length - keep);
     setRefusalRefs(prev => {
       if (prev.includes(cellRef)) return prev.filter(r => r !== cellRef);
-      if (prev.length >= MAX_REFUSAL_COUNT) return prev;
+      if (prev.length >= maxRefusal) return prev;
       return [...prev, cellRef];
     });
   };
@@ -1219,30 +1282,133 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       {showRefusalModal && (
         <div className={styles.cellModalOverlay}>
           <div className={styles.cellModal} onClick={e => e.stopPropagation()} style={{ maxWidth: 700, width: '95%' }}>
-            <h3 style={{ textAlign: 'center', color: '#e65100' }}>Возможность отказа от участка</h3>
+            <h3 style={{ textAlign: 'center', color: '#e65100' }}>Отказ от лицензионных участков</h3>
             <div className={styles.modalInfo}>
               <div style={{ textAlign: 'center', padding: '6px 14px', background: '#fff3e0', borderRadius: 8, border: '2px solid #ff9800', margin: '0 0 8px 0' }}>
                 <span style={{ fontWeight: 700, fontSize: '1.1rem', color: '#e65100' }}>Время: {fmt(refusalLeft)}</span>
               </div>
-              <p style={{ textAlign: 'center', lineHeight: 1.5, margin: '0 0 8px 0' }}>
-                {globalYear === 3
-                  ? `После 3 года можно отказаться от до ${MAX_REFUSAL_COUNT} участков.`
-                  : `После 5 года можно отказаться от до ${MAX_REFUSAL_COUNT} участков.`}
-              </p>
+              {globalYear === 5 ? (
+                <p style={{ textAlign: 'center', lineHeight: 1.5, margin: '0 0 8px 0' }}>
+                  После 5-го года ваша команда продолжает разработку только на <strong>одном участке</strong>.
+                  У вас <strong>{ownedLUs.length}</strong> {ownedLUs.length === 1 ? 'участок' : 'участка(-ов)'} — необходимо отказаться
+                  от <strong>{requiredRefusalCount}</strong> {requiredRefusalCount === 1 ? 'участка' : 'участков'}.
+                  Выберите {requiredRefusalCount === 1 ? 'его' : 'их'} на карте.
+                </p>
+              ) : (
+                <p style={{ textAlign: 'center', lineHeight: 1.5, margin: '0 0 8px 0' }}>
+                  У вас <strong>{ownedLUs.length} участка(-ов)</strong>. Необходимо отказаться
+                  от <strong>{requiredRefusalCount}</strong> {requiredRefusalCount === 1 ? 'участка' : 'участков'}.
+                  Выберите {requiredRefusalCount === 1 ? 'его' : 'их'} на карте.
+                </p>
+              )}
               {ownedLUs.length > 0
-                ? <RefusalMap ownedCells={useGameStore.getState().gridCells.owned} allTeamsCells={useGameStore.getState().gridCells.allTeams} selectedRefs={refusalRefs} maxCount={MAX_REFUSAL_COUNT} onToggle={toggleRefusalRef} />
+                ? <RefusalMap ownedCells={gridCells.owned} allTeamsCells={gridCells.allTeams} selectedRefs={refusalRefs} maxCount={requiredRefusalCount} onToggle={toggleRefusalRef} />
                 : <p style={{ textAlign: 'center', color: '#999' }}>Нет участков для отказа</p>}
             </div>
             <div className={styles.modalActions}>
-              <button className={styles.purchaseModalBtn}
-                onClick={() => { if (refusalRefs.length === 0 && ownedLUs.length > 0) { return; } handleRefusalAccept(refusalRefs); }}
-                style={{ background: '#e65100' }}>
-                {refusalRefs.length > 0 ? `Отказаться от: ${refusalRefs.join(', ')}` : 'Пропустить и продолжить'}
+              <button
+                className={styles.purchaseModalBtn}
+                onClick={() => handleRefusalAccept(refusalRefs)}
+                disabled={refusalRefs.length !== requiredRefusalCount}
+                style={{ background: refusalRefs.length === requiredRefusalCount ? '#e65100' : '#bbb', cursor: refusalRefs.length === requiredRefusalCount ? 'pointer' : 'not-allowed' }}
+              >
+                {refusalRefs.length === requiredRefusalCount
+                  ? `Отказаться от: ${refusalRefs.join(', ')}`
+                  : `Выберите ещё ${requiredRefusalCount - refusalRefs.length} участок(-ов)`}
               </button>
-              <button className={styles.cancelModalBtn} onClick={() => { setRefusalRefs([]); handleRefusalAccept([]); }}>Продолжить с текущими</button>
             </div>
           </div>
           <RefusalTour onDone={() => { }} />
+        </div>
+      )}
+
+      {showPostRefusalModal && (
+        <div className={styles.cellModalOverlay}>
+          <div className={styles.cellModal} onClick={e => e.stopPropagation()} style={{ maxWidth: 580, width: '95%' }}>
+            <h3 style={{ textAlign: 'center', color: '#1565c0' }}>Предложение от крупной нефтегазовой компании</h3>
+            <div className={styles.modalInfo}>
+              <p style={{ textAlign: 'center', lineHeight: 1.7, fontSize: '1.05rem', margin: '0 0 12px 0' }}>
+                Крупная нефтегазовая компания предлагает вам обменять ещё один из ваших лицензионных участков
+                на один из её участков. Вы можете согласиться или отказаться и продолжить с текущими участками.
+              </p>
+            </div>
+            <div className={styles.modalActions}>
+              <button
+                className={styles.purchaseModalBtn}
+                style={{ background: '#1565c0' }}
+                onClick={() => {
+                  setShowPostRefusalModal(false);
+                  setExchangeMyRef(null);
+                  setExchangeCompanyRef(null);
+                  setShowCompanyExchangeModal(true);
+                }}
+              >
+                Согласиться на обмен
+              </button>
+              <button
+                className={styles.cancelModalBtn}
+                onClick={() => {
+                  setShowPostRefusalModal(false);
+                  goToNextYear();
+                  setTimeout(() => setShowYearResultsModal(true), 200);
+                }}
+              >
+                Отказаться, продолжить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCompanyExchangeModal && (
+        <div className={styles.cellModalOverlay}>
+          <div className={styles.cellModal} onClick={e => e.stopPropagation()} style={{ maxWidth: 820, width: '97%' }}>
+            <h3 style={{ textAlign: 'center', color: '#1565c0' }}>Обмен участками с компанией</h3>
+            <div className={styles.modalInfo}>
+              <p style={{ textAlign: 'center', color: '#555', marginBottom: 12, fontSize: '0.95rem' }}>
+                Нажмите на <strong style={{ color: '#0d47a1' }}>свой участок</strong> (синий) чтобы отдать,
+                затем на <strong style={{ color: '#bf360c' }}>участок компании</strong> (оранжевый) чтобы получить.
+              </p>
+              <RefusalMap
+                mode="exchange"
+                ownedCells={gridCells.owned}
+                allTeamsCells={gridCells.allTeams}
+                companyCells={COMPANY_LU_CELLS}
+                selectedMyRef={exchangeMyRef}
+                selectedCompanyRef={exchangeCompanyRef}
+                onSelectMy={setExchangeMyRef}
+                onSelectCompany={setExchangeCompanyRef}
+              />
+            </div>
+
+            <div className={styles.modalActions}>
+              <button
+                className={styles.purchaseModalBtn}
+                disabled={!exchangeMyRef || !exchangeCompanyRef}
+                style={{
+                  background: exchangeMyRef && exchangeCompanyRef ? '#1565c0' : '#bbb',
+                  cursor: exchangeMyRef && exchangeCompanyRef ? 'pointer' : 'not-allowed',
+                }}
+                onClick={handleCompanyExchange}
+              >
+                {exchangeMyRef && exchangeCompanyRef
+                  ? `Обменять ${exchangeMyRef} → ${exchangeCompanyRef}`
+                  : 'Выберите оба участка'}
+              </button>
+              <button
+                className={styles.cancelModalBtn}
+                onClick={() => {
+                  setShowCompanyExchangeModal(false);
+                  setExchangeMyRef(null);
+                  setExchangeCompanyRef(null);
+                  goToNextYear();
+                  setTimeout(() => setShowYearResultsModal(true), 200);
+                }}
+              >
+                Отказаться от обмена
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
