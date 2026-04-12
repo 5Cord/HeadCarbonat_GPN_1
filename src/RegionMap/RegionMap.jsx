@@ -6,6 +6,7 @@ import GlobalTimer from '../GlobalTimer';
 import AuctionDashboard from './Auctiondashboard';
 import RegionMapTour from './Regionmaptour';
 import { getSocket } from '../apiHelpers';
+import { getLastSuccessfulSceneImage, getSceneImageFromMeta } from '../Research/sceneUtils';
 
 const LICENSE_UNITS = [
   { id: 'well1', name: 'Парам. скважина №1', shortName: '1', cost: 10, cellRef: 'A2', position: 'top-left', customStyle: { top: '-130px', left: '0px' }, labelLeft: '0px', description: 'Целевой комплекс: светлые слоистые строматолитовые доломиты с прослоями гипса и ангидрита. Свойства: доломиты слабо пористые, с редкими выпотами густой нефти.', hasImage: false },
@@ -118,7 +119,10 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
     purchaseLU, purchaseGridCell, placeBid, finalizeAuction,
     registerForAuction, getMyAuctionParticipation, simulateOtherTeamOwns,
     unpurchaseGridCell, unregisterFromAuction,
+    fieldWork, events,
   } = useGameStore();
+
+  const otherTeamsScene = useGameStore(s => s.otherTeamsScene);
 
   const sessionConfig = player.sessionConfig ?? {};
   const MAX_LUS_PER_TEAM = sessionConfig.maxLUsPerTeam ?? 5;
@@ -775,6 +779,24 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                     const isAutoAssigned = ownedCells[cellId]?.isAutoAssigned;
                     const isDisabled = !isOurPhase || (currentPhase === 'auction' && !hasActiveAuction);
 
+                    const sceneImg = ownedByMe
+                      ? getLastSuccessfulSceneImage(
+                          cellId,
+                          fieldWork.selectionsByLU[cellId],
+                          events,
+                          globalTimer.currentYear,
+                        )
+                      : null;
+
+                    const enemyCellData  = otherTeamsScene[cellId];
+                    const enemySceneImg  = ownedByOther && enemyCellData
+                      ? getSceneImageFromMeta(
+                          cellId,
+                          enemyCellData.metaByYear,
+                          enemyCellData.evScoreByYear,
+                        )
+                      : null;
+
                     return (
                       <div key={cellId} className="cell-with-lu-wrapper">
                         <div
@@ -783,15 +805,33 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                           onMouseMove={(e) => setCellTooltip({ cellId, x: e.clientX, y: e.clientY })}
                           onMouseLeave={() => setCellTooltip(null)}
                         >
-                          <span className="cell-label">{cellId}</span>
-                          {ownedByMe && isContested && <span className="cell-mark cell-mark-contested">⚔</span>}
-                          {ownedByMe && !isContested && isAutoAssigned && <span className="cell-mark cell-mark-auto">🎲</span>}
-                          {ownedByMe && !isContested && !isAutoAssigned && <span className="cell-mark cell-mark-own">OK</span>}
-                          {ownedByOther && <span className="cell-mark cell-mark-other">!</span>}
-                          {hasActiveAuction && !ownedByMe && !ownedByOther && <span className="cell-mark cell-mark-auction">LIVE</span>}
-                          {isPendingAuction && <span className="cell-mark cell-mark-pending">WAIT</span>}
-                          {blockedType && <span className="cell-mark cell-mark-blocked"></span>}
-                          {isDisabled && !blockedType && !hasActiveAuction && <span className="cell-mark cell-mark-timer"></span>}
+                          {sceneImg ? (
+                            <div className="cell-scene-img-wrap">
+                              <img src={sceneImg} alt={cellId} className="cell-scene-img" />
+                              <span className="cell-scene-label">{cellId}</span>
+                              {isContested && <span className="cell-mark cell-mark-contested" style={{ position: 'absolute', top: 2, left: 3 }}>⚔</span>}
+                            </div>
+                          ) : (
+                            <>
+                              <span className="cell-label">{cellId}</span>
+                              {ownedByMe && isContested && <span className="cell-mark cell-mark-contested">⚔</span>}
+                              {ownedByMe && !isContested && isAutoAssigned && <span className="cell-mark cell-mark-auto">🎲</span>}
+                              {ownedByMe && !isContested && !isAutoAssigned && <span className="cell-mark cell-mark-own">OK</span>}
+                            </>
+                          )}
+                          {!sceneImg && ownedByOther && !enemySceneImg && <span className="cell-mark cell-mark-other">!</span>}
+                          {!sceneImg && ownedByOther && enemySceneImg && (
+                            <div className="cell-scene-img-wrap">
+                              <img src={enemySceneImg} alt={cellId} className="cell-scene-img" />
+                              <div className="cell-scene-enemy-overlay" />
+                              <span className="cell-scene-enemy-badge">!</span>
+                              <span className="cell-scene-label">{cellId}</span>
+                            </div>
+                          )}
+                          {!sceneImg && !enemySceneImg && hasActiveAuction && !ownedByMe && !ownedByOther && <span className="cell-mark cell-mark-auction">LIVE</span>}
+                          {!sceneImg && !enemySceneImg && isPendingAuction && <span className="cell-mark cell-mark-pending">WAIT</span>}
+                          {!sceneImg && blockedType && <span className="cell-mark cell-mark-blocked"></span>}
+                          {!sceneImg && !enemySceneImg && isDisabled && !blockedType && !hasActiveAuction && <span className="cell-mark cell-mark-timer"></span>}
                         </div>
 
                         {lu && (

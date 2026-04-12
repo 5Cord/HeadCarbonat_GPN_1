@@ -162,6 +162,10 @@ const useGameStore = create(
           totalSpentByYear: {},
         },
 
+        // Данные других команд для отображения картинок сценариев на карте
+        // { [cellRef]: { metaByYear: { [year]: { avgRank } }, evScoreByYear: { [year]: evScore } } }
+        otherTeamsScene: {},
+
         results: {
           cardsByLU: {},
           finalScore: 0,
@@ -921,6 +925,7 @@ const useGameStore = create(
             events: { linesByLU: {}, revealedCards: {}, lineScores: {}, skippedLines: {}, historyByYear: {}, isCompleted: false, yearScores: {}, yearlyStats: {}, totalMoneySpent: 0, moneySpentByYear: {} },
             statistics: { yearlyData: {} },
             fieldWork: { availableOptions: [], selectionsByLU: {}, totalSpent: 0, totalSpentByYear: {} },
+            otherTeamsScene: {},
             results: { cardsByLU: {}, finalScore: 0 },
             globalTimer: {
               currentYear: 1,

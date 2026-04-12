@@ -93,3 +93,67 @@ export const resolveSceneImage = (scenario, workId, rowNum, type) => {
   const key = `/src/assets/scene/${scenario}/${map.folder}/${prefix}_${map.fileKey}_${rowNum}_${type}.jpg`;
   return sceneImages[key] ?? null;
 };
+
+// Порядок приоритета work-типов при выборе представительской картинки для карты
+const MAP_WORK_PRIORITY = [
+  '1pr', 'drilling_5gs', 'drilling_6gs', 'srr_3d', 'srr_2d',
+  '3r', 'mun', 'depression', 'bsko', 'ppd', '3bs',
+];
+
+// Возвращает URL картинки для ячейки другой команды по уже структурированным данным.
+// metaByYear    = { [year]: { avgRank } }
+// evScoreByYear = { [year]: evScore }
+export const getSceneImageFromMeta = (cellRef, metaByYear, evScoreByYear) => {
+  if (!cellRef || !metaByYear) return null;
+  const scenario = getScenario(cellRef);
+  if (scenario == null) return null;
+
+  const workedYears = Object.keys(metaByYear)
+    .map(Number)
+    .filter(y => metaByYear[y]?.avgRank != null)
+    .sort((a, b) => b - a);
+
+  for (const y of workedYears) {
+    const evScore = evScoreByYear?.[y] ?? 0;
+    if (evScore < 0) continue;
+    const avgRank = metaByYear[y].avgRank;
+    for (const workId of MAP_WORK_PRIORITY) {
+      const img = resolveSceneImage(scenario, workId, avgRank, 'к');
+      if (img) return img;
+    }
+  }
+  return null;
+};
+
+// Возвращает URL картинки последнего успешного года для ячейки карты региона.
+// fwData = fieldWork.selectionsByLU[cellRef]
+// events = store.events (нужны lineScores и historyByYear)
+// currentYear = globalTimer.currentYear
+export const getLastSuccessfulSceneImage = (cellRef, fwData, events, currentYear) => {
+  if (!fwData || !cellRef) return null;
+  const scenario = getScenario(cellRef);
+  if (scenario == null) return null;
+
+  const meta = fwData.metaByYear || {};
+  const workedYears = Object.keys(meta)
+    .map(Number)
+    .filter(y => meta[y]?.avgRank != null)
+    .sort((a, b) => b - a); // последний год первым
+
+  for (const y of workedYears) {
+    const evScore = y < currentYear
+      ? (events.historyByYear?.[y]?.lineScores?.[cellRef] ?? 0)
+      : (events.lineScores?.[cellRef] ?? 0);
+
+    if (evScore < 0) continue; // провальный год — пропускаем
+
+    const avgRank = meta[y].avgRank;
+
+    for (const workId of MAP_WORK_PRIORITY) {
+      const img = resolveSceneImage(scenario, workId, avgRank, 'к');
+      if (img) return img;
+    }
+  }
+
+  return null;
+};

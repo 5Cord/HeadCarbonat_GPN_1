@@ -95,8 +95,9 @@ export default function useSocket() {
             owned[ref] = { ...cell, cellRef: ref, id: ref, name: `Участок ${ref}` };
           }
         });
-        useGameStore.setState(() => ({
+        useGameStore.setState(st => ({
           gridCells: { owned, allTeams: cells },
+          otherTeamsScene: _mergeSceneFromCells(cells, myId, st.otherTeamsScene),
         }));
       },
 
@@ -243,6 +244,7 @@ export default function useSocket() {
             player:      budget != null ? { ...st.player, budget } : st.player,
             research:    restoredResearch,
             events:      restoredEvents,
+            otherTeamsScene: _mergeSceneFromCells(allTeams, myId, st.otherTeamsScene),
           };
         });
       },
@@ -254,6 +256,42 @@ export default function useSocket() {
 
       onGameOver: () => {
         useGameStore.setState(st => ({ game: { ...st.game, status: 'FINISHED' } }));
+      },
+
+      onFieldworkTeamUpdate: ({ teamId, cellRef, year, avgRank }) => {
+        useGameStore.setState(st => {
+          const prev = st.otherTeamsScene[cellRef] || { metaByYear: {}, evScoreByYear: {} };
+          return {
+            otherTeamsScene: {
+              ...st.otherTeamsScene,
+              [cellRef]: {
+                ...prev,
+                metaByYear: {
+                  ...prev.metaByYear,
+                  [year]: { ...(prev.metaByYear[year] || {}), avgRank },
+                },
+              },
+            },
+          };
+        });
+      },
+
+      onEventsTeamUpdate: ({ teamId, cellRef, year, evScore }) => {
+        useGameStore.setState(st => {
+          const prev = st.otherTeamsScene[cellRef] || { metaByYear: {}, evScoreByYear: {} };
+          return {
+            otherTeamsScene: {
+              ...st.otherTeamsScene,
+              [cellRef]: {
+                ...prev,
+                evScoreByYear: {
+                  ...prev.evScoreByYear,
+                  [year]: evScore,
+                },
+              },
+            },
+          };
+        });
       },
 
       onTeamJoined:  ({ teamName }) => console.log(`🟢 ${teamName} joined`),
@@ -297,6 +335,22 @@ export default function useSocket() {
   // Важно: зависимость от token и sessionId — при обновлении страницы
   // persist восстанавливает их, useEffect запускается заново
   }, [player.token, player.sessionId]);
+}
+
+// Извлекает fieldworkByYear из данных ячеек других команд
+// и мёржит в текущий otherTeamsScene, не затирая данные от fieldwork:team_update
+function _mergeSceneFromCells(cells, myId, prevScene) {
+  const next = { ...prevScene };
+  Object.entries(cells || {}).forEach(([ref, cell]) => {
+    if (!cell?.ownedByTeamId || cell.ownedByTeamId === myId) return;
+    if (!cell.fieldworkByYear || !Object.keys(cell.fieldworkByYear).length) return;
+    const prev = next[ref] || { metaByYear: {}, evScoreByYear: {} };
+    next[ref] = {
+      ...prev,
+      metaByYear: { ...cell.fieldworkByYear, ...prev.metaByYear },
+    };
+  });
+  return next;
 }
 
 function _fmt(a) {
