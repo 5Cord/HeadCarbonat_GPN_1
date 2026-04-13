@@ -7,6 +7,7 @@ import RefusalMap from './RefusalMap';
 import ResearchPanelTour, { RefusalTour } from './Researchpaneltour';
 import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
+import { getLastSuccessfulSceneImage, getSceneImageFromMeta } from './sceneUtils';
 
 
 const REFUSAL_YEARS = [3, 5];
@@ -91,6 +92,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
 
   const globalTimer = useGameStore(s => s.globalTimer);
   const globalYear = useGameStore(s => s.game.currentYear);
+  const otherTeamsScene = useGameStore(s => s.otherTeamsScene);
   const timeRemaining = globalTimer.timeRemaining;
 
   const socket = getSocket();
@@ -649,6 +651,28 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     (licenseUnits?.owned ?? []).reduce((s, lu) => s + (lu.cost || 0), 0) +
     Object.values(gridCells?.owned ?? {}).reduce((s, c) => s + (c.auctionPrice || 0), 0);
 
+
+  const ROWS = ['A','B','C','D','E','F','G','H','I','J'];
+  const COLS = [1,2,3,4,5,6,7,8,9,10];
+  const sceneImages = useMemo(() => {
+    const map = {};
+    for (const row of ROWS) {
+      for (const col of COLS) {
+        const cellRef = `${row}${col}`;
+        if (gridCells.owned[cellRef]) {
+          const img = getLastSuccessfulSceneImage(cellRef, fieldWork.selectionsByLU?.[cellRef], events, globalYear);
+          if (img) map[cellRef] = img;
+        } else {
+          const scene = otherTeamsScene[cellRef];
+          if (scene) {
+            const img = getSceneImageFromMeta(cellRef, scene.metaByYear, scene.evScoreByYear);
+            if (img) map[cellRef] = img;
+          }
+        }
+      }
+    }
+    return map;
+  }, [gridCells.owned, fieldWork.selectionsByLU, events, globalYear, otherTeamsScene]);
 
   const getResultsTimerColor = () => {
     if (resultsTimeRemaining <= 10) return { bg: '#ffebee', border: '#c62828', text: '#c62828' };
@@ -1302,7 +1326,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                 </p>
               )}
               {ownedLUs.length > 0
-                ? <RefusalMap ownedCells={gridCells.owned} allTeamsCells={gridCells.allTeams} selectedRefs={refusalRefs} maxCount={requiredRefusalCount} onToggle={toggleRefusalRef} />
+                ? <RefusalMap ownedCells={gridCells.owned} allTeamsCells={gridCells.allTeams} selectedRefs={refusalRefs} maxCount={requiredRefusalCount} onToggle={toggleRefusalRef} sceneImages={sceneImages} />
                 : <p style={{ textAlign: 'center', color: '#999' }}>Нет участков для отказа</p>}
             </div>
             <div className={styles.modalActions}>
@@ -1378,6 +1402,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                 selectedCompanyRef={exchangeCompanyRef}
                 onSelectMy={setExchangeMyRef}
                 onSelectCompany={setExchangeCompanyRef}
+                sceneImages={sceneImages}
               />
             </div>
 

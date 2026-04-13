@@ -40,6 +40,7 @@ const RefusalMap = ({
   maxCount = 1,
   onToggle,
   allTeamsCells = {},
+  sceneImages = {},
   // exchange mode
   companyCells = [],
   selectedMyRef = null,
@@ -107,6 +108,7 @@ const RefusalMap = ({
                   else if (isCompany) onSelectCompany?.(isReceive ? null : cellRef);
                 };
 
+                const sceneImg = sceneImages[cellRef];
                 return (
                   <div
                     key={cellRef}
@@ -123,6 +125,7 @@ const RefusalMap = ({
                     }
                     style={{ cursor: (isOwned || isCompany) ? 'pointer' : 'default' }}
                   >
+                    {sceneImg && <img className="refusal-cell-scene-img" src={sceneImg} alt="" />}
                     <span className="refusal-cell-label">{cellRef}</span>
                     {isGive    && <span className="refusal-cell-mark" style={{ color: '#c62828' }}>✕</span>}
                     {isReceive && <span className="refusal-cell-mark" style={{ color: '#1565c0' }}>✓</span>}
@@ -145,6 +148,7 @@ const RefusalMap = ({
               else if (isOwned)    cls += ' refusal-cell-own';
               else if (isOther)    cls += ' refusal-cell-other';
 
+              const sceneImg = sceneImages[cellRef];
               return (
                 <div
                   key={cellRef}
@@ -158,6 +162,7 @@ const RefusalMap = ({
                                   cellRef
                   }
                 >
+                  {sceneImg && <img className="refusal-cell-scene-img" src={sceneImg} alt="" />}
                   <span className="refusal-cell-label">{cellRef}</span>
                   {isSelected && <span className="refusal-cell-mark">✕</span>}
                 </div>

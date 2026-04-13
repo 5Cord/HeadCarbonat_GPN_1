@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import useGameStore from '../../store/gameStore';
+import { disconnectSocket } from '../apiHelpers';
 
 const API_BASE = import.meta.env.VITE_WS_URL || '';
 
@@ -200,6 +201,7 @@ const TeamCard = ({ team, rank, isMe }) => {
 
 const GameOverScreen = () => {
     const player = useGameStore((s) => s.player);
+    const resetGame = useGameStore((s) => s.resetGame);
     const sessionId = player?.sessionId || player?.sessionConfig?.sessionId;
     const myTeamId = player?.teamId;
 
@@ -207,6 +209,13 @@ const GameOverScreen = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [retries, setRetries] = useState(0);
+
+    const handleCloseSession = () => {
+        disconnectSocket();
+        resetGame();
+        localStorage.clear();
+        sessionStorage.clear();
+    };
 
     const load = useCallback(async () => {
         if (!sessionId) {
@@ -407,6 +416,30 @@ const GameOverScreen = () => {
                             </div>
                         </>
                     )}
+
+                    {/* Кнопка завершения — показывается всегда */}
+                    <div style={{ textAlign: 'center', marginTop: 28 }}>
+                        <button
+                            onClick={handleCloseSession}
+                            style={{
+                                padding: '12px 36px',
+                                background: 'linear-gradient(135deg, #1a3a2e 0%, #2fa394 100%)',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: 10,
+                                fontWeight: 700,
+                                fontSize: '1rem',
+                                cursor: 'pointer',
+                                letterSpacing: '0.02em',
+                                boxShadow: '0 4px 16px rgba(47,163,148,0.3)',
+                            }}
+                        >
+                            Завершить сессию
+                        </button>
+                        <div style={{ marginTop: 8, fontSize: '0.78rem', color: '#aaa' }}>
+                            Вернёт на экран входа. Повторно подключиться к этой сессии невозможно.
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

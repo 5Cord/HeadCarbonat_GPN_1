@@ -247,7 +247,24 @@ const GameLobby = () => {
         setStep('team');
     };
 
+    const TOUR_KEYS = [
+        'regionMap_tourDone',
+        'researchPanel_tourDone',
+        'refusalMap_tourDone',
+        'fieldWorkPanel_tourDone',
+        'resultsPanel_tourDone',
+        'eventsZone_tourDone',
+    ];
+
     const handleJoin = (result) => {
+        // Если команда входит в новую сессию — сбрасываем статус игры и туторы
+        const prevSessionId = useGameStore.getState().player.sessionId;
+        const newSessionId  = result.sessionConfig?.sessionId;
+        if (prevSessionId !== newSessionId) {
+            useGameStore.setState(s => ({ game: { ...s.game, status: 'IN_PROGRESS' } }));
+            TOUR_KEYS.forEach(k => localStorage.removeItem(k));
+        }
+
         // 1. Сохраняем данные команды
         setTeam({
             name:             result.teamName,
