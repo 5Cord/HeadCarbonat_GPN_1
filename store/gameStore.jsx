@@ -179,6 +179,7 @@ const useGameStore = create(
 
         navigateToResearch: false,
         navigateToRefusal: false,
+        triggerRefusal: false,
         yearEndToast: false,
 
         // ── Текущий экран ─────────────────────────────────────────────────
@@ -195,6 +196,7 @@ const useGameStore = create(
 
         setNavigateToResearch: (value) => set({ navigateToResearch: value }),
         setNavigateToRefusal: (value) => set({ navigateToRefusal: value }),
+        setTriggerRefusal: (value) => set({ triggerRefusal: value }),
         setYearEndToast: (value) => set({ yearEndToast: value }),
 
         // ── Таймер: методы ────────────────────────────────────────────────────
@@ -993,6 +995,7 @@ const useGameStore = create(
             cellScenarios: {},
             cellScenariosProcessedYear: 0,
             results: { cardsByLU: {}, finalScore: 0 },
+            triggerRefusal: false,
             globalTimer: {
               currentYear: 1,
               timeRemaining: globalTimer.yearDurations?.[1] ?? YEAR_DURATIONS[1],

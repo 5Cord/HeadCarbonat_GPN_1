@@ -279,6 +279,15 @@ export default function RegionMapTour({ onDone, maxLUs = 5 }) {
     return () => window.removeEventListener('resize', updateRect);
   }, [step, visible]);
 
+  useEffect(() => {
+    if (!visible) return;
+    const handleKey = (e) => {
+      if (e.key === 'Enter') setStep(s => Math.min(TOUR_STEPS.length - 1, s + 1));
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [visible, TOUR_STEPS.length]);
+
   if (!visible) return null;
 
   const current = TOUR_STEPS[step];

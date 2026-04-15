@@ -93,6 +93,8 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   const globalTimer = useGameStore(s => s.globalTimer);
   const globalYear = useGameStore(s => s.game.currentYear);
   const otherTeamsScene = useGameStore(s => s.otherTeamsScene);
+  const triggerRefusal = useGameStore(s => s.triggerRefusal);
+  const setTriggerRefusal = useGameStore(s => s.setTriggerRefusal);
   const timeRemaining = globalTimer.timeRemaining;
 
   const socket = getSocket();
@@ -217,6 +219,14 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       if (resultsTimerRef.current) clearInterval(resultsTimerRef.current);
     };
   }, []);
+
+  // Открываем модалку отказа, если пришли с экрана ResultsPanel
+  useEffect(() => {
+    if (!triggerRefusal) return;
+    setTriggerRefusal(false);
+    startRefusalTimer();
+    setShowRefusalModal(true);
+  }, [triggerRefusal]);
 
   const prevYearRef = useRef(globalYear);
   useEffect(() => {

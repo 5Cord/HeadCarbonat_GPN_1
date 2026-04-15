@@ -38,6 +38,7 @@ const GameBoard = () => {
         purchaseLU, getCurrentLU, globalTimer,
         navigateToResearch, setNavigateToResearch,
         navigateToRefusal, setNavigateToRefusal,
+        setTriggerRefusal,
     } = useGameStore();
 
     const MAX_LUS_PER_TEAM = player.sessionConfig?.maxLUsPerTeam ?? 5;
@@ -80,6 +81,7 @@ const GameBoard = () => {
     useEffect(() => {
         if (!navigateToRefusal) return;
         setNavigateToRefusal(false);
+        setTriggerRefusal(true);
         setExpandedField(1);
     }, [navigateToRefusal]);
 

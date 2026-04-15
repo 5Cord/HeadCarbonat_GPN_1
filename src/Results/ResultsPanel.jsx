@@ -340,6 +340,11 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
   const confirmFinishYear = () => {
     setShowConfirm(false);
 
+    if ([3, 5].includes(globalYear)) {
+      setNavigateToRefusal(true);
+      return;
+    }
+
     const socket = getSocket();
     const isOnline = !!(socket?.connected && player.sessionId);
 

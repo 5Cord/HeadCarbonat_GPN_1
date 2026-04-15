@@ -212,6 +212,14 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   // Action в store сам проверяет, обрабатывался ли уже этот год (idempotent),
   // поэтому повторный вход на карту не перегенерирует сценарии.
   useEffect(() => {
+    // В онлайн-режиме сценарии приходят с сервера — клиентская генерация не нужна
+    const socket = getSocket();
+    const isOnline = !!(socket?.connected && player.sessionId);
+    if (isOnline) return;
+
+    // Сценарии появляются только после завершения первого года
+    if (globalYear < 2) return;
+
     const allBlockedRefs = [
       ...BLOCKED_CELLS.reserve,
       ...BLOCKED_CELLS.settlement,
@@ -229,8 +237,18 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
       }
     }
 
+    const totalCells = rows.length * cols.length;
+    const blockedCount = allBlockedRefs.length;
+    const ownedCount = ownedByAnyTeam.size;
+    const freeCount = freeCellRefs.length;
+    const oneThird = Math.max(1, Math.ceil(freeCount / 3));
+
+    console.log(
+      `[RegionMap] Год ${globalYear} | Всего ячеек: ${totalCells} | Заблокировано (резервы/посёлки/компании): ${blockedCount} | Занято командами: ${ownedCount} | Свободных: ${freeCount} | 1/3 свободных: ${oneThird}`
+    );
+
     assignCellScenarios(globalYear, freeCellRefs);
-  }, [globalYear]);
+  }, [globalYear]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const contestedKeys = Object.keys(myContestedCells).sort().join(',');
   useEffect(() => {
@@ -494,6 +512,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const handleGridCellClick = (cellRef) => {
     if (!isOurPhase) { showAlert('Время истекло', 'Время на выбор участков истекло.'); return; }
     if (isBlocked(cellRef)) { showAlert('Участок недоступен', `Причина: ${getBlockedLabel(getBlockedType(cellRef))}`); return; }
+    if (cellScenarios[cellRef]) { showAlert('Участок недоступен', `Участок ${cellRef} занят случайным сценарием и не может быть куплен или оспорен.`); return; }
     if (selectedLU.length === 0) { setNoCardModal(true); return; }
     if (isOwnedByMe(cellRef)) {
       if (isMyContestedCell(cellRef)) {
@@ -539,6 +558,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
           if (!res?.ok) {
             if (res?.error === 'LIMIT') showAlert('Лимит', `Достигнут лимит ${MAX_LUS_PER_TEAM} участков.`);
             else if (res?.error === 'ALREADY_OWNED') showAlert('Уже ваш', 'Этот участок уже ваш.');
+            else if (res?.error === 'SCENARIO_CELL') showAlert('Участок недоступен', `Участок ${cellRef} занят случайным сценарием и не может быть куплен.`);
             else if (res?.action === 'auction') showAlert('Аукцион', `Участок занят, запущен аукцион за ${cellRef}`);
           }
         });

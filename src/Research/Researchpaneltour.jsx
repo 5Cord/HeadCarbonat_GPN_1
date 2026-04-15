@@ -488,6 +488,15 @@ export default function ResearchPanelTour({ globalYear, onDone }) {
     }
   }, [step, visible]);
 
+  useEffect(() => {
+    if (!visible) return;
+    const handleKey = (e) => {
+      if (e.key === 'Enter') setStep(s => Math.min(RESEARCH_TOUR_STEPS.length - 1, s + 1));
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [visible]);
+
   if (!visible) return null;
 
   const isLast = step === RESEARCH_TOUR_STEPS.length - 1;
@@ -605,6 +614,15 @@ export function RefusalTour({ onDone }) {
       tooltipRef.current.focus({ preventScroll: true });
     }
   }, [step, visible]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const handleKey = (e) => {
+      if (e.key === 'Enter') setStep(s => Math.min(REFUSAL_TOUR_STEPS.length - 1, s + 1));
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [visible]);
 
   if (!visible) return null;
 

@@ -345,6 +345,13 @@ export default function ResultsPanelTour({ globalYear, onDone }) {
     }
   }, [step, visible]);
 
+  useEffect(() => {
+    if (!visible) return;
+    const handleKey = (e) => { if (e.key === 'Enter') goToStep(step + 1); };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [step, visible]);
+
   if (!visible) return null;
 
   const total   = RESULTS_TOUR_STEPS.length;
