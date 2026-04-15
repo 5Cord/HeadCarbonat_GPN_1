@@ -5,6 +5,10 @@ import {
     adminLogin, getAdminSessionDetails,
 } from './apiHelpers';
 import { io as socketIO } from 'socket.io-client';
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+    Cell, ResponsiveContainer, PieChart, Pie,
+} from 'recharts';
 import './Adminpanel.css';
 
 const YEARS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -1207,6 +1211,287 @@ const TeamsMonitor = ({ sessionId }) => {
     );
 };
 
+// ── Dashboard: графики по командам ────────────────────────────────────────────
+const SPEND_CATS = [
+    { key: 'lu_card',   label: 'Карточки ЛУ', color: '#6366f1' },
+    { key: 'auction',   label: 'Аукцион',      color: '#f59e0b' },
+    { key: 'research',  label: 'НИР',          color: '#8b5cf6' },
+    { key: 'fieldwork', label: 'Полевые',      color: '#0ea5e9' },
+    { key: 'events',    label: 'События',      color: '#ec4899' },
+];
+
+const mlnFmt = v => `${Number(v || 0).toLocaleString('ru-RU', { maximumFractionDigits: 0 })} млн`;
+
+const PIE_COLORS = ['#6366f1','#f59e0b','#22c55e','#ef4444','#0ea5e9','#ec4899','#8b5cf6','#14b8a6'];
+
+const BudgetPieTooltip = ({ active, payload }) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0].payload;
+    const pct = d.initial > 0 ? Math.round((d.current / d.initial) * 100) : 0;
+    const color = pct > 60 ? '#16a34a' : pct > 30 ? '#d97706' : '#dc2626';
+    return (
+        <div className="dash-tooltip">
+            <div className="dash-tooltip-name">{d.name}</div>
+            <div>Текущий бюджет: <strong>{mlnFmt(d.current)}</strong></div>
+            <div>Начальный: {mlnFmt(d.initial)}</div>
+            <div>Остаток: <strong style={{ color }}>{pct}%</strong></div>
+            <div>Доля от общего: <strong>{d.sharePct}%</strong></div>
+        </div>
+    );
+};
+
+const SpendTooltip = ({ active, payload, label }) => {
+    if (!active || !payload?.length) return null;
+    const total = payload.reduce((s, p) => s + (p.value || 0), 0);
+    return (
+        <div className="dash-tooltip">
+            <div className="dash-tooltip-name">{label}</div>
+            {payload.map(p => p.value > 0 && (
+                <div key={p.dataKey} style={{ color: p.fill }}>
+                    {p.name}: <strong>{mlnFmt(p.value)}</strong>
+                </div>
+            ))}
+            <div style={{ marginTop: 4, borderTop: '1px solid #e2e8f0', paddingTop: 4 }}>
+                Итого: <strong>{mlnFmt(total)}</strong>
+            </div>
+        </div>
+    );
+};
+
+const LuTooltip = ({ active, payload, label }) => {
+    if (!active || !payload?.length) return null;
+    return (
+        <div className="dash-tooltip">
+            <div className="dash-tooltip-name">{label}</div>
+            <div>ЛУ: <strong>{payload[0].value}</strong></div>
+        </div>
+    );
+};
+
+const EventsTooltip = ({ active, payload, label }) => {
+    if (!active || !payload?.length) return null;
+    const correct = payload.find(p => p.dataKey === 'correct')?.value || 0;
+    const wrong   = payload.find(p => p.dataKey === 'wrong')?.value || 0;
+    const total   = correct + wrong;
+    const pct     = total > 0 ? Math.round((correct / total) * 100) : 0;
+    return (
+        <div className="dash-tooltip">
+            <div className="dash-tooltip-name">{label}</div>
+            <div style={{ color: '#16a34a' }}>Правильно: <strong>{correct}</strong></div>
+            <div style={{ color: '#dc2626' }}>Неправильно: <strong>{wrong}</strong></div>
+            <div style={{ marginTop: 4, borderTop: '1px solid #e2e8f0', paddingTop: 4 }}>
+                Точность: <strong>{pct}%</strong>
+            </div>
+        </div>
+    );
+};
+
+const CHART_MARGIN = { top: 8, right: 20, left: 10, bottom: 8 };
+
+const DashboardTab = ({ sessions, globalStats }) => {
+    const [sessId, setSessId] = useState('');
+    const [teamsData, setTeamsData] = useState(null);
+    const [expMap, setExpMap]     = useState({});
+    const [loading, setLoading]   = useState(false);
+
+    const load = async (sid) => {
+        if (!sid) return;
+        setLoading(true);
+        setTeamsData(null);
+        setExpMap({});
+        try {
+            const sessJson = await apiAction(`/api/admin/sessions/${sid}`, 'GET');
+            const teams = sessJson.teams ?? [];
+            const cells = sessJson.cells ?? [];
+
+            const expResults = await Promise.all(
+                teams.map(async (t) => {
+                    try {
+                        const j = await apiAction(`/api/admin/sessions/${sid}/team/${t.id}/expenses`, 'GET');
+                        return { teamId: t.id, spentByType: j.spentByType ?? {}, incomeByType: j.incomeByType ?? {}, eventStats: j.eventStats ?? null };
+                    } catch {
+                        return { teamId: t.id, spentByType: {}, incomeByType: {}, eventStats: null };
+                    }
+                })
+            );
+            const map = {};
+            expResults.forEach(({ teamId, spentByType, incomeByType, eventStats }) => {
+                map[teamId] = { spentByType, incomeByType, eventStats };
+            });
+
+            const teamCells = {};
+            cells.forEach(c => { if (c.team_id) (teamCells[c.team_id] ??= []).push(c.cell_ref); });
+
+            setTeamsData({ teams, teamCells, code: sessJson.code });
+            setExpMap(map);
+        } catch (e) { console.error(e); } finally { setLoading(false); }
+    };
+
+    const handleSessChange = (sid) => { setSessId(sid); load(sid); };
+
+    const teams  = teamsData?.teams ?? [];
+    const sorted = [...teams].sort((a, b) => b.budget - a.budget);
+
+    // ── Данные для графиков ──
+    const totalBudget = sorted.reduce((s, t) => s + (t.budget ?? 0), 0);
+    const budgetData = sorted.map(t => ({
+        name: t.name,
+        current: t.budget ?? 0,
+        initial: t.initial_budget ?? t.budget ?? 0,
+        sharePct: totalBudget > 0 ? Math.round(((t.budget ?? 0) / totalBudget) * 100) : 0,
+    }));
+
+    const spendData = sorted.map(t => {
+        const sp = expMap[t.id]?.spentByType ?? {};
+        return { name: t.name, ...Object.fromEntries(SPEND_CATS.map(c => [c.key, sp[c.key] || 0])) };
+    });
+
+    const luData = [...teams]
+        .sort((a, b) => (teamsData?.teamCells?.[b.id]?.length ?? 0) - (teamsData?.teamCells?.[a.id]?.length ?? 0))
+        .map(t => ({ name: t.name, lu: teamsData?.teamCells?.[t.id]?.length ?? 0 }));
+
+    const eventsData = sorted
+        .filter(t => expMap[t.id]?.eventStats)
+        .map(t => ({
+            name: t.name,
+            correct: expMap[t.id].eventStats.correctAnswers || 0,
+            wrong:   expMap[t.id].eventStats.wrongAnswers   || 0,
+        }));
+
+    const barH = Math.max(teams.length * 52 + 40, 200);
+
+    return (
+        <div className="dash-wrap">
+            {/* Глобальная статистика */}
+            {globalStats && (
+                <div className="dash-global-stats">
+                    {[
+                        ['Сессий',    globalStats.totalSessions  ?? 0],
+                        ['Команд',    globalStats.totalTeams     ?? 0],
+                        ['Активных',  globalStats.activeSessions ?? 0],
+                    ].map(([label, val]) => (
+                        <div key={label} className="dash-stat-pill">
+                            <span className="dash-stat-val">{val}</span>
+                            <span className="dash-stat-lbl">{label}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Селектор сессии + обновить */}
+            <div className="dash-controls">
+                <select className="tc-select" value={sessId} onChange={e => handleSessChange(e.target.value)}>
+                    <option value="">— выберите сессию —</option>
+                    {sessions.map(s => (
+                        <option key={s.id} value={s.id}>{s.code} · {s.status} · {s.teamsCount ?? 0} команд</option>
+                    ))}
+                </select>
+                <button className="tb tb-gray" onClick={() => load(sessId)} disabled={!sessId || loading}>
+                    ↻ Обновить
+                </button>
+            </div>
+
+            {loading && <div className="ap-loading">Загрузка данных…</div>}
+            {!sessId && !loading && <div className="dash-empty">Выберите сессию, чтобы увидеть графики</div>}
+            {teamsData && !loading && teams.length === 0 && <div className="dash-empty">В сессии нет команд</div>}
+
+            {teamsData && !loading && teams.length > 0 && (
+                <div className="dash-charts">
+
+                    {/* ── 1. Бюджет команд — круговая диаграмма ── */}
+                    <div className="dash-chart-card dash-chart-card--wide">
+                        <div className="dash-chart-title">Бюджет команд</div>
+                        <div className="dash-chart-hint">Доля текущего бюджета каждой команды от общей суммы</div>
+                        <ResponsiveContainer width="100%" height={320}>
+                            <PieChart>
+                                <Pie
+                                    data={budgetData}
+                                    dataKey="current"
+                                    nameKey="name"
+                                    cx="50%"
+                                    cy="50%"
+                                    outerRadius={120}
+                                    innerRadius={52}
+                                    paddingAngle={2}
+                                    label={({ name, sharePct }) => `${name} · ${sharePct}%`}
+                                    labelLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
+                                >
+                                    {budgetData.map((d, i) => (
+                                        <Cell key={d.name} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip content={<BudgetPieTooltip />} />
+                                <Legend
+                                    formatter={(value, entry) => (
+                                        <span style={{ fontSize: 12, color: '#1e293b', fontWeight: 600 }}>
+                                            {value} — {mlnFmt(entry.payload.current)}
+                                        </span>
+                                    )}
+                                />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    {/* ── 2. Структура расходов — stacked ── */}
+                    <div className="dash-chart-card dash-chart-card--wide">
+                        <div className="dash-chart-title">Структура расходов</div>
+                        <div className="dash-chart-hint">Сколько потрачено по каждой категории</div>
+                        <ResponsiveContainer width="100%" height={barH}>
+                            <BarChart data={spendData} layout="vertical" margin={CHART_MARGIN}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                                <XAxis type="number" tickFormatter={v => `${(v / 1e6).toFixed(0)} млн`} tick={{ fontSize: 11, fill: '#64748b' }} />
+                                <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12, fill: '#1e293b', fontWeight: 600 }} />
+                                <Tooltip content={<SpendTooltip />} />
+                                <Legend iconType="square" wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                                {SPEND_CATS.map(c => (
+                                    <Bar key={c.key} dataKey={c.key} name={c.label} stackId="s" fill={c.color} maxBarSize={28}
+                                        radius={[0, 0, 0, 0]}
+                                    />
+                                ))}
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    {/* ── 3. Количество ЛУ — вертикальные бары ── */}
+                    <div className="dash-chart-card">
+                        <div className="dash-chart-title">Лицензионные участки</div>
+                        <div className="dash-chart-hint">Количество ЛУ у каждой команды</div>
+                        <ResponsiveContainer width="100%" height={220}>
+                            <BarChart data={luData} margin={{ top: 8, right: 16, left: 0, bottom: 32 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#1e293b', fontWeight: 600 }} angle={-30} textAnchor="end" interval={0} />
+                                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                                <Tooltip content={<LuTooltip />} />
+                                <Bar dataKey="lu" name="ЛУ" fill="#6366f1" radius={[5, 5, 0, 0]} maxBarSize={48} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    {/* ── 4. Точность событий — grouped bars ── */}
+                    {eventsData.length > 0 && (
+                        <div className="dash-chart-card">
+                            <div className="dash-chart-title">Ответы на события</div>
+                            <div className="dash-chart-hint">Правильные vs Неправильные</div>
+                            <ResponsiveContainer width="100%" height={220}>
+                                <BarChart data={eventsData} margin={{ top: 8, right: 16, left: 0, bottom: 32 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#1e293b', fontWeight: 600 }} angle={-30} textAnchor="end" interval={0} />
+                                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                                    <Tooltip content={<EventsTooltip />} />
+                                    <Legend iconType="square" wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                                    <Bar dataKey="correct" name="Правильно" fill="#22c55e" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                                    <Bar dataKey="wrong"   name="Неправильно" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+
+                </div>
+            )}
+        </div>
+    );
+};
+
 // ── Главный компонент AdminPanel ───────────────────────────────────────────────
 const AdminPanel = ({ onLogout }) => {
     const [loggedIn, setLoggedIn] = useState(() => !!getSavedToken());
@@ -1261,7 +1546,7 @@ const AdminPanel = ({ onLogout }) => {
         setTab(t); sessionStorage.setItem('admin_tab', t);
         if (['sessions', 'control'].includes(t)) loadSessions();
         if (t === 'teams') loadTeams();
-        if (t === 'dashboard') loadDash();
+        if (t === 'dashboard') { loadSessions(); loadDash(); }
     };
 
     const goToControl = async (sessionId) => {
@@ -1284,7 +1569,7 @@ const AdminPanel = ({ onLogout }) => {
         { id: 'control',   label: 'Управление сессией' },
         { id: 'sessions',  label: 'Сессии' },
         // { id: 'teams',     label: 'Команды' },
-        // { id: 'dashboard', label: 'Статистика' },
+        { id: 'dashboard', label: 'Статистика' },
     ];
 
     return (
@@ -1397,22 +1682,7 @@ const AdminPanel = ({ onLogout }) => {
                 {tab === 'dashboard' && (
                     <div>
                         <h2>Статистика</h2>
-                        {stats ? (
-                            <>
-                                <div className="stats-row">
-                                    {[['sessions', stats.totalSessions || 0, 'Сессий'], ['teams', stats.totalTeams || 0, 'Команд'], ['active', stats.activeSessions || 0, 'Активных']].map(([key, val, label]) => (
-                                        <div key={label} className={`stat-card stat-card-${key}`}>
-                                            <div className="stat-val">{val}</div>
-                                            <div className="stat-label">{label}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="export-row">
-                                    <button className="tb tb-gray" onClick={() => handleExport('sessions')}>Сессии CSV ↓</button>
-                                    <button className="tb tb-gray" onClick={() => handleExport('teams')}>Команды CSV ↓</button>
-                                </div>
-                            </>
-                        ) : <p className="ap-empty">Загрузка…</p>}
+                        <DashboardTab sessions={sessions} globalStats={stats} />
                     </div>
                 )}
             </main>

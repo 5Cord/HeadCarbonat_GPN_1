@@ -164,7 +164,12 @@ export default function useSocket() {
       },
 
       // ── Полный стейт при коннекте / реконнекте ───────────────────────────
-      onFullState: ({ timer, cells, auctions, budget, researchRows, eventsRows }) => {
+      onCellsScenariosUpdated: ({ scenarios }) => {
+        useGameStore.setState({ cellScenarios: scenarios ?? {} });
+      },
+
+      onFullState: ({ timer, cells, auctions, budget, researchRows, eventsRows, scenarios }) => {
+        if (scenarios) useGameStore.setState({ cellScenarios: scenarios });
         useGameStore.setState(st => {
           const newTimer = timer ? {
             ...st.globalTimer,

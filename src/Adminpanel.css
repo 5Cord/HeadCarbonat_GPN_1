@@ -2659,3 +2659,123 @@ body,
     gap: 4px;
   }
 }
+
+/* ── Dashboard / Статистика ───────────────────────────────────────────────── */
+.dash-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 1100px;
+}
+
+/* Глобальные числа */
+.dash-global-stats {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.dash-stat-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 0.75rem 1.75rem;
+  min-width: 100px;
+}
+
+.dash-stat-val {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+}
+
+.dash-stat-lbl {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.65);
+  margin-top: 4px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Строка управления */
+.dash-controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.dash-empty {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.95rem;
+  padding: 1rem 0;
+}
+
+/* Сетка карточек с графиками — широкие сверху, 2 узких снизу */
+.dash-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.dash-chart-card--wide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 700px) {
+  .dash-charts {
+    grid-template-columns: 1fr;
+  }
+  .dash-chart-card--wide {
+    grid-column: 1;
+  }
+}
+
+/* Карточка одного графика */
+.dash-chart-card {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem 1rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+
+.dash-chart-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 2px;
+}
+
+.dash-chart-hint {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-bottom: 0.75rem;
+  line-height: 1.4;
+}
+
+/* Тултип Recharts */
+.dash-tooltip {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.82rem;
+  color: #1e293b;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  min-width: 160px;
+  line-height: 1.7;
+}
+
+.dash-tooltip-name {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #0f172a;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 4px;
+}

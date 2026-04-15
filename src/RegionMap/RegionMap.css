@@ -26,6 +26,26 @@
   pointer-events: none;
 }
 
+/* Своя ячейка — бирюзовый тинт поверх картинки */
+.cell-scene-owned-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(41, 166, 148, 0.22);
+  pointer-events: none;
+}
+
+/* Маркер ★ / ⚔ / 🎲 в верхнем левом углу своей ячейки */
+.cell-scene-owned-badge {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  font-size: 10px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.95));
+  pointer-events: none;
+  color: #fff;
+}
+
 /* Вражеская ячейка — красный тинт поверх картинки */
 .cell-scene-enemy-overlay {
   position: absolute;
@@ -34,7 +54,7 @@
   pointer-events: none;
 }
 
-/* Иконка ⚔ в верхнем левом углу вражеской ячейки */
+/* Иконка ! в верхнем левом углу вражеской ячейки */
 .cell-scene-enemy-badge {
   position: absolute;
   top: 2px;
@@ -388,21 +408,25 @@
 
 .grid-cell.grid-cell-owned {
   background: #d0ece9;
-  border: 2px solid #29A694;
+  border: 3px solid #29A694;
+  box-shadow: 0 0 0 1px rgba(41, 166, 148, 0.45), 0 0 10px rgba(41, 166, 148, 0.35);
 }
 
 .grid-cell.grid-cell-owned:hover {
   background: #b0e3dc;
+  box-shadow: 0 0 0 2px rgba(41, 166, 148, 0.7), 0 0 14px rgba(41, 166, 148, 0.5);
 }
 
 .grid-cell.grid-cell-other {
   background: #fde8e8;
-  border: 2px solid #e57373;
+  border: 3px solid #e53935;
+  box-shadow: 0 0 0 1px rgba(229, 57, 53, 0.45), 0 0 10px rgba(229, 57, 53, 0.35);
 }
 
 .grid-cell.grid-cell-other:hover {
   background: #fcd0d0;
   border-color: #c62828;
+  box-shadow: 0 0 0 2px rgba(198, 40, 40, 0.7), 0 0 14px rgba(198, 40, 40, 0.5);
 }
 
 .cell-label {
@@ -1626,8 +1650,7 @@
 .region-timer {
   position: fixed;
   top: 16px;
-  left: 93%;
-  transform: translateX(-50%);
+  right: 16px;
   z-index: 1000;
   background: #0A2240;
   color: white;
@@ -1691,17 +1714,77 @@
   0%,
   100% {
     opacity: 1;
-    transform: translateX(-50%) scale(1);
+    transform: scale(1);
   }
 
   50% {
     opacity: 0.85;
-    transform: translateX(-50%) scale(1.03);
+    transform: scale(1.03);
   }
 }
 
 .cell-mark-timer {
   color: black;
+}
+
+/* ── Бейдж случайного сценария на свободной ячейке ── */
+.cell-scenario-badge {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(10, 34, 64, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 5px;
+  padding: 1px 5px;
+  pointer-events: none;
+  white-space: nowrap;
+  max-width: 90%;
+  overflow: hidden;
+}
+
+.cell-scenario-work {
+  font-size: 8px;
+  font-weight: 700;
+  color: #7dd3fc;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cell-scenario-rank {
+  font-size: 8px;
+  font-weight: 800;
+  color: #fbbf24;
+  flex-shrink: 0;
+}
+
+/* Ячейка с картинкой сценария (свободная, не наша) */
+.cell-scene-scenario .cell-scene-img {
+  opacity: 0.72;
+  filter: brightness(0.9) saturate(0.8);
+}
+
+/* Подпись сценария поверх картинки */
+.cell-scenario-img-badge {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 7.5px;
+  font-weight: 700;
+  color: #7dd3fc;
+  background: rgba(8, 25, 50, 0.78);
+  padding: 1px 3px;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-radius: 0 0 3px 3px;
 }
 
 

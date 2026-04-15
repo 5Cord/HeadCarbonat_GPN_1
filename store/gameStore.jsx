@@ -166,6 +166,12 @@ const useGameStore = create(
         // { [cellRef]: { metaByYear: { [year]: { avgRank } }, evScoreByYear: { [year]: evScore } } }
         otherTeamsScene: {},
 
+        // Раскрытые случайные сценарии свободных ячеек карты
+        // { [cellRef]: { workId: string, openedInYear: number } }
+        cellScenarios: {},
+        // До какого года включительно уже обработали сценарии (защита от повторной генерации)
+        cellScenariosProcessedYear: 0,
+
         results: {
           cardsByLU: {},
           finalScore: 0,
@@ -888,6 +894,64 @@ const useGameStore = create(
 
         saveResult: (luId, card) => set({ results: { ...get().results, cardsByLU: { ...get().results.cardsByLU, [luId]: card } } }),
 
+        // ── Сценарии свободных ячеек карты региона ────────────────────────────
+        // freeCellRefs: string[] — список cellRef ячеек, которые сейчас свободны
+        // year: number — текущий игровой год (1–10)
+        //
+        // Правила:
+        //   Вызов за тот же год игнорируется (idempotent) — защита от повторного
+        //   монтирования компонента или лишних рендеров.
+        //   Год 1–3: открывается 1/3 всех свободных ячеек (новые к уже открытым)
+        //   Год 4+:  новые ячейки не открываются
+        //   Всегда (при смене года):  workId уже открытых ячеек обновляется
+        //                             по пулу сценариев текущего года
+        assignCellScenarios: (year, freeCellRefs) => set((state) => {
+          // Уже обрабатывали этот год — ничего не делаем
+          if (year <= state.cellScenariosProcessedYear) return {};
+
+          const SCENARIOS_BY_YEAR = {
+            1: ['srr_3d', 'srr_2d', '1pr'],
+            2: ['srr_3d', 'srr_2d', '1pr'],
+            3: ['srr_3d', 'srr_2d', '1pr'],
+            4: ['srr_3d', 'srr_2d', '1pr', '3r'],
+            5: ['3r'],
+            6: ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'],
+            7: ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'],
+            8: ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'],
+            9: ['depression', 'bsko', 'ppd', '3bs'],
+            10: ['depression', 'bsko', 'ppd', '3bs'],
+          };
+
+          const pool = SCENARIOS_BY_YEAR[year];
+          if (!pool || pool.length === 0) return {};
+
+          const pick = () => pool[Math.floor(Math.random() * pool.length)];
+          const freeSet = new Set(freeCellRefs);
+          const existing = state.cellScenarios;
+
+          // Обновляем workId у всех уже открытых ячеек (смена сценария при смене года)
+          const updated = {};
+          Object.entries(existing).forEach(([ref, data]) => {
+            updated[ref] = freeSet.has(ref)
+              ? { ...data, workId: pick() }
+              : data; // ячейка куплена — оставляем (на карте не отображается)
+          });
+
+          // Годы 1–3: открываем ещё 1/3 всех свободных ячеек (из тех, что не открыты)
+          if (year <= 3) {
+            const unopened = freeCellRefs.filter(r => !existing[r]);
+            const toOpen = Math.max(1, Math.ceil(freeCellRefs.length / 3));
+            [...unopened]
+              .sort(() => Math.random() - 0.5)
+              .slice(0, toOpen)
+              .forEach(ref => {
+                updated[ref] = { workId: pick(), openedInYear: year };
+              });
+          }
+
+          return { cellScenarios: updated, cellScenariosProcessedYear: year };
+        }),
+
         startGame: (gameData) => {
           const cells = Object.values(get().gridCells.owned);
           const firstCell = cells[0] || null;
@@ -926,6 +990,8 @@ const useGameStore = create(
             statistics: { yearlyData: {} },
             fieldWork: { availableOptions: [], selectionsByLU: {}, totalSpent: 0, totalSpentByYear: {} },
             otherTeamsScene: {},
+            cellScenarios: {},
+            cellScenariosProcessedYear: 0,
             results: { cardsByLU: {}, finalScore: 0 },
             globalTimer: {
               currentYear: 1,

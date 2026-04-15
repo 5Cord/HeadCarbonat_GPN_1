@@ -6,7 +6,7 @@ import GlobalTimer from '../GlobalTimer';
 import AuctionDashboard from './Auctiondashboard';
 import RegionMapTour from './Regionmaptour';
 import { getSocket } from '../apiHelpers';
-import { getLastSuccessfulSceneImage, getSceneImageFromMeta } from '../Research/sceneUtils';
+import { getLastSuccessfulSceneImage, getSceneImageFromMeta, getScenario, resolveSceneImage, WORK_SCENE_MAP } from '../Research/sceneUtils';
 
 const LICENSE_UNITS = [
   { id: 'well1', name: 'Парам. скважина №1', shortName: '1', cost: 10, cellRef: 'A2', position: 'top-left', customStyle: { top: '-130px', left: '0px' }, labelLeft: '0px', description: 'Целевой комплекс: светлые слоистые строматолитовые доломиты с прослоями гипса и ангидрита. Свойства: доломиты слабо пористые, с редкими выпотами густой нефти.', hasImage: false },
@@ -25,6 +25,22 @@ const BLOCKED_CELLS = {
   reserve: ['C3', 'C4', 'D3', 'D4'],
   settlement: ['G6', 'G7', 'H6', 'H7'],
   company: ['B5', 'C5', 'B6', 'C6'],
+};
+
+const SCENARIO_WORK_LABELS = {
+  srr_3d:        'СРР 3D',
+  srr_2d:        'СРР 2D',
+  '1pr':         '1ПО',
+  '3r':          '3Р',
+  drilling_5gs:  '5ГС',
+  drilling_6gs:  '6ГС МГРП',
+  drilling_7mzs: '7МЗС',
+  testing:       'ППД',
+  mun:           'МУН',
+  depression:    'БнД',
+  bsko:          'БСКО',
+  ppd:           'ПППД',
+  '3bs':         'ЗБС',
 };
 
 
@@ -122,7 +138,10 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
     fieldWork, events,
   } = useGameStore();
 
-  const otherTeamsScene = useGameStore(s => s.otherTeamsScene);
+  const otherTeamsScene    = useGameStore(s => s.otherTeamsScene);
+  const cellScenarios      = useGameStore(s => s.cellScenarios);
+  const assignCellScenarios = useGameStore(s => s.assignCellScenarios);
+  const globalYear         = useGameStore(s => s.globalTimer.currentYear);
 
   const sessionConfig = player.sessionConfig ?? {};
   const MAX_LUS_PER_TEAM = sessionConfig.maxLUsPerTeam ?? 5;
@@ -188,6 +207,30 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
       setShowNirHint(true);
     }
   }, [mapDone, hasLUs]);
+
+  // ── Сценарии свободных ячеек ─────────────────────────────────────────────
+  // Action в store сам проверяет, обрабатывался ли уже этот год (idempotent),
+  // поэтому повторный вход на карту не перегенерирует сценарии.
+  useEffect(() => {
+    const allBlockedRefs = [
+      ...BLOCKED_CELLS.reserve,
+      ...BLOCKED_CELLS.settlement,
+      ...BLOCKED_CELLS.company,
+    ];
+    const ownedByAnyTeam = new Set(Object.keys(gridCells.allTeams));
+
+    const freeCellRefs = [];
+    for (const row of rows) {
+      for (const col of cols) {
+        const ref = `${row}${col}`;
+        if (!allBlockedRefs.includes(ref) && !ownedByAnyTeam.has(ref)) {
+          freeCellRefs.push(ref);
+        }
+      }
+    }
+
+    assignCellScenarios(globalYear, freeCellRefs);
+  }, [globalYear]);
 
   const contestedKeys = Object.keys(myContestedCells).sort().join(',');
   useEffect(() => {
@@ -778,6 +821,9 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                     const isContested = isMyContestedCell(cellId);
                     const isAutoAssigned = ownedCells[cellId]?.isAutoAssigned;
                     const isDisabled = !isOurPhase || (currentPhase === 'auction' && !hasActiveAuction);
+                    const cellScenario = (!ownedByMe && !ownedByOther && !blockedType)
+                      ? cellScenarios[cellId]
+                      : null;
 
                     const sceneImg = ownedByMe
                       ? getLastSuccessfulSceneImage(
@@ -797,6 +843,16 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                         )
                       : null;
 
+                    // Картинка сценария для свободной ячейки
+                    const scenarioImg = (() => {
+                      if (!cellScenario || hasActiveAuction || isPendingAuction) return null;
+                      const scenNum = getScenario(cellId) ?? 0;
+                      const rawRank = scenNum <= 1 ? 1 : scenNum <= 3 ? 2 : 3;
+                      const maxRows  = WORK_SCENE_MAP[cellScenario.workId]?.rows ?? 3;
+                      const rank     = Math.min(rawRank, maxRows);
+                      return resolveSceneImage(scenNum, cellScenario.workId, rank, 'к');
+                    })();
+
                     return (
                       <div key={cellId} className="cell-with-lu-wrapper">
                         <div
@@ -808,12 +864,15 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                           {sceneImg ? (
                             <div className="cell-scene-img-wrap">
                               <img src={sceneImg} alt={cellId} className="cell-scene-img" />
+                              <div className="cell-scene-owned-overlay" />
+                              <span className="cell-scene-owned-badge">
+                                {isContested ? '⚔' : isAutoAssigned ? '🎲' : '★'}
+                              </span>
                               <span className="cell-scene-label">{cellId}</span>
-                              {isContested && <span className="cell-mark cell-mark-contested" style={{ position: 'absolute', top: 2, left: 3 }}>⚔</span>}
                             </div>
                           ) : (
                             <>
-                              <span className="cell-label">{cellId}</span>
+                              {!scenarioImg && <span className="cell-label">{cellId}</span>}
                               {ownedByMe && isContested && <span className="cell-mark cell-mark-contested">⚔</span>}
                               {ownedByMe && !isContested && isAutoAssigned && <span className="cell-mark cell-mark-auto">🎲</span>}
                               {ownedByMe && !isContested && !isAutoAssigned && <span className="cell-mark cell-mark-own">OK</span>}
@@ -832,6 +891,21 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                           {!sceneImg && !enemySceneImg && isPendingAuction && <span className="cell-mark cell-mark-pending">WAIT</span>}
                           {!sceneImg && blockedType && <span className="cell-mark cell-mark-blocked"></span>}
                           {!sceneImg && !enemySceneImg && isDisabled && !blockedType && !hasActiveAuction && <span className="cell-mark cell-mark-timer"></span>}
+                          {cellScenario && !hasActiveAuction && !isPendingAuction && (
+                            scenarioImg ? (
+                              <div className="cell-scene-img-wrap cell-scene-scenario">
+                                <img src={scenarioImg} alt={cellId} className="cell-scene-img" />
+                                <span className="cell-scene-label">{cellId}</span>
+                                <div className="cell-scenario-img-badge">
+                                  {SCENARIO_WORK_LABELS[cellScenario.workId] ?? cellScenario.workId}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="cell-scenario-badge">
+                                <span className="cell-scenario-work">{SCENARIO_WORK_LABELS[cellScenario.workId] ?? cellScenario.workId}</span>
+                              </div>
+                            )
+                          )}
                         </div>
 
                         {lu && (

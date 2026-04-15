@@ -63,8 +63,9 @@ export function connectSocket(token, sessionId, callbacks = {}) {
   _socket.on('budget:updated',    callbacks.onBudgetUpdated    || (() => {}));
   _socket.on('year:advanced',     callbacks.onYearAdvanced     || (() => {}));
 
-  _socket.on('fieldwork:team_update', callbacks.onFieldworkTeamUpdate || (() => {}));
-  _socket.on('events:team_update',    callbacks.onEventsTeamUpdate    || (() => {}));
+  _socket.on('fieldwork:team_update',      callbacks.onFieldworkTeamUpdate      || (() => {}));
+  _socket.on('events:team_update',         callbacks.onEventsTeamUpdate         || (() => {}));
+  _socket.on('cells:scenarios_updated',    callbacks.onCellsScenariosUpdated    || (() => {}));
 
   return _socket;
 }

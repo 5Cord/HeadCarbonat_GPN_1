@@ -198,12 +198,33 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
   };
 
   useEffect(() => {
-    // Собираем ID карточек, уже выданных другим ЛУ в этом году — чтобы не повторяться
-    const usedCardIds = new Set();
+    // Opportunity-карточки не повторяются за всю сессию (все годы)
+    const usedOpportunityIds = new Set();
+    Object.values(events.historyByYear || {}).forEach(yearHistory => {
+      Object.values(yearHistory.linesByLU || {}).forEach(line => {
+        (line.cards || []).forEach(c => {
+          if (c.type === CARD_TYPES.OPPORTUNITY && c.data?.id) usedOpportunityIds.add(c.data.id);
+        });
+      });
+    });
+    // Текущий год: opportunity уже сгенерированных ЛУ тоже учитываем
+    ownedLUs.forEach((lu) => {
+      const existing = events.linesByLU[lu.id];
+      if (existing) {
+        (existing.cards || []).forEach(c => {
+          if (c.type === CARD_TYPES.OPPORTUNITY && c.data?.id) usedOpportunityIds.add(c.data.id);
+        });
+      }
+    });
+
+    // Risk/Random: дедупликация только в рамках текущего года (могут повторяться год от года)
+    const usedCardIds = new Set(usedOpportunityIds);
     ownedLUs.forEach((lu) => {
       const existing = events.linesByLU[lu.id];
       if (existing && existing.year === globalYear) {
-        existing.cards.forEach(c => { if (c.data?.id) usedCardIds.add(c.data.id); });
+        (existing.cards || []).forEach(c => {
+          if (c.type !== CARD_TYPES.OPPORTUNITY && c.data?.id) usedCardIds.add(c.data.id);
+        });
       }
     });
 

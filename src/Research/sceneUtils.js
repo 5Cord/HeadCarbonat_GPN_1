@@ -86,12 +86,21 @@ export const resolveSceneDesc = (scenario, workId, rowNum) => {
 
 // Возвращает URL картинки: type = 'к' (картинка) | 'т' (текст, устарело)
 // rowNum = avgRank из FieldWork (1, 2 или 3)
+// Если для заданного scenario файл отсутствует (папка пустая или нет нужного файла),
+// автоматически перебирает соседние scenario-папки чтобы найти замену.
 export const resolveSceneImage = (scenario, workId, rowNum, type) => {
   const map = WORK_SCENE_MAP[workId];
   if (!map || rowNum == null || rowNum < 1) return null;
-  const prefix = Math.max(scenario, 1);
-  const key = `/src/assets/scene/${scenario}/${map.folder}/${prefix}_${map.fileKey}_${rowNum}_${type}.jpg`;
-  return sceneImages[key] ?? null;
+
+  // Порядок перебора: сначала точное совпадение, затем ближайшие по номеру
+  const fallbackOrder = [scenario, ...([0, 2, 3, 4, 1].filter(s => s !== scenario))];
+
+  for (const s of fallbackOrder) {
+    const prefix = Math.max(s, 1);
+    const key = `/src/assets/scene/${s}/${map.folder}/${prefix}_${map.fileKey}_${rowNum}_${type}.jpg`;
+    if (sceneImages[key]) return sceneImages[key];
+  }
+  return null;
 };
 
 // Порядок приоритета work-типов при выборе представительской картинки для карты
