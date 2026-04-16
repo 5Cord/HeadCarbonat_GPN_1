@@ -762,7 +762,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
             )}
             <div className="info-row"><span className="info-label">Бюджет:</span><span className="info-value budget-value">{budget.toLocaleString('ru-RU')} млн руб.</span></div>
             <div className="info-row"><span className="info-label">Потрачено:</span><span className="info-value spent-value">{totalSpent.toLocaleString('ru-RU')} млн руб.</span></div>
-            {isOnline() && <div className="info-row"><span className="info-label">Онлайн</span><span className="info-value" style={{ color: '#4caf50' }}>синхронизировано</span></div>}
+            {/* {isOnline() && <div className="info-row"><span className="info-label">Онлайн</span><span className="info-value" style={{ color: '#4caf50' }}>синхронизировано</span></div>} */}
             {myAuctionCells.length > 0 && currentPhase === 'selection' && (
               <div className="pending-auctions-list">
                 <div className="pending-auctions-title">Ожидание аукционов:</div>

@@ -1,5 +1,6 @@
 // sceneUtils.js — утилиты для сценарных карточек ResultsPanel
 import sceneDescData from '../assets/scene/sceneDesc.json';
+import { FIELD_WORK_BLOCKS } from '../FieldWork/Fieldworkdata.js';
 
 // Предзагружаем все изображения сценариев через Vite glob
 const sceneImages = import.meta.glob(
@@ -103,15 +104,18 @@ export const resolveSceneImage = (scenario, workId, rowNum, type) => {
   return null;
 };
 
-// Порядок приоритета work-типов при выборе представительской картинки для карты
-const MAP_WORK_PRIORITY = [
-  '1pr', 'drilling_5gs', 'drilling_6gs', 'srr_3d', 'srr_2d',
-  '3r', 'mun', 'depression', 'bsko', 'ppd', '3bs',
-];
+// Извлекает selections для конкретного года из fwData (аналог getSelectionsForYear в ResultsPanel)
+const _getSelectionsForYear = (fwData, year) => {
+  if (!fwData) return null;
+  if (fwData.selectionsByYear) return fwData.selectionsByYear[year] || null;
+  if (fwData.byYear) return fwData.byYear[year]?.selections || null;
+  return fwData.selections || null;
+};
 
 // Возвращает URL картинки для ячейки другой команды по уже структурированным данным.
 // metaByYear    = { [year]: { avgRank } }
 // evScoreByYear = { [year]: evScore }
+// Примечание: для чужих ячеек данные о selections недоступны — перебираем все work-типы в порядке FIELD_WORK_BLOCKS.
 export const getSceneImageFromMeta = (cellRef, metaByYear, evScoreByYear) => {
   if (!cellRef || !metaByYear) return null;
   const scenario = getScenario(cellRef);
@@ -126,8 +130,9 @@ export const getSceneImageFromMeta = (cellRef, metaByYear, evScoreByYear) => {
     const evScore = evScoreByYear?.[y] ?? 0;
     if (evScore < 0) continue;
     const avgRank = metaByYear[y].avgRank;
-    for (const workId of MAP_WORK_PRIORITY) {
-      const img = resolveSceneImage(scenario, workId, avgRank, 'к');
+    for (const block of FIELD_WORK_BLOCKS) {
+      if (!WORK_SCENE_MAP[block.mobWorkId]) continue;
+      const img = resolveSceneImage(scenario, block.mobWorkId, avgRank, 'к');
       if (img) return img;
     }
   }
@@ -138,6 +143,8 @@ export const getSceneImageFromMeta = (cellRef, metaByYear, evScoreByYear) => {
 // fwData = fieldWork.selectionsByLU[cellRef]
 // events = store.events (нужны lineScores и historyByYear)
 // currentYear = globalTimer.currentYear
+// Логика соответствует ResultsPanel: показывает картинку только для work-типов,
+// по которым пользователь реально делал выбор в FieldWork (тот же принцип, что WorkCell/MultiYearCell).
 export const getLastSuccessfulSceneImage = (cellRef, fwData, events, currentYear) => {
   if (!fwData || !cellRef) return null;
   const scenario = getScenario(cellRef);
@@ -157,9 +164,14 @@ export const getLastSuccessfulSceneImage = (cellRef, fwData, events, currentYear
     if (evScore < 0) continue; // провальный год — пропускаем
 
     const avgRank = meta[y].avgRank;
+    const sels = _getSelectionsForYear(fwData, y);
 
-    for (const workId of MAP_WORK_PRIORITY) {
-      const img = resolveSceneImage(scenario, workId, avgRank, 'к');
+    // Итерируем FIELD_WORK_BLOCKS в том же порядке, что и TABLE_COLUMNS в ResultsPanel.
+    // Берём только те work-типы, по которым есть реальные выборы пользователя.
+    for (const block of FIELD_WORK_BLOCKS) {
+      if (!WORK_SCENE_MAP[block.mobWorkId]) continue;
+      if (sels && !block.cards.some(c => sels[c.cardId] != null)) continue;
+      const img = resolveSceneImage(scenario, block.mobWorkId, avgRank, 'к');
       if (img) return img;
     }
   }
