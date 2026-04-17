@@ -1,6 +1,6 @@
 // EventsZone.jsx — таймер читается из globalTimer store, локального setInterval нет
 import React, { useState, useEffect, useRef } from 'react';
-import { generateEventLine, CARD_TYPES } from './Eventsdata.js';
+import { generateEventLine, CARD_TYPES, RISK_CARDS, OPPORTUNITY_QUESTIONS, RANDOM_CARDS } from './Eventsdata.js';
 import useGameStore from '../../store/gameStore';
 import GlobalTimer from '../GlobalTimer';
 import styles from './EventsZone.module.css';
@@ -8,6 +8,20 @@ import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
 import EventsZoneTour from './Eventszonetour';
 
+
+// Lookup-таблицы: id карточки → актуальный URL картинки из живых констант.
+// Нужны потому что card.data.image персистируется в localStorage и может
+// содержать устаревший URL от предыдущей сборки.
+const _riskImgById = Object.fromEntries(RISK_CARDS.map(c => [c.id, c.image]));
+const _oppImgById  = Object.fromEntries(OPPORTUNITY_QUESTIONS.map(c => [c.id, c.image]));
+const _randImgById = Object.fromEntries(RANDOM_CARDS.map(c => [c.id, c.image]));
+const resolveCardImage = (card) => {
+  if (!card?.data?.id) return card?.data?.image ?? null;
+  if (card.type === CARD_TYPES.RISK)        return _riskImgById[card.data.id] ?? card.data.image ?? null;
+  if (card.type === CARD_TYPES.OPPORTUNITY) return _oppImgById[card.data.id]  ?? card.data.image ?? null;
+  if (card.type === CARD_TYPES.RANDOM)      return _randImgById[card.data.id] ?? card.data.image ?? null;
+  return card.data.image ?? null;
+};
 
 const RISK_BACK_IMG = new URL('../assets/cards/card_back/risk.jpg', import.meta.url).href;
 const POSSIBILITY_BACK_IMG = new URL('../assets/cards/card_back/possibility.jpg', import.meta.url).href;
@@ -734,7 +748,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
           onClick={() => isPickable && handleCancelRisk(lineIndex, cardIndex, card)}
           title={isPickable ? 'Нажмите, чтобы отменить этот риск' : undefined}
         >
-          <CardImage src={card.data.image} alt="Риск" className={styles.riskBgImage} />
+          <CardImage src={resolveCardImage(card)} alt="Риск" className={styles.riskBgImage} />
           <div className={styles.riskBadge}>{cancelled ? '✕' : badgeTxt}</div>
           {cancelled && <div className={styles.riskCancelBanner}>ОТМЕНЁН</div>}
           <div className={styles.riskFooter}>
@@ -801,7 +815,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
           </div>
         ) : (
           <div className={styles.randomFront}>
-            <CardImage src={card.data.image} alt="Случайность" className={styles.randomBgImage} />
+            <CardImage src={resolveCardImage(card)} alt="Случайность" className={styles.randomBgImage} />
             <div className={styles.randomFrontOverlay}>
               {rev.played ? (
                 <><span className={styles.randomEffectBadge}>{effLabel}</span><span className={styles.randomTitle}>{card.data.title}</span></>
@@ -962,9 +976,9 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
                       : 'Выберите ответ, затем нажмите "Подтвердить ответ"'}
                   </div>
                   <div className={styles.cardContent}>
-                    {selectedCard.card.data.image && (
+                    {resolveCardImage(selectedCard.card) && (
                       <div className={styles.modalImageWrap}>
-                        <CardImage src={selectedCard.card.data.image} alt="Иллюстрация" className={styles.modalImage} />
+                        <CardImage src={resolveCardImage(selectedCard.card)} alt="Иллюстрация" className={styles.modalImage} />
                       </div>
                     )}
                     <p className={styles.question}>{selectedCard.card.data.question}</p>
@@ -1006,7 +1020,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
               return (
                 <div className={styles.randomCardFace}>
                   <div className={styles.randomCardFaceImage}>
-                    <CardImage src={selectedCard.card.data.image} alt="Случайность" className={styles.randomCardFaceImg} />
+                    <CardImage src={resolveCardImage(selectedCard.card)} alt="Случайность" className={styles.randomCardFaceImg} />
                     <div className={styles.randomCardFaceTypeBadge}>🎲 СЛУЧАЙНОСТЬ</div>
                   </div>
                   <div className={styles.randomCardFaceBody}>
