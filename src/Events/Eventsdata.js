@@ -5,14 +5,26 @@ export const CARD_TYPES = {
   RANDOM: 'random'
 };
 
+const opportunityImages = import.meta.glob(
+  '/src/assets/cards/opportunity/*.{jpg,png}',
+  { eager: true, import: 'default' }
+);
 const opportunityImg = (n) =>
-  new URL(`../assets/cards/opportunity/Card${n}.jpg`, import.meta.url).href;
+  opportunityImages[`/src/assets/cards/opportunity/Card${n}.jpg`] ??
+  opportunityImages[`/src/assets/cards/opportunity/Card${n}.png`] ??
+  null;
 
-const riskImg = (n) =>
-  new URL(`../assets/cards/risk/Risk (${n}).jpg`, import.meta.url).href;
+const riskImages = import.meta.glob(
+  '/src/assets/cards/risk/*.jpg',
+  { eager: true, import: 'default' }
+);
+const riskImg = (n) => riskImages[`/src/assets/cards/risk/Risk (${n}).jpg`] ?? null;
 
-const randomImg = (n) =>
-  new URL(`../assets/cards/random/CardRandom (${n}).png`, import.meta.url).href;
+const randomImages = import.meta.glob(
+  '/src/assets/cards/random/*.png',
+  { eager: true, import: 'default' }
+);
+const randomImg = (n) => randomImages[`/src/assets/cards/random/CardRandom (${n}).png`] ?? null;
 
 
 export const OPPORTUNITY_QUESTIONS = [
