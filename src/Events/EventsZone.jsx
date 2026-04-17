@@ -472,7 +472,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
       skipped: false,
     });
 
-    revealEventCard(luId, cardKey, { revealed: true, correct: isCorrect, points: pts });
+    revealEventCard(luId, cardKey, { revealed: true, correct: isCorrect, points: pts, selectedAnswers: [...selectedAnswers] });
     updateEventLineScore(luId, pts);
     setSelectedCard(null);
     setSelectedAnswers([]);
@@ -777,20 +777,28 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
               <img src={POSSIBILITY_BACK_IMG} alt="Возможность (рубашка)" className={styles.cardBackImg} />
               <div className={styles.opportunityPointsBadge}>+{card.data.points}</div>
             </>
+          ) : rev?.revealed ? (
+            <>
+              <CardImage src={resolveCardImage(card)} alt="Возможность" className={styles.riskBgImage} />
+              <div className={`${styles.riskBadge} ${rev.correct ? styles.oppBadgeCorrect : styles.oppBadgeWrong}`}>
+                {rev.points > 0 ? `+${rev.points}` : '0'}
+              </div>
+              <div className={`${styles.riskFooter} ${rev.correct ? styles.oppFooterCorrect : styles.oppFooterWrong}`}>
+                <div className={styles.riskTitle}>{card.data.question}</div>
+                {rev.selectedAnswers?.length > 0 && (
+                  <div className={`${styles.riskDesc} ${rev.correct ? styles.oppAnswerCorrect : styles.oppAnswerWrong}`}>
+                    Ваш ответ: {rev.selectedAnswers.map(i => card.data.options[i]).join(', ')}
+                  </div>
+                )}
+              </div>
+            </>
           ) : (
             <div className={styles.cardFront}>
-              {rev?.revealed ? (
-                <div className={styles.opportunityResult}>
-                  <span>{rev.correct ? '✅' : '❌'}</span>
-                  <span className={styles.points}>{rev.points > 0 ? `+${rev.points}` : '0'}</span>
-                </div>
-              ) : (
-                <div className={styles.opportunityPreview}>
-                  <span style={{ fontSize: '2rem' }}></span>
-                  <span className={styles.points} style={{ color: '#2e7d32', fontSize: '1.5rem' }}>+{card.data.points}</span>
-                  <span style={{ fontSize: '0.75rem', color: '#666', marginTop: '5px' }}>Нажмите</span>
-                </div>
-              )}
+              <div className={styles.opportunityPreview}>
+                <span style={{ fontSize: '2rem' }}></span>
+                <span className={styles.points} style={{ color: '#2e7d32', fontSize: '1.5rem' }}>+{card.data.points}</span>
+                <span style={{ fontSize: '0.75rem', color: '#666', marginTop: '5px' }}>Нажмите</span>
+              </div>
             </div>
           )}
         </div>
