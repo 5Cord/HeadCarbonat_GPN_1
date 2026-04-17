@@ -1007,7 +1007,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                         !active ? `Доступен в годы: ${mob.years?.join(', ') || '—'}`
                           : isSelected ? 'Выбран — повторный клик снимает'
                             : hasDep ? `Требует: ${MOBILIZATION_WORKS.find(w => w.id === mob.dependency)?.name}`
-                              : takenByOther ? `Занят другим участком в ${globalYear} году`
+                              // : takenByOther ? `Занят другим участком в ${globalYear} году`
                                 : blockedForActive ? 'Заблокирован (события ≥ 0)'
                                   : noneValid && multiMode ? 'Недоступен для всех выбранных участков'
                                     : repeatableForActive ? '↺ Доступен повторно (события < 0)'
