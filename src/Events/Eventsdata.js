@@ -324,7 +324,6 @@ export const generateEventLine = (successRate, excludeIds = new Set(), playerTyp
   else opportunityCount = 0;
 
   const randomCount = 1;
-  const riskCount = 6 - opportunityCount - randomCount;
 
   const cards = [];
 
@@ -342,24 +341,26 @@ export const generateEventLine = (successRate, excludeIds = new Set(), playerTyp
     if (difficultyPool.length === 0) difficultyPool = d1.length > 0 ? d1 : OPPORTUNITY_QUESTIONS;
   }
 
+  // Строго только уникальные — без fallback на весь пул (карточки не повторяются за всю сессию)
   const filteredQ = difficultyPool.filter(q => !excludeIds.has(q.id));
-  const poolQ = filteredQ.length >= opportunityCount ? filteredQ : difficultyPool;
-  const shuffledQ = [...poolQ].sort(() => Math.random() - 0.5);
-  for (let i = 0; i < opportunityCount; i++) {
+  const shuffledQ = [...filteredQ].sort(() => Math.random() - 0.5);
+  const actualOpportunityCount = Math.min(opportunityCount, shuffledQ.length);
+  for (let i = 0; i < actualOpportunityCount; i++) {
     cards.push({ type: CARD_TYPES.OPPORTUNITY, position: i, data: shuffledQ[i] });
   }
 
+  const riskCount = 6 - actualOpportunityCount - randomCount;
   const filteredR = RISK_CARDS.filter(r => !excludeIds.has(r.id));
   const poolR = filteredR.length >= riskCount ? filteredR : RISK_CARDS;
   const shuffledR = [...poolR].sort(() => Math.random() - 0.5);
   for (let i = 0; i < riskCount; i++) {
-    cards.push({ type: CARD_TYPES.RISK, position: opportunityCount + i, data: shuffledR[i] });
+    cards.push({ type: CARD_TYPES.RISK, position: actualOpportunityCount + i, data: shuffledR[i] });
   }
 
   const filteredRnd = RANDOM_CARDS.filter(r => !excludeIds.has(r.id));
   const poolRnd = filteredRnd.length > 0 ? filteredRnd : RANDOM_CARDS;
   const randomCard = poolRnd[Math.floor(Math.random() * poolRnd.length)];
-  cards.push({ type: CARD_TYPES.RANDOM, position: 5, data: randomCard });
+  cards.push({ type: CARD_TYPES.RANDOM, position: actualOpportunityCount + riskCount, data: randomCard });
 
   return cards.sort((a, b) => a.position - b.position);
 };

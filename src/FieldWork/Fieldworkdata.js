@@ -157,7 +157,7 @@ export const FIELD_WORK_BLOCKS = [
 
   {
     blockId: 'block_gs_mgrp',
-    mobWorkId: 'drilling_5gs',
+    mobWorkId: 'drilling_6gs',
     groupColor: 'beige',
     title: 'ГС с МГРП',
     cards: [
@@ -193,7 +193,7 @@ export const FIELD_WORK_BLOCKS = [
 
   {
     blockId: 'block_mzs',
-    mobWorkId: 'drilling_6gs',
+    mobWorkId: 'drilling_5gs',
     groupColor: 'beige',
     title: 'Многозабойные скважины (МЗС)',
     cards: [

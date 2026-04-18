@@ -24,17 +24,9 @@ const RESEARCH_TOUR_STEPS = [
     id: 'welcome',
     icon: '',
     title: 'Добро пожаловать в Научные исследования!',
-    text: 'Здесь вы будете покупать НИР (научно-исследовательские работы) для ваших участков, чтобы повысить успешность геологоразведки. Каждый год — новые возможности.',
+    text: 'Здесь вы будете проводить НИР (научно-исследовательские работы) для ваших участков, чтобы повысить успешность геологоразведки. Каждый год — новые возможности.',
     target: null,
     placement: 'center',
-  },
-  {
-    id: 'timer',
-    icon: '⏱️',
-    title: 'Глобальный таймер',
-    text: 'Таймер в правом верхнем углу отсчитывает время года. Когда он истечёт — год завершится автоматически. Не спешите, но и не затягивайте!',
-    target: '[class*="timer"]',
-    placement: 'left',
   },
   {
     id: 'nav_buttons',
@@ -56,7 +48,7 @@ const RESEARCH_TOUR_STEPS = [
     id: 'lu_cards',
     icon: '',
     title: 'Шаг 1 — Выберите участок',
-    text: 'Нажмите на карточку участка (синяя рамка = выбран). Можно выбрать несколько сразу — тогда НИР будет куплена для всех выбранных участков одним действием.',
+    text: 'Нажмите на карточку участка (синяя рамка = выбран). Можно выбрать несколько сразу — тогда НИР будет проведена для всех выбранных участков одним действием.',
     target: '[class*="luCardsContainer"]',
     placement: 'bottom',
   },
@@ -64,7 +56,7 @@ const RESEARCH_TOUR_STEPS = [
     id: 'year_round',
     icon: '',
     title: 'Год и итерация',
-    text: 'Эта строка показывает текущий год и тип работ (ГРР, Бурение, Добыча). Кнопка «Завершить год» — ручной досрочный переход, если всё готово.',
+    text: 'Эта строка показывает текущий год и тип работ (Сейсморазведка, Поисково-разведочное бурение, Проектирование разработки, Управление разработкой). Кнопка «Завершить год» — ручной досрочный переход, если всё готово.',
     target: '[class*="roundIndicator"]',
     placement: 'bottom',
   },
@@ -72,7 +64,7 @@ const RESEARCH_TOUR_STEPS = [
     id: 'legend',
     icon: '',
     title: 'Легенда цветовых групп',
-    text: 'Столбцы таблицы разбиты на 4 группы: СРР (серый), ГРР (оранжевый), Бурение (бежевый), Добыча (синий). Каждая группа доступна только в определённые годы.',
+    text: 'Столбцы таблицы разбиты на 4 группы: Сейсморазведка (серый), Поисково-разведочное бурение (оранжевый), Проектирование разработки (бежевый), Управление разработкой (синий). Каждая группа доступна только в определённые годы.',
     target: '[class*="groupLegend"]',
     placement: 'bottom',
   },
@@ -96,7 +88,7 @@ const RESEARCH_TOUR_STEPS = [
     id: 'confirm_session',
     icon: '',
     title: 'Шаг 4 — Подтвердите выбор',
-    text: 'После покупки всех нужных НИР нажмите «Подтвердить НИРы — завершить». Это зафиксирует выбранный столбец для участков на этот год. Без подтверждения год не засчитается!',
+    text: 'После проведения всех нужных НИР нажмите «Подтвердить НИРы — завершить». Это зафиксирует выбранный столбец для участков на этот год. Без подтверждения год не засчитается!',
     target: '[class*="confirmSessionBtn"]',
     placement: 'bottom',
   },
@@ -104,17 +96,9 @@ const RESEARCH_TOUR_STEPS = [
     id: 'totals_row',
     icon: '',
     title: 'Итоговая строка успешности',
-    text: 'Последняя строка таблицы показывает суммарный % успешности по каждому столбцу. Зелёный ≥70%, оранжевый ≥40%, красный <40%. Чем выше — тем лучше результат геологоразведки.',
+    text: 'Важно! Обратите внимание, набранные проценты успеха на следующих этапах влияют на процесс игры и перспективы открытий. Рекомендуется набирать не менее 40 или даже 60% для более успешной игры.',
     target: '[class*="totalsRow"]',
     placement: 'top',
-  },
-  {
-    id: 'finish_year',
-    icon: '',
-    title: 'Завершение года',
-    text: 'Когда завершится таймер (или вы нажмёте «Завершить год») — откроется экран результатов. После этого начнётся следующий год. В годы 3 и 5 появится специальный экран отказа от участков.',
-    target: '[class*="skipYearBtn"]',
-    placement: 'left',
   },
   {
     id: 'done',
@@ -127,12 +111,12 @@ const RESEARCH_TOUR_STEPS = [
 ];
 
 // Отдельные шаги для экрана отказа от участков (RefusalMap)
-export const REFUSAL_TOUR_STEPS = [
+const getRefusalTourSteps = (refusalCount) => [
   {
     id: 'refusal_welcome',
     icon: '',
     title: 'Возможность отказа от участка',
-    text: 'В годы 3 и 5 у вас есть возможность отказаться от одного или нескольких участков. Это может быть выгодно, если участок бесперспективен.',
+    text: `Ввиду сомнительных перспектив и оптимизации финансовой нагрузки, руководство компании приняло решение поставить работы по ряду участков на паузу. Вам необходимо отказаться от ${refusalCount} участков. С оставшимися участками работы будут продолжены.`,
     target: null,
     placement: 'center',
   },
@@ -578,7 +562,8 @@ export default function ResearchPanelTour({ globalYear, onDone }) {
 
 const REFUSAL_TOUR_KEY = 'refusalMap_tourDone';
 
-export function RefusalTour({ onDone }) {
+export function RefusalTour({ onDone, refusalCount = 1 }) {
+  const REFUSAL_STEPS = getRefusalTourSteps(refusalCount);
   const [step, setStep] = useState(0);
   const [visible, setVisible] = useState(false);
   const [rect, setRect] = useState(null);
@@ -593,7 +578,7 @@ export function RefusalTour({ onDone }) {
   }, []);
 
   const updateRect = useCallback(() => {
-    const current = REFUSAL_TOUR_STEPS[step];
+    const current = REFUSAL_STEPS[step];
     if (!current?.target) {
       setRect(null);
       return;
@@ -604,7 +589,7 @@ export function RefusalTour({ onDone }) {
   useEffect(() => {
     if (!visible) return;
     updateRect();
-    
+
     window.addEventListener('resize', updateRect);
     return () => window.removeEventListener('resize', updateRect);
   }, [step, visible, updateRect]);
@@ -618,7 +603,7 @@ export function RefusalTour({ onDone }) {
   useEffect(() => {
     if (!visible) return;
     const handleKey = (e) => {
-      if (e.key === 'Enter') setStep(s => Math.min(REFUSAL_TOUR_STEPS.length - 1, s + 1));
+      if (e.key === 'Enter') setStep(s => Math.min(REFUSAL_STEPS.length - 1, s + 1));
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
@@ -626,10 +611,10 @@ export function RefusalTour({ onDone }) {
 
   if (!visible) return null;
 
-  const current = REFUSAL_TOUR_STEPS[step];
-  const isLast = step === REFUSAL_TOUR_STEPS.length - 1;
+  const current = REFUSAL_STEPS[step];
+  const isLast = step === REFUSAL_STEPS.length - 1;
   const isFirst = step === 0;
-  const total = REFUSAL_TOUR_STEPS.length;
+  const total = REFUSAL_STEPS.length;
 
   const goToStep = (newStep) => {
     setStep(Math.max(0, Math.min(total - 1, newStep)));

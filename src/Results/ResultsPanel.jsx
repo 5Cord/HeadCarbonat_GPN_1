@@ -218,13 +218,8 @@ const ConfirmYearModal = ({ globalYear, isLastYear, onConfirm, onCancel }) => (
       <p style={{ textAlign: 'center', color: '#555', marginBottom: '0.5rem' }}>
         {isLastYear
           ? 'Это последний год. После подтверждения игра завершится.'
-          : `Все данные года ${globalYear} сохранены. Начнётся год ${globalYear + 1} с новыми исследованиями.`}
+          : `Все данные года ${globalYear} сохранены. Начнётся год ${globalYear + 1} с новыми работами.`}
       </p>
-      {!isLastYear && (
-        <p style={{ textAlign: 'center', color: '#ff9800', fontWeight: 700, fontSize: '0.9rem' }}>
-          Карточки событий сбросятся для нового года.
-        </p>
-      )}
       <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
         <button onClick={onConfirm} style={{ flex: 1, padding: '1rem', background: isLastYear ? '#c62828' : '#2fa394', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '1.1rem', cursor: 'pointer' }}>
           {isLastYear ? 'Завершить игру' : `Да, перейти к году ${globalYear + 1}`}

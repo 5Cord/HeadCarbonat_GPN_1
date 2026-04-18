@@ -663,6 +663,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
       const key = `${lineIndex}-${ci}`;
       const rev = events.revealedCards[line.luId] || {};
       if (rev[key]?.revealed) return;
+      if (card.type === CARD_TYPES.OPPORTUNITY || card.type === CARD_TYPES.RANDOM) return; // остаётся рубашкой вверх
       revealEventCard(line.luId, key, {
         revealed: true, skipped: true, points: 0, timestamp: Date.now()
       });
@@ -775,7 +776,11 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
           {!isFlipped && !rev?.revealed ? (
             <>
               <img src={POSSIBILITY_BACK_IMG} alt="Возможность (рубашка)" className={styles.cardBackImg} />
-              <div className={styles.opportunityPointsBadge}>+{card.data.points}</div>
+              {skipped ? (
+                <div style={{ position: 'absolute', bottom: 8, left: 0, right: 0, textAlign: 'center', fontSize: '0.72rem', fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.45)', padding: '3px 0', letterSpacing: '0.03em' }}>Пропущено</div>
+              ) : (
+                <div className={styles.opportunityPointsBadge}>+{card.data.points}</div>
+              )}
             </>
           ) : rev?.revealed ? (
             <>
@@ -818,7 +823,11 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
           <div className={styles.randomBack}>
             <img src={RANDOM_BACK_IMG} alt="Случайность (рубашка)" className={styles.cardBackImg} />
             <div className={styles.randomBackOverlay}>
-              <span className={styles.optionalBadge}>необяз.</span>
+              {skipped ? (
+                <span className={styles.optionalBadge}>Пропущено</span>
+              ) : (
+                <span className={styles.optionalBadge}>необяз.</span>
+              )}
             </div>
           </div>
         ) : (

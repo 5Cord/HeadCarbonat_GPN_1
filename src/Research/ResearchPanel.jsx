@@ -891,7 +891,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                 fontSize: '1.2rem', fontWeight: 800, lineHeight: 1,
                 color: (() => {
                   const maxRate = Math.max(...items.map(i => i.rate));
-                  return maxRate >= 70 ? '#2e7d32' : maxRate >= 40 ? '#f57c00' : maxRate > 0 ? '#c62828' : '#bbb';
+                  return maxRate >= 60 ? '#2e7d32' : maxRate >= 40 ? '#f9a825' : maxRate > 0 ? '#c62828' : '#bbb';
                 })(),
               }}>
                 {items[0]?.rate > 0 ? `${items[0].rate}%` : '—'}
@@ -1170,7 +1170,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                   return (
                     <td key={mob.id} className={`${styles.totalsCell} ${styles[cls] || ''}`}>
                       {bought
-                        ? <span className={`${styles.totalSuccess} ${succ >= 70 ? styles.high : succ >= 40 ? styles.medium : styles.low}`}>{succ}%</span>
+                        ? <span className={`${styles.totalSuccess} ${succ >= 60 ? styles.high : succ >= 40 ? styles.medium : styles.low}`}>{succ}%</span>
                         : blocked ? <span style={{ color: '#bdbdbd', fontSize: '0.9rem' }}>✕</span>
                           : repeat ? <span style={{ color: '#ff9800', fontSize: '0.9rem' }}>↺</span>
                             : <span className={styles.lockedTotal}>?</span>}
@@ -1352,7 +1352,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
               </button>
             </div>
           </div>
-          <RefusalTour onDone={() => { }} />
+          <RefusalTour onDone={() => { }} refusalCount={requiredRefusalCount} />
         </div>
       )}
 
@@ -1362,8 +1362,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
             <h3 style={{ textAlign: 'center', color: '#1565c0' }}>Предложение от крупной нефтегазовой компании</h3>
             <div className={styles.modalInfo}>
               <p style={{ textAlign: 'center', lineHeight: 1.7, fontSize: '1.05rem', margin: '0 0 12px 0' }}>
-                Крупная нефтегазовая компания предлагает вам обменять ещё один из ваших лицензионных участков
-                на один из её участков. Вы можете согласиться или отказаться и продолжить с текущими участками.
+                Как оказалось, крупная нефтегазовая компания — это ваша материнская компания. У вас есть возможность взять у нее бесплатно 1 участок, но для этого придется отказаться еще от 1 своего участка. Вы можете согласиться или отказаться и продолжить с текущими участками.
               </p>
             </div>
             <div className={styles.modalActions}>
