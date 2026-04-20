@@ -358,9 +358,10 @@ export const generateEventLine = (successRate, excludeIds = new Set(), playerTyp
   }
 
   const filteredRnd = RANDOM_CARDS.filter(r => !excludeIds.has(r.id));
-  const poolRnd = filteredRnd.length > 0 ? filteredRnd : RANDOM_CARDS;
-  const randomCard = poolRnd[Math.floor(Math.random() * poolRnd.length)];
-  cards.push({ type: CARD_TYPES.RANDOM, position: actualOpportunityCount + riskCount, data: randomCard });
+  if (filteredRnd.length > 0) {
+    const randomCard = filteredRnd[Math.floor(Math.random() * filteredRnd.length)];
+    cards.push({ type: CARD_TYPES.RANDOM, position: actualOpportunityCount + riskCount, data: randomCard });
+  }
 
   return cards.sort((a, b) => a.position - b.position);
 };

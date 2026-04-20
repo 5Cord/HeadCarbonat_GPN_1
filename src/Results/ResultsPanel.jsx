@@ -30,7 +30,7 @@ const TABLE_COLUMNS = [
   { mobWorkId: 'gs', label: 'ГС', color: 'beige' },
   { mobWorkId: 'drilling_5gs', label: 'ГС с МГРП', color: 'beige' },
   { mobWorkId: 'drilling_6gs', label: 'МЗС', color: 'beige' },
-  { mobWorkId: 'ppd', label: 'ППД', color: 'beige' },
+  { mobWorkId: 'ppd', altMobWorkId: 'testing', label: 'ППД', color: 'beige' },
   { mobWorkId: 'mun', label: 'МУН', color: 'beige' },
   { mobWorkId: 'depression', label: 'Бурение\nна депрессии', color: 'blue' },
   { mobWorkId: 'bsko', label: 'БСКО', color: 'blue' },
@@ -123,27 +123,30 @@ const WorkCell = ({ block, selections, year, sceneImg, sceneDesc }) => {
 };
 
 
-const MultiYearCell = ({ block, fwData, workedYears, scenario, evScoreByYear }) => {
-  if (!block || !workedYears.length) return <div className="rp-empty-cell" />;
+const MultiYearCell = ({ block, altBlock, fwData, workedYears, scenario, evScoreByYear }) => {
+  if (!workedYears.length) return <div className="rp-empty-cell" />;
   const yearsWithData = workedYears.filter(y => {
     const s = getSelectionsForYear(fwData, y);
-    return s && block.cards.some(c => s[c.cardId] != null);
+    return (block && s && block.cards.some(c => s[c.cardId] != null))
+        || (altBlock && s && altBlock.cards.some(c => s[c.cardId] != null));
   });
   if (!yearsWithData.length) return <div className="rp-empty-cell" />;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       {yearsWithData.map(y => {
+        const s = getSelectionsForYear(fwData, y);
+        const hasPrimary = block && s && block.cards.some(c => s[c.cardId] != null);
+        const activeBlock = hasPrimary ? block : altBlock;
         const avgRank = fwData?.metaByYear?.[y]?.avgRank ?? null;
         const evScore = evScoreByYear?.[y] ?? 0;
         const sceneOk = scenario != null && evScore >= 0 && avgRank != null;
-        const sceneImg = sceneOk ? resolveSceneImage(scenario, block.mobWorkId, avgRank, 'к') : null;
-        const sceneDesc = sceneOk ? resolveSceneDesc(scenario, block.mobWorkId, avgRank) : null;
-        // console.log(`[SceneDebug] MultiYear сценарий=${scenario} работа=${block.mobWorkId} год=${y} avgRank=${avgRank} evScore=${evScore} | img=${sceneImg ?? 'НЕ НАЙДЕНО'} | desc=${sceneDesc ?? 'НЕ НАЙДЕНО'}`);
+        const sceneImg = sceneOk ? resolveSceneImage(scenario, activeBlock.mobWorkId, avgRank, 'к') : null;
+        const sceneDesc = sceneOk ? resolveSceneDesc(scenario, activeBlock.mobWorkId, avgRank) : null;
         return (
           <WorkCell
             key={y}
-            block={block}
-            selections={getSelectionsForYear(fwData, y)}
+            block={activeBlock}
+            selections={s}
             year={y}
             sceneImg={sceneImg}
             sceneDesc={sceneDesc}
@@ -490,25 +493,28 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
                         </div>
                       </td>
                       {TABLE_COLUMNS.map(col => {
-                        const block = blockByMobId[col.mobWorkId];
+                        const primaryBlock = blockByMobId[col.mobWorkId];
+                        const altBlock = col.altMobWorkId ? blockByMobId[col.altMobWorkId] : null;
                         return (
                           <td key={col.mobWorkId} className="rp-td">
                             {workedYears.length === 1
                               ? (() => {
                                 const y = workedYears[0];
                                 const sels = getSelectionsForYear(activeFwData, y);
-                                const hasAny = block && sels && block.cards.some(c => sels[c.cardId] != null);
-                                if (!hasAny) return <div className="rp-empty-cell" />;
+                                const hasPrimary = primaryBlock && sels && primaryBlock.cards.some(c => sels[c.cardId] != null);
+                                const hasAlt = !hasPrimary && altBlock && sels && altBlock.cards.some(c => sels[c.cardId] != null);
+                                const block = hasPrimary ? primaryBlock : (hasAlt ? altBlock : null);
+                                if (!block) return <div className="rp-empty-cell" />;
                                 const avgRank = activeFwData?.metaByYear?.[y]?.avgRank ?? null;
                                 const evScore = evScoreByYear[y] ?? 0;
                                 const sceneOk = scenario != null && evScore >= 0 && avgRank != null;
-                                const sceneImg = sceneOk ? resolveSceneImage(scenario, col.mobWorkId, avgRank, 'к') : null;
-                                const sceneDesc = sceneOk ? resolveSceneDesc(scenario, col.mobWorkId, avgRank) : null;
-                                // console.log(`[SceneDebug] ЛУ=${activeLU.cellRef} сценарий=${scenario} работа=${col.mobWorkId} год=${y} avgRank=${avgRank} evScore=${evScore} | img=${sceneImg ?? 'НЕ НАЙДЕНО'} | desc=${sceneDesc ?? 'НЕ НАЙДЕНО'}`);
+                                const sceneImg = sceneOk ? resolveSceneImage(scenario, block.mobWorkId, avgRank, 'к') : null;
+                                const sceneDesc = sceneOk ? resolveSceneDesc(scenario, block.mobWorkId, avgRank) : null;
                                 return <WorkCell block={block} selections={sels} year={null} sceneImg={sceneImg} sceneDesc={sceneDesc} />;
                               })()
                               : <MultiYearCell
-                                  block={block}
+                                  block={primaryBlock}
+                                  altBlock={altBlock}
                                   fwData={activeFwData}
                                   workedYears={workedYears}
                                   scenario={scenario}

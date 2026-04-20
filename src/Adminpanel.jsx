@@ -8,6 +8,7 @@ import { io as socketIO } from 'socket.io-client';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     Cell, ResponsiveContainer, PieChart, Pie,
+    LineChart, Line,
 } from 'recharts';
 import './Adminpanel.css';
 
@@ -276,6 +277,11 @@ const TimerControl = ({ sessionId, sessions, adminSocket, onRefresh }) => {
         try { await apiAction(`/api/admin/sessions/${sessionId}/stop`); onRefresh?.(); }
         catch (e) { alert('Ошибка: ' + e.message); }
     };
+    const handleReactivate = async () => {
+        if (!confirm('Вернуть сессию в статус "В процессе"?')) return;
+        try { await apiAction(`/api/admin/sessions/${sessionId}/reactivate`); onRefresh?.(); }
+        catch (e) { alert('Ошибка: ' + e.message); }
+    };
 
     if (!sessionId) return <div className="tc-empty">Выберите сессию из списка выше</div>;
 
@@ -321,7 +327,12 @@ const TimerControl = ({ sessionId, sessions, adminSocket, onRefresh }) => {
                                 <button className="tc-stop-btn" onClick={handleStop}>■ Завершить</button>
                             </>
                         )}
-                        {status === 'finished' && <span className="tc-finished-label">Завершена</span>}
+                        {status === 'finished' && (
+                            <>
+                                <span className="tc-finished-label">Завершена</span>
+                                <button className="tc-start-btn" onClick={handleReactivate}>↺ В процесс</button>
+                            </>
+                        )}
                     </div>
                 </div>
 
@@ -1287,20 +1298,43 @@ const EventsTooltip = ({ active, payload, label }) => {
 };
 
 const CHART_MARGIN = { top: 8, right: 20, left: 10, bottom: 8 };
+const MEDAL = { 1: '🥇', 2: '🥈', 3: '🥉' };
+const RATING_LINE_COLORS = ['#6366f1','#f59e0b','#22c55e','#ef4444','#0ea5e9','#ec4899','#8b5cf6','#14b8a6'];
+
+const RatingTooltip = ({ active, payload, label }) => {
+    if (!active || !payload?.length) return null;
+    const sorted = [...payload].sort((a, b) => b.value - a.value);
+    return (
+        <div className="dash-tooltip">
+            <div className="dash-tooltip-name">{label}</div>
+            {sorted.map((p, i) => (
+                <div key={p.dataKey} style={{ color: p.stroke }}>
+                    {i + 1}. {p.name}: <strong>{p.value} очк.</strong>
+                </div>
+            ))}
+        </div>
+    );
+};
 
 const DashboardTab = ({ sessions, globalStats }) => {
-    const [sessId, setSessId] = useState('');
+    const [sessId, setSessId]       = useState('');
     const [teamsData, setTeamsData] = useState(null);
-    const [expMap, setExpMap]     = useState({});
-    const [loading, setLoading]   = useState(false);
+    const [expMap, setExpMap]       = useState({});
+    const [ratingData, setRatingData] = useState(null);
+    const [loading, setLoading]     = useState(false);
 
     const load = async (sid) => {
         if (!sid) return;
         setLoading(true);
         setTeamsData(null);
         setExpMap({});
+        setRatingData(null);
         try {
-            const sessJson = await apiAction(`/api/admin/sessions/${sid}`, 'GET');
+            const [sessJson, ratingJson] = await Promise.all([
+                apiAction(`/api/admin/sessions/${sid}`, 'GET'),
+                apiAction(`/api/admin/sessions/${sid}/rating`, 'GET').catch(() => null),
+            ]);
+
             const teams = sessJson.teams ?? [];
             const cells = sessJson.cells ?? [];
 
@@ -1324,6 +1358,7 @@ const DashboardTab = ({ sessions, globalStats }) => {
 
             setTeamsData({ teams, teamCells, code: sessJson.code });
             setExpMap(map);
+            if (ratingJson?.ok) setRatingData(ratingJson);
         } catch (e) { console.error(e); } finally { setLoading(false); }
     };
 
@@ -1332,7 +1367,7 @@ const DashboardTab = ({ sessions, globalStats }) => {
     const teams  = teamsData?.teams ?? [];
     const sorted = [...teams].sort((a, b) => b.budget - a.budget);
 
-    // ── Данные для графиков ──
+    // ── Данные для графиков бюджета / расходов ──
     const totalBudget = sorted.reduce((s, t) => s + (t.budget ?? 0), 0);
     const budgetData = sorted.map(t => ({
         name: t.name,
@@ -1359,6 +1394,36 @@ const DashboardTab = ({ sessions, globalStats }) => {
         }));
 
     const barH = Math.max(teams.length * 52 + 40, 200);
+
+    // ── Данные для графика рейтинга по фазам ──
+    const PHASES = [
+        { key: 'grr',     label: 'После ГРР',      components: ['egrr'] },
+        { key: 'drill',   label: 'После бурения',   components: ['egrr', 'epr'] },
+        { key: 'prod',    label: 'После добычи',    components: ['egrr', 'epr', 'eur'] },
+        { key: 'final',   label: 'Финал',           components: ['egrr', 'epr', 'eur', 'otherCosts', 'accuracy'] },
+    ];
+
+    const ratingTeams = ratingData?.teams ?? [];
+    const ratingLineData = PHASES.map(phase => {
+        const row = { phase: phase.label };
+        ratingTeams.forEach(t => {
+            row[t.teamName] = phase.components.reduce((s, c) => s + (t.ranking[c]?.points || 0), 0);
+        });
+        return row;
+    });
+
+    // Итоговые места
+    const finalStandings = [...ratingTeams].sort((a, b) => b.totalPoints - a.totalPoints);
+    let standingRank = 1, si = 0;
+    const standingRanks = {};
+    while (si < finalStandings.length) {
+        const pts = finalStandings[si].totalPoints;
+        let sj = si;
+        while (sj < finalStandings.length && finalStandings[sj].totalPoints === pts) sj++;
+        for (let k = si; k < sj; k++) standingRanks[finalStandings[k].teamId] = standingRank;
+        standingRank += (sj - si);
+        si = sj;
+    }
 
     return (
         <div className="dash-wrap">
@@ -1392,11 +1457,63 @@ const DashboardTab = ({ sessions, globalStats }) => {
             </div>
 
             {loading && <div className="ap-loading">Загрузка данных…</div>}
-            {!sessId && !loading && <div className="dash-empty">Выберите сессию, чтобы увидеть графики</div>}
+            {!sessId && !loading && <div className="dash-empty">Выберите сессию, чтобы увидеть данные</div>}
             {teamsData && !loading && teams.length === 0 && <div className="dash-empty">В сессии нет команд</div>}
 
             {teamsData && !loading && teams.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'row', gap: 24, alignItems: 'flex-start', width: '100%' }}>
+
+                    {/* ══ ЛЕВАЯ КОЛОНКА: Графики ══ */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="dash-charts">
+
+                    {/* ── 0. Рейтинг по фазам — линейный график ── */}
+                    {ratingTeams.length > 0 && (
+                        <div className="dash-chart-card dash-chart-card--wide">
+                            <div className="dash-chart-title">Рейтинг команд по этапам</div>
+                            <div className="dash-chart-hint">Накопленные очки после каждой фазы — чем выше, тем лучше</div>
+                            <ResponsiveContainer width="100%" height={300}>
+                                <LineChart data={ratingLineData} margin={{ top: 12, right: 24, left: 0, bottom: 8 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                    <XAxis dataKey="phase" tick={{ fontSize: 12, fill: '#475569', fontWeight: 600 }} />
+                                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                                    <Tooltip content={<RatingTooltip />} />
+                                    <Legend iconType="circle" wrapperStyle={{ fontSize: 13, paddingTop: 8 }} />
+                                    {ratingTeams.map((t, i) => (
+                                        <Line
+                                            key={t.teamId}
+                                            type="monotone"
+                                            dataKey={t.teamName}
+                                            stroke={RATING_LINE_COLORS[i % RATING_LINE_COLORS.length]}
+                                            strokeWidth={2.5}
+                                            dot={{ r: 5 }}
+                                            activeDot={{ r: 7 }}
+                                        />
+                                    ))}
+                                </LineChart>
+                            </ResponsiveContainer>
+
+                            {/* Итоговая таблица мест */}
+                            <div style={{ marginTop: 16, borderTop: '1px solid #e2e8f0', paddingTop: 14 }}>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>Итоговые места</div>
+                                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                                    {finalStandings.map((t, i) => {
+                                        const rank = standingRanks[t.teamId];
+                                        const color = RATING_LINE_COLORS[ratingTeams.findIndex(r => r.teamId === t.teamId) % RATING_LINE_COLORS.length];
+                                        return (
+                                            <div key={t.teamId} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc', border: `2px solid ${color}`, borderRadius: 10, padding: '8px 16px' }}>
+                                                <span style={{ fontSize: 18 }}>{MEDAL[rank] || `#${rank}`}</span>
+                                                <div>
+                                                    <div style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>{t.teamName}</div>
+                                                    <div style={{ fontSize: 12, color: '#64748b' }}>{t.totalPoints} очков</div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* ── 1. Бюджет команд — круговая диаграмма ── */}
                     <div className="dash-chart-card dash-chart-card--wide">
@@ -1486,6 +1603,243 @@ const DashboardTab = ({ sessions, globalStats }) => {
                         </div>
                     )}
 
+                </div>
+                    </div>{/* конец левой колонки */}
+
+                    {/* ══ ПРАВАЯ КОЛОНКА: Таблицы рейтинга ══ */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <RatingTab sessId={sessId} />
+                    </div>
+
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ── Рейтинг: вспомогательные функции ─────────────────────────────────────────
+
+const RatingRow = ({ team, metricKey, lowerIsBetter, valueLabel }) => {
+    const m = team.metrics[metricKey];
+    const r = team.ranking[metricKey];
+    const rank = r?.rank;
+    const pts  = r?.points ?? 0;
+    return (
+        <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+            <td style={{ padding: '8px 12px', fontWeight: 600, color: '#1e293b', fontSize: 13 }}>
+                {MEDAL[rank] || (rank ? `#${rank}` : '—')} {team.teamName}
+            </td>
+            <td style={{ padding: '8px 12px', textAlign: 'right', fontSize: 13, color: '#374151' }}>
+                {valueLabel(m)}
+            </td>
+            <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: 13 }}>
+                {pts > 0 ? <span style={{ background: '#1e40af', color: '#fff', borderRadius: 6, padding: '2px 10px', fontWeight: 700 }}>{pts} очк.</span> : '—'}
+            </td>
+        </tr>
+    );
+};
+
+const RatingTable = ({ title, hint, teams, metricKey, lowerIsBetter, valueLabel, sortKey }) => {
+    const sorted = [...teams].sort((a, b) => {
+        const ra = a.ranking[metricKey]?.rank, rb = b.ranking[metricKey]?.rank;
+        if (ra == null && rb == null) return 0;
+        if (ra == null) return 1;
+        if (rb == null) return -1;
+        return ra - rb;
+    });
+    return (
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
+            <div style={{ padding: '14px 16px', background: '#1e3a5f', color: '#fff' }}>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>{title}</div>
+                {hint && <div style={{ fontSize: 12, color: '#93c5fd', marginTop: 2 }}>{hint}</div>}
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                        <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 12, color: '#64748b', fontWeight: 600 }}>Команда</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right', fontSize: 12, color: '#64748b', fontWeight: 600 }}>Значение</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'center', fontSize: 12, color: '#64748b', fontWeight: 600 }}>Очки</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {sorted.map(t => (
+                        <RatingRow key={t.teamId} team={t} metricKey={metricKey} lowerIsBetter={lowerIsBetter} valueLabel={valueLabel} />
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+};
+
+const TotalRatingTable = ({ teams }) => {
+    const sorted = [...teams].sort((a, b) => b.totalPoints - a.totalPoints);
+    const n = teams.length;
+    let rank = 1, i = 0;
+    const ranks = {};
+    while (i < sorted.length) {
+        const pts = sorted[i].totalPoints;
+        let j = i;
+        while (j < sorted.length && sorted[j].totalPoints === pts) j++;
+        for (let k = i; k < j; k++) ranks[sorted[k].teamId] = rank;
+        rank += (j - i);
+        i = j;
+    }
+    return (
+        <div style={{ background: '#fff', border: '2px solid #1e40af', borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
+            <div style={{ padding: '14px 16px', background: '#1e40af', color: '#fff' }}>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>Итоговый рейтинг</div>
+                <div style={{ fontSize: 12, color: '#bfdbfe', marginTop: 2 }}>Сумма очков по всем 5 компонентам</div>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                    <tr style={{ background: '#f0f9ff', borderBottom: '2px solid #bae6fd' }}>
+                        <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Место</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Команда</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>ЭГРР</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>ЭПР</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>ЭУР</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Прочие</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Точность</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Итого</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {sorted.map((t, idx) => {
+                        const r = ranks[t.teamId];
+                        const rowBg = r === 1 ? '#fefce8' : idx % 2 === 0 ? '#fff' : '#f8fafc';
+                        const pt = (key) => t.ranking[key]?.points ?? 0;
+                        return (
+                            <tr key={t.teamId} style={{ background: rowBg, borderBottom: '1px solid #e2e8f0' }}>
+                                <td style={{ padding: '10px 14px', fontWeight: 700, fontSize: 14, color: r <= 3 ? '#1e40af' : '#64748b' }}>
+                                    {MEDAL[r] || `#${r}`}
+                                </td>
+                                <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 14, color: '#1e293b' }}>{t.teamName}</td>
+                                {['egrr','epr','eur','otherCosts','accuracy'].map(k => (
+                                    <td key={k} style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#475569' }}>{pt(k)}</td>
+                                ))}
+                                <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, fontSize: 15, color: '#1e40af' }}>{t.totalPoints}</td>
+                            </tr>
+                        );
+                    })}
+                </tbody>
+            </table>
+        </div>
+    );
+};
+
+// ── Вкладка рейтинга ──────────────────────────────────────────────────────────
+const RatingTab = ({ sessions, sessId: externalSessId }) => {
+    const isControlled = externalSessId !== undefined;
+    const [ownSessId, setOwnSessId] = useState('');
+    const [data, setData]     = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError]   = useState(null);
+
+    const sessId = isControlled ? externalSessId : ownSessId;
+
+    const load = async (sid) => {
+        if (!sid) return;
+        setLoading(true); setError(null); setData(null);
+        try {
+            const json = await apiAction(`/api/admin/sessions/${sid}/rating`, 'GET');
+            setData(json);
+        } catch (e) { setError(e.message); } finally { setLoading(false); }
+    };
+
+    useEffect(() => {
+        setData(null);
+        if (externalSessId) load(externalSessId);
+    }, [externalSessId]);
+
+    const teams = data?.teams ?? [];
+    const n     = data?.n ?? 0;
+
+    const fmtRatio = (v) => v != null ? v.toFixed(2) : '—';
+    const fmtMoney = (v) => v != null ? `${fmtNumber(v)} млн` : '—';
+
+    return (
+        <div>
+            {!isControlled && (
+                <div style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center' }}>
+                    <select className="tc-select" value={ownSessId} onChange={e => { setOwnSessId(e.target.value); load(e.target.value); }}>
+                        <option value="">— выберите сессию —</option>
+                        {(sessions ?? []).map(s => (
+                            <option key={s.id} value={s.id}>{s.code} · {s.status} · {s.teamsCount ?? 0} команд</option>
+                        ))}
+                    </select>
+                    <button className="tb tb-gray" onClick={() => load(ownSessId)} disabled={!ownSessId || loading}>↻ Обновить</button>
+                </div>
+            )}
+
+            {loading && <div className="ap-loading">Загрузка рейтинга…</div>}
+            {error   && <div style={{ color: '#dc2626', padding: 12 }}>Ошибка: {error}</div>}
+            {!isControlled && !sessId && !loading && <div className="dash-empty">Выберите сессию для просмотра рейтинга</div>}
+
+            {data && !loading && teams.length === 0 && <div className="dash-empty">В сессии нет команд</div>}
+
+            {data && !loading && teams.length > 0 && (
+                <div>
+
+                    {/* Итоговая таблица сверху */}
+                    <TotalRatingTable teams={teams} />
+
+                    {/* 1. ЭГРР */}
+                    <RatingTable
+                        title="1. Эффективность геологоразведки (ЭГРР)"
+                        hint="Затраты ГРР (годы 1–5) / средний показатель успешности НИР · меньше = лучше"
+                        teams={teams}
+                        metricKey="egrr"
+                        lowerIsBetter
+                        valueLabel={m => m.value != null
+                            ? `${fmtRatio(m.value)} (затраты: ${fmtMoney(m.cost)}, успешность: ${m.denominator?.toFixed(1) ?? '—'}%)`
+                            : m.cost > 0 ? `${fmtMoney(m.cost)} (нет данных успешности)` : '—'}
+                    />
+
+                    {/* 2. ЭПР */}
+                    <RatingTable
+                        title="2. Эффективность проектирования (ЭПР)"
+                        hint="Затраты полевых (годы 6–8) / сумма quality score · меньше = лучше"
+                        teams={teams}
+                        metricKey="epr"
+                        lowerIsBetter
+                        valueLabel={m => m.value != null
+                            ? `${fmtRatio(m.value)} (затраты: ${fmtMoney(m.cost)}, качество: ${m.quality})`
+                            : m.cost > 0 ? `${fmtMoney(m.cost)} (нет полевых данных)` : '—'}
+                    />
+
+                    {/* 3. ЭУР */}
+                    <RatingTable
+                        title="3. Эффективность управления (ЭУР)"
+                        hint="Затраты полевых (годы 9–10) / сумма quality score · меньше = лучше"
+                        teams={teams}
+                        metricKey="eur"
+                        lowerIsBetter
+                        valueLabel={m => m.value != null
+                            ? `${fmtRatio(m.value)} (затраты: ${fmtMoney(m.cost)}, качество: ${m.quality})`
+                            : m.cost > 0 ? `${fmtMoney(m.cost)} (нет полевых данных)` : '—'}
+                    />
+
+                    {/* 4. Прочие затраты */}
+                    <RatingTable
+                        title="4. Прочие затраты"
+                        hint="Карточки ЛУ + аукционы + штрафы + бонусы случайности + прочее (без НИР и полевых) · меньше = лучше"
+                        teams={teams}
+                        metricKey="otherCosts"
+                        lowerIsBetter
+                        valueLabel={m => fmtMoney(m.value)}
+                    />
+
+                    {/* 5. Точность */}
+                    <RatingTable
+                        title="5. Точность ответов на карточки-возможности"
+                        hint="% правильных ответов на карточки типа «Возможность» (не пропущенные) · больше = лучше"
+                        teams={teams}
+                        metricKey="accuracy"
+                        lowerIsBetter={false}
+                        valueLabel={m => m.value != null
+                            ? `${m.value}% (${m.correct} / ${m.total})`
+                            : '—'}
+                    />
                 </div>
             )}
         </div>

@@ -263,7 +263,7 @@ export default function useSocket() {
         useGameStore.setState(st => ({ game: { ...st.game, status: 'FINISHED' } }));
       },
 
-      onFieldworkTeamUpdate: ({ teamId, cellRef, year, avgRank }) => {
+      onFieldworkTeamUpdate: ({ teamId, cellRef, year, avgRank, mobWorkId }) => {
         useGameStore.setState(st => {
           const prev = st.otherTeamsScene[cellRef] || { metaByYear: {}, evScoreByYear: {} };
           return {
@@ -273,7 +273,7 @@ export default function useSocket() {
                 ...prev,
                 metaByYear: {
                   ...prev.metaByYear,
-                  [year]: { ...(prev.metaByYear[year] || {}), avgRank },
+                  [year]: { ...(prev.metaByYear[year] || {}), avgRank, ...(mobWorkId ? { mobWorkId } : {}) },
                 },
               },
             },

@@ -212,32 +212,38 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
   };
 
   useEffect(() => {
-    // Opportunity-карточки не повторяются за всю сессию (все годы)
-    const usedOpportunityIds = new Set();
+    // Opportunity и Random не повторяются за всю сессию (все годы)
+    const usedPersistentIds = new Set();
     Object.values(events.historyByYear || {}).forEach(yearHistory => {
       Object.values(yearHistory.linesByLU || {}).forEach(line => {
         (line.cards || []).forEach(c => {
-          if (c.type === CARD_TYPES.OPPORTUNITY && c.data?.id) usedOpportunityIds.add(c.data.id);
+          if (
+            (c.type === CARD_TYPES.OPPORTUNITY || c.type === CARD_TYPES.RANDOM) &&
+            c.data?.id
+          ) usedPersistentIds.add(c.data.id);
         });
       });
     });
-    // Текущий год: opportunity уже сгенерированных ЛУ тоже учитываем
+    // Текущий год: opportunity и random уже сгенерированных ЛУ тоже учитываем
     ownedLUs.forEach((lu) => {
       const existing = events.linesByLU[lu.id];
       if (existing) {
         (existing.cards || []).forEach(c => {
-          if (c.type === CARD_TYPES.OPPORTUNITY && c.data?.id) usedOpportunityIds.add(c.data.id);
+          if (
+            (c.type === CARD_TYPES.OPPORTUNITY || c.type === CARD_TYPES.RANDOM) &&
+            c.data?.id
+          ) usedPersistentIds.add(c.data.id);
         });
       }
     });
 
-    // Risk/Random: дедупликация только в рамках текущего года (могут повторяться год от года)
-    const usedCardIds = new Set(usedOpportunityIds);
+    // Risk: дедупликация только в рамках текущего года
+    const usedCardIds = new Set(usedPersistentIds);
     ownedLUs.forEach((lu) => {
       const existing = events.linesByLU[lu.id];
       if (existing && existing.year === globalYear) {
         (existing.cards || []).forEach(c => {
-          if (c.type !== CARD_TYPES.OPPORTUNITY && c.data?.id) usedCardIds.add(c.data.id);
+          if (c.type === CARD_TYPES.RISK && c.data?.id) usedCardIds.add(c.data.id);
         });
       }
     });

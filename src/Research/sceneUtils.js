@@ -129,11 +129,16 @@ export const getSceneImageFromMeta = (cellRef, metaByYear, evScoreByYear) => {
   for (const y of workedYears) {
     const evScore = evScoreByYear?.[y] ?? 0;
     if (evScore < 0) continue;
-    const avgRank = metaByYear[y].avgRank;
-    for (const block of FIELD_WORK_BLOCKS) {
-      if (!WORK_SCENE_MAP[block.mobWorkId]) continue;
-      const img = resolveSceneImage(scenario, block.mobWorkId, avgRank, 'к');
+    const { avgRank, mobWorkId } = metaByYear[y];
+    if (mobWorkId && WORK_SCENE_MAP[mobWorkId]) {
+      const img = resolveSceneImage(scenario, mobWorkId, avgRank, 'к');
       if (img) return img;
+    } else {
+      for (const block of FIELD_WORK_BLOCKS) {
+        if (!WORK_SCENE_MAP[block.mobWorkId]) continue;
+        const img = resolveSceneImage(scenario, block.mobWorkId, avgRank, 'к');
+        if (img) return img;
+      }
     }
   }
   return null;
