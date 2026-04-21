@@ -168,7 +168,7 @@ export default function useSocket() {
         useGameStore.setState({ cellScenarios: scenarios ?? {} });
       },
 
-      onFullState: ({ timer, cells, auctions, budget, researchRows, eventsRows, scenarios }) => {
+      onFullState: ({ timer, cells, auctions, budget, researchRows, eventsRows, fieldWorkRows, scenarios }) => {
         if (scenarios) useGameStore.setState({ cellScenarios: scenarios });
         useGameStore.setState(st => {
           const newTimer = timer ? {
@@ -241,6 +241,30 @@ export default function useSocket() {
             restoredEvents = { ...st.events, lineScores, historyByYear };
           }
 
+          // Восстановление полевых работ из БД (только если localStorage пуст)
+          let restoredFieldWork = st.fieldWork;
+          if ((fieldWorkRows || []).length > 0 && Object.keys(st.fieldWork.selectionsByLU || {}).length === 0) {
+            const selectionsByLU = {};
+            for (const row of fieldWorkRows) {
+              const luId = row.lu_id;
+              if (!selectionsByLU[luId]) {
+                selectionsByLU[luId] = { selectionsByYear: {}, metaByYear: {}, totalCost: 0 };
+              }
+              const lu = selectionsByLU[luId];
+              const rawSels = (row.selections_raw_json && typeof row.selections_raw_json === 'object')
+                ? row.selections_raw_json
+                : {};
+              lu.selectionsByYear[row.year] = rawSels;
+              lu.metaByYear[row.year] = {
+                avgRank:      row.avg_rank,
+                totalCost:    row.total_cost,
+                qualityScore: row.quality_score,
+              };
+              lu.totalCost += row.total_cost || 0;
+            }
+            restoredFieldWork = { ...st.fieldWork, selectionsByLU };
+          }
+
           return {
             globalTimer: newTimer,
             game:        { ...st.game, currentYear: newTimer.currentYear },
@@ -249,6 +273,7 @@ export default function useSocket() {
             player:      budget != null ? { ...st.player, budget } : st.player,
             research:    restoredResearch,
             events:      restoredEvents,
+            fieldWork:   restoredFieldWork,
             otherTeamsScene: _mergeSceneFromCells(allTeams, myId, st.otherTeamsScene),
           };
         });

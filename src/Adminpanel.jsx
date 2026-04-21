@@ -237,7 +237,19 @@ const LiveTimersEditor = ({ sessionId, adminSocket }) => {
     );
 };
 
-const TimerControl = ({ sessionId, sessions, adminSocket, onRefresh }) => {
+const ConfirmModal = ({ message, onConfirm, onCancel }) => (
+    <div className="cm-overlay" onClick={onCancel}>
+        <div className="cm-box" onClick={e => e.stopPropagation()}>
+            <p className="cm-message">{message}</p>
+            <div className="cm-actions">
+                <button className="cm-btn cm-btn-cancel" onClick={onCancel}>Отмена</button>
+                <button className="cm-btn cm-btn-confirm" onClick={onConfirm}>Подтвердить</button>
+            </div>
+        </div>
+    </div>
+);
+
+const TimerControl = ({ sessionId, sessions, adminSocket, onRefresh, openConfirm }) => {
     const [timer, setTimer] = useState(null);
     const [connected, setConn] = useState(false);
     const [phase, setPhase_] = useState('RESEARCH');
@@ -272,15 +284,17 @@ const TimerControl = ({ sessionId, sessions, adminSocket, onRefresh }) => {
         try { await apiAction(`/api/admin/sessions/${sessionId}/start`); onRefresh?.(); }
         catch (e) { alert('Ошибка: ' + e.message); } finally { setStarting(false); }
     };
-    const handleStop = async () => {
-        if (!confirm('Завершить сессию?')) return;
-        try { await apiAction(`/api/admin/sessions/${sessionId}/stop`); onRefresh?.(); }
-        catch (e) { alert('Ошибка: ' + e.message); }
+    const handleStop = () => {
+        openConfirm('Завершить сессию?', async () => {
+            try { await apiAction(`/api/admin/sessions/${sessionId}/stop`); onRefresh?.(); }
+            catch (e) { alert('Ошибка: ' + e.message); }
+        });
     };
-    const handleReactivate = async () => {
-        if (!confirm('Вернуть сессию в статус "В процессе"?')) return;
-        try { await apiAction(`/api/admin/sessions/${sessionId}/reactivate`); onRefresh?.(); }
-        catch (e) { alert('Ошибка: ' + e.message); }
+    const handleReactivate = () => {
+        openConfirm('Вернуть сессию в статус "В процессе"?', async () => {
+            try { await apiAction(`/api/admin/sessions/${sessionId}/reactivate`); onRefresh?.(); }
+            catch (e) { alert('Ошибка: ' + e.message); }
+        });
     };
 
     if (!sessionId) return <div className="tc-empty">Выберите сессию из списка выше</div>;
@@ -354,7 +368,7 @@ const TimerControl = ({ sessionId, sessions, adminSocket, onRefresh }) => {
                     <span className="tc-ctrl-label">Год</span>
                     <div className="tc-ctrl-btns">
                         <button className="tb tb-gray" onClick={() => emit('admin:advanceYear')} disabled={!connected}>→ Следующий год</button>
-                        <button className="tb tb-gray tb-danger" onClick={() => confirm('Сбросить к году 1?') && emit('admin:resetTimer')} disabled={!connected}>↺ Сброс</button>
+                        <button className="tb tb-gray tb-danger" onClick={() => openConfirm('Сбросить к году 1?', () => emit('admin:resetTimer'))} disabled={!connected}>↺ Сброс</button>
                     </div>
                 </div>
 
@@ -1397,10 +1411,11 @@ const DashboardTab = ({ sessions, globalStats }) => {
 
     // ── Данные для графика рейтинга по фазам ──
     const PHASES = [
-        { key: 'grr',     label: 'После ГРР',      components: ['egrr'] },
-        { key: 'drill',   label: 'После бурения',   components: ['egrr', 'epr'] },
-        { key: 'prod',    label: 'После добычи',    components: ['egrr', 'epr', 'eur'] },
-        { key: 'final',   label: 'Финал',           components: ['egrr', 'epr', 'eur', 'otherCosts', 'accuracy'] },
+        { key: 'start',  label: 'Старт',                   components: [] },
+        { key: 'grr',    label: 'ГРР (1–5 год)',            components: ['grr'] },
+        { key: 'stage2', label: 'Проектирование (6–8 год)', components: ['grr', 'stage2'] },
+        { key: 'stage3', label: 'Управление (9–10 год)',    components: ['grr', 'stage2', 'stage3'] },
+        { key: 'final',  label: 'Итоговый рейтинг',        components: ['grr', 'stage2', 'stage3'] },
     ];
 
     const ratingTeams = ratingData?.teams ?? [];
@@ -1569,21 +1584,6 @@ const DashboardTab = ({ sessions, globalStats }) => {
                         </ResponsiveContainer>
                     </div>
 
-                    {/* ── 3. Количество ЛУ — вертикальные бары ── */}
-                    <div className="dash-chart-card">
-                        <div className="dash-chart-title">Лицензионные участки</div>
-                        <div className="dash-chart-hint">Количество ЛУ у каждой команды</div>
-                        <ResponsiveContainer width="100%" height={220}>
-                            <BarChart data={luData} margin={{ top: 8, right: 16, left: 0, bottom: 32 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#1e293b', fontWeight: 600 }} angle={-30} textAnchor="end" interval={0} />
-                                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                                <Tooltip content={<LuTooltip />} />
-                                <Bar dataKey="lu" name="ЛУ" fill="#6366f1" radius={[5, 5, 0, 0]} maxBarSize={48} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-
                     {/* ── 4. Точность событий — grouped bars ── */}
                     {eventsData.length > 0 && (
                         <div className="dash-chart-card">
@@ -1617,29 +1617,9 @@ const DashboardTab = ({ sessions, globalStats }) => {
     );
 };
 
-// ── Рейтинг: вспомогательные функции ─────────────────────────────────────────
+// ── Рейтинг: вспомогательные компоненты ──────────────────────────────────────
 
-const RatingRow = ({ team, metricKey, lowerIsBetter, valueLabel }) => {
-    const m = team.metrics[metricKey];
-    const r = team.ranking[metricKey];
-    const rank = r?.rank;
-    const pts  = r?.points ?? 0;
-    return (
-        <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-            <td style={{ padding: '8px 12px', fontWeight: 600, color: '#1e293b', fontSize: 13 }}>
-                {MEDAL[rank] || (rank ? `#${rank}` : '—')} {team.teamName}
-            </td>
-            <td style={{ padding: '8px 12px', textAlign: 'right', fontSize: 13, color: '#374151' }}>
-                {valueLabel(m)}
-            </td>
-            <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: 13 }}>
-                {pts > 0 ? <span style={{ background: '#1e40af', color: '#fff', borderRadius: 6, padding: '2px 10px', fontWeight: 700 }}>{pts} очк.</span> : '—'}
-            </td>
-        </tr>
-    );
-};
-
-const RatingTable = ({ title, hint, teams, metricKey, lowerIsBetter, valueLabel, sortKey }) => {
+const RatingTable = ({ title, hint, teams, metricKey, valueLabel }) => {
     const sorted = [...teams].sort((a, b) => {
         const ra = a.ranking[metricKey]?.rank, rb = b.ranking[metricKey]?.rank;
         if (ra == null && rb == null) return 0;
@@ -1656,15 +1636,31 @@ const RatingTable = ({ title, hint, teams, metricKey, lowerIsBetter, valueLabel,
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                     <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                        <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 12, color: '#64748b', fontWeight: 600 }}>Команда</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right', fontSize: 12, color: '#64748b', fontWeight: 600 }}>Значение</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'left',   fontSize: 12, color: '#64748b', fontWeight: 600 }}>Место</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'left',   fontSize: 12, color: '#64748b', fontWeight: 600 }}>Команда</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right',  fontSize: 12, color: '#64748b', fontWeight: 600 }}>Значение</th>
                         <th style={{ padding: '8px 12px', textAlign: 'center', fontSize: 12, color: '#64748b', fontWeight: 600 }}>Очки</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {sorted.map(t => (
-                        <RatingRow key={t.teamId} team={t} metricKey={metricKey} lowerIsBetter={lowerIsBetter} valueLabel={valueLabel} />
-                    ))}
+                    {sorted.map((t, idx) => {
+                        const r   = t.ranking[metricKey];
+                        const rank = r?.rank;
+                        const pts  = r?.points ?? 0;
+                        const rowBg = rank === 1 ? '#fefce8' : idx % 2 === 0 ? '#fff' : '#f8fafc';
+                        return (
+                            <tr key={t.teamId} style={{ background: rowBg, borderBottom: '1px solid #e2e8f0' }}>
+                                <td style={{ padding: '9px 12px', fontWeight: 700, fontSize: 14, color: rank <= 3 ? '#1e40af' : '#94a3b8' }}>
+                                    {MEDAL[rank] || (rank ? `#${rank}` : '—')}
+                                </td>
+                                <td style={{ padding: '9px 12px', fontWeight: 600, fontSize: 14, color: '#1e293b' }}>{t.teamName}</td>
+                                <td style={{ padding: '9px 12px', textAlign: 'right', fontSize: 13, color: '#475569' }}>
+                                    {valueLabel(t.metrics[metricKey])}
+                                </td>
+                                <td style={{ padding: '9px 12px', textAlign: 'center', fontWeight: 700, fontSize: 14, color: '#1e40af' }}>{pts}</td>
+                            </tr>
+                        );
+                    })}
                 </tbody>
             </table>
         </div>
@@ -1673,7 +1669,6 @@ const RatingTable = ({ title, hint, teams, metricKey, lowerIsBetter, valueLabel,
 
 const TotalRatingTable = ({ teams }) => {
     const sorted = [...teams].sort((a, b) => b.totalPoints - a.totalPoints);
-    const n = teams.length;
     let rank = 1, i = 0;
     const ranks = {};
     while (i < sorted.length) {
@@ -1688,35 +1683,45 @@ const TotalRatingTable = ({ teams }) => {
         <div style={{ background: '#fff', border: '2px solid #1e40af', borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
             <div style={{ padding: '14px 16px', background: '#1e40af', color: '#fff' }}>
                 <div style={{ fontWeight: 800, fontSize: 16 }}>Итоговый рейтинг</div>
-                <div style={{ fontSize: 12, color: '#bfdbfe', marginTop: 2 }}>Сумма очков по всем 5 компонентам</div>
+                <div style={{ fontSize: 12, color: '#bfdbfe', marginTop: 2 }}>Сумма очков по трём критериям</div>
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                     <tr style={{ background: '#f0f9ff', borderBottom: '2px solid #bae6fd' }}>
-                        <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Место</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Команда</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>ЭГРР</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>ЭПР</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>ЭУР</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Прочие</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Точность</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Итого</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'left',  fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Место</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'left',  fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Команда</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Запасы ГРР</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Добыча (Проект.)</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Добыча (Управл.)</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Итого очков</th>
                     </tr>
                 </thead>
                 <tbody>
                     {sorted.map((t, idx) => {
-                        const r = ranks[t.teamId];
-                        const rowBg = r === 1 ? '#fefce8' : idx % 2 === 0 ? '#fff' : '#f8fafc';
-                        const pt = (key) => t.ranking[key]?.points ?? 0;
+                        const r      = ranks[t.teamId];
+                        const rowBg  = r === 1 ? '#fefce8' : idx % 2 === 0 ? '#fff' : '#f8fafc';
+                        const pt     = (key) => t.ranking[key]?.points ?? 0;
+                        const grr    = t.metrics.grr?.value;
+                        const s2     = t.metrics.stage2?.value;
+                        const s3     = t.metrics.stage3?.value;
                         return (
                             <tr key={t.teamId} style={{ background: rowBg, borderBottom: '1px solid #e2e8f0' }}>
                                 <td style={{ padding: '10px 14px', fontWeight: 700, fontSize: 14, color: r <= 3 ? '#1e40af' : '#64748b' }}>
                                     {MEDAL[r] || `#${r}`}
                                 </td>
                                 <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 14, color: '#1e293b' }}>{t.teamName}</td>
-                                {['egrr','epr','eur','otherCosts','accuracy'].map(k => (
-                                    <td key={k} style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#475569' }}>{pt(k)}</td>
-                                ))}
+                                <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#475569' }}>
+                                    {grr != null ? `${fmtNumber(Math.round(grr))} тыс. т.` : '—'}
+                                    <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: 11 }}>({pt('grr')} оч.)</span>
+                                </td>
+                                <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#475569' }}>
+                                    {s2 != null ? `${fmtNumber(s2)} т.` : '—'}
+                                    <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: 11 }}>({pt('stage2')} оч.)</span>
+                                </td>
+                                <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#475569' }}>
+                                    {s3 != null ? `${fmtNumber(s3)} т.` : '—'}
+                                    <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: 11 }}>({pt('stage3')} оч.)</span>
+                                </td>
                                 <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, fontSize: 15, color: '#1e40af' }}>{t.totalPoints}</td>
                             </tr>
                         );
@@ -1731,9 +1736,9 @@ const TotalRatingTable = ({ teams }) => {
 const RatingTab = ({ sessions, sessId: externalSessId }) => {
     const isControlled = externalSessId !== undefined;
     const [ownSessId, setOwnSessId] = useState('');
-    const [data, setData]     = useState(null);
+    const [data, setData]      = useState(null);
     const [loading, setLoading] = useState(false);
-    const [error, setError]   = useState(null);
+    const [error, setError]    = useState(null);
 
     const sessId = isControlled ? externalSessId : ownSessId;
 
@@ -1752,10 +1757,6 @@ const RatingTab = ({ sessions, sessId: externalSessId }) => {
     }, [externalSessId]);
 
     const teams = data?.teams ?? [];
-    const n     = data?.n ?? 0;
-
-    const fmtRatio = (v) => v != null ? v.toFixed(2) : '—';
-    const fmtMoney = (v) => v != null ? `${fmtNumber(v)} млн` : '—';
 
     return (
         <div>
@@ -1774,70 +1775,39 @@ const RatingTab = ({ sessions, sessId: externalSessId }) => {
             {loading && <div className="ap-loading">Загрузка рейтинга…</div>}
             {error   && <div style={{ color: '#dc2626', padding: 12 }}>Ошибка: {error}</div>}
             {!isControlled && !sessId && !loading && <div className="dash-empty">Выберите сессию для просмотра рейтинга</div>}
-
             {data && !loading && teams.length === 0 && <div className="dash-empty">В сессии нет команд</div>}
 
             {data && !loading && teams.length > 0 && (
                 <div>
-
-                    {/* Итоговая таблица сверху */}
                     <TotalRatingTable teams={teams} />
 
-                    {/* 1. ЭГРР */}
                     <RatingTable
-                        title="1. Эффективность геологоразведки (ЭГРР)"
-                        hint="Затраты ГРР (годы 1–5) / средний показатель успешности НИР · меньше = лучше"
+                        title="1. Запасы ГРР (этап 1–5)"
+                        hint="Площадь СРР × плотность запасов (ПО) + запасы по 3Р · больше = лучше"
                         teams={teams}
-                        metricKey="egrr"
-                        lowerIsBetter
-                        valueLabel={m => m.value != null
-                            ? `${fmtRatio(m.value)} (затраты: ${fmtMoney(m.cost)}, успешность: ${m.denominator?.toFixed(1) ?? '—'}%)`
-                            : m.cost > 0 ? `${fmtMoney(m.cost)} (нет данных успешности)` : '—'}
+                        metricKey="grr"
+                        valueLabel={m => m.value != null && m.value > 0
+                            ? `${fmtNumber(Math.round(m.value))} тыс. т.`
+                            : '—'}
                     />
 
-                    {/* 2. ЭПР */}
                     <RatingTable
-                        title="2. Эффективность проектирования (ЭПР)"
-                        hint="Затраты полевых (годы 6–8) / сумма quality score · меньше = лучше"
+                        title="2. Накопленная добыча — Проектирование разработки (этап 6–8)"
+                        hint="Сумма «Доп. добыча за год» по всем ЛУ и годам 6–8 · больше = лучше"
                         teams={teams}
-                        metricKey="epr"
-                        lowerIsBetter
-                        valueLabel={m => m.value != null
-                            ? `${fmtRatio(m.value)} (затраты: ${fmtMoney(m.cost)}, качество: ${m.quality})`
-                            : m.cost > 0 ? `${fmtMoney(m.cost)} (нет полевых данных)` : '—'}
+                        metricKey="stage2"
+                        valueLabel={m => m.value != null && m.value > 0
+                            ? `${fmtNumber(m.value)} т.`
+                            : '—'}
                     />
 
-                    {/* 3. ЭУР */}
                     <RatingTable
-                        title="3. Эффективность управления (ЭУР)"
-                        hint="Затраты полевых (годы 9–10) / сумма quality score · меньше = лучше"
+                        title="3. Накопленная добыча — Управление разработкой (этап 9–10)"
+                        hint="Сумма «Доп. добыча за год» по всем ЛУ и годам 9–10 · больше = лучше"
                         teams={teams}
-                        metricKey="eur"
-                        lowerIsBetter
-                        valueLabel={m => m.value != null
-                            ? `${fmtRatio(m.value)} (затраты: ${fmtMoney(m.cost)}, качество: ${m.quality})`
-                            : m.cost > 0 ? `${fmtMoney(m.cost)} (нет полевых данных)` : '—'}
-                    />
-
-                    {/* 4. Прочие затраты */}
-                    <RatingTable
-                        title="4. Прочие затраты"
-                        hint="Карточки ЛУ + аукционы + штрафы + бонусы случайности + прочее (без НИР и полевых) · меньше = лучше"
-                        teams={teams}
-                        metricKey="otherCosts"
-                        lowerIsBetter
-                        valueLabel={m => fmtMoney(m.value)}
-                    />
-
-                    {/* 5. Точность */}
-                    <RatingTable
-                        title="5. Точность ответов на карточки-возможности"
-                        hint="% правильных ответов на карточки типа «Возможность» (не пропущенные) · больше = лучше"
-                        teams={teams}
-                        metricKey="accuracy"
-                        lowerIsBetter={false}
-                        valueLabel={m => m.value != null
-                            ? `${m.value}% (${m.correct} / ${m.total})`
+                        metricKey="stage3"
+                        valueLabel={m => m.value != null && m.value > 0
+                            ? `${fmtNumber(m.value)} т.`
                             : '—'}
                     />
                 </div>
@@ -1856,7 +1826,12 @@ const AdminPanel = ({ onLogout }) => {
     const [loading, setLoading] = useState(false);
     const [controlSess, setControlSess] = useState(null);
     const [headerTimer, setHeaderTimer] = useState(null);
+    const [selectedSessions, setSelectedSessions] = useState(new Set());
+    const [confirmState, setConfirmState] = useState(null);
     const adminSocketRef = useRef(null);
+
+    const openConfirm = (message, onConfirm) => setConfirmState({ message, onConfirm });
+    const closeConfirm = () => setConfirmState(null);
 
     useEffect(() => {
         const onUnauthorized = () => {
@@ -1962,7 +1937,7 @@ const AdminPanel = ({ onLogout }) => {
                         </div>
                         <div className="control-layout">
                             <div className="control-left">
-                                <TimerControl sessionId={controlSess} sessions={sessions} adminSocket={adminSocketRef} onRefresh={loadSessions} />
+                                <TimerControl sessionId={controlSess} sessions={sessions} adminSocket={adminSocketRef} onRefresh={loadSessions} openConfirm={openConfirm} />
                                 {controlSess && (
                                     <div className="live-editor-card" style={{ marginTop: '1rem' }}>
                                         <div className="live-editor-card-title">Таймеры сессии</div>
@@ -1983,28 +1958,69 @@ const AdminPanel = ({ onLogout }) => {
                         {sessions.length === 0 ? (
                             <p className="ap-empty">Нет сессий. Создайте во вкладке «+ Создать».</p>
                         ) : (
-                            <div className="sessions-grid">
-                                {sessions.map(s => (
-                                    <div key={s.id} className={`session-card sc-${s.status}`}>
-                                        <div className="sc-header">
-                                            <span className="sc-code">{s.code}</span>
-                                            <span className={`badge badge-${s.status}`}>{s.status}</span>
+                            <>
+                                <div className="sessions-toolbar">
+                                    <label className="sess-select-all">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedSessions.size === sessions.length}
+                                            onChange={e => setSelectedSessions(e.target.checked ? new Set(sessions.map(s => s.id)) : new Set())}
+                                        />
+                                        {selectedSessions.size === sessions.length ? 'Снять выбор' : 'Выбрать все'}
+                                    </label>
+                                    {selectedSessions.size > 0 && (
+                                        <button
+                                            className="ab ab-red"
+                                            onClick={() => openConfirm(`Удалить ${selectedSessions.size} сессий(ю)?`, async () => {
+                                                for (const id of selectedSessions) {
+                                                    try { await deleteSession(id); } catch (e) { alert(e.message); break; }
+                                                }
+                                                setSelectedSessions(new Set());
+                                                loadSessions();
+                                            })}
+                                        >
+                                            Удалить выбранные ({selectedSessions.size})
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="sessions-grid">
+                                    {sessions.map(s => (
+                                        <div
+                                            key={s.id}
+                                            className={`session-card sc-${s.status}${selectedSessions.has(s.id) ? ' sc-selected' : ''}`}
+                                            onClick={() => setSelectedSessions(prev => {
+                                                const next = new Set(prev);
+                                                next.has(s.id) ? next.delete(s.id) : next.add(s.id);
+                                                return next;
+                                            })}
+                                        >
+                                            <div className="sc-header">
+                                                <input
+                                                    type="checkbox"
+                                                    className="sc-checkbox"
+                                                    checked={selectedSessions.has(s.id)}
+                                                    onChange={() => {}}
+                                                    onClick={e => e.stopPropagation()}
+                                                />
+                                                <span className="sc-code">{s.code}</span>
+                                                <span className={`badge badge-${s.status}`}>{s.status}</span>
+                                            </div>
+                                            <div className="sc-meta">
+                                                <span className="sc-meta-item">{s.game_mode === 'online' ? 'Онлайн' : 'Одиночная'}</span>
+                                                <span className="sc-meta-item">{s.teamsCount || 0} команд</span>
+                                                <span className="sc-meta-item">Макс. {s.max_lus ?? s.maxLUsPerTeam ?? '—'} ЛУ</span>
+                                            </div>
+                                            <div className="sc-actions" onClick={e => e.stopPropagation()}>
+                                                {s.status === 'waiting' && (
+                                                    <button className="ab ab-green" onClick={async () => { try { await apiAction(`/api/admin/sessions/${s.id}/start`); loadSessions(); } catch (e) { alert(e.message); } }}>▶ Старт</button>
+                                                )}
+                                                <button className="ab" onClick={() => { setControlSess(s.id); changeTab('control'); }}>Управление →</button>
+                                                <button className="ab ab-red" onClick={() => openConfirm('Удалить сессию?', async () => { try { await deleteSession(s.id); loadSessions(); } catch (e) { alert(e.message); } })}>Удалить</button>
+                                            </div>
                                         </div>
-                                        <div className="sc-meta">
-                                            <span className="sc-meta-item">{s.game_mode === 'online' ? 'Онлайн' : 'Одиночная'}</span>
-                                            <span className="sc-meta-item">{s.teamsCount || 0} команд</span>
-                                            <span className="sc-meta-item">Макс. {s.max_lus ?? s.maxLUsPerTeam ?? '—'} ЛУ</span>
-                                        </div>
-                                        <div className="sc-actions">
-                                            {s.status === 'waiting' && (
-                                                <button className="ab ab-green" onClick={async () => { try { await apiAction(`/api/admin/sessions/${s.id}/start`); loadSessions(); } catch (e) { alert(e.message); } }}>▶ Старт</button>
-                                            )}
-                                            <button className="ab" onClick={() => { setControlSess(s.id); changeTab('control'); }}>Управление →</button>
-                                            <button className="ab ab-red" onClick={async () => { if (!confirm('Удалить сессию?')) return; try { await deleteSession(s.id); loadSessions(); } catch (e) { alert(e.message); } }}>Удалить</button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                                    ))}
+                                </div>
+                            </>
                         )}
                     </div>
                 )}
@@ -2023,7 +2039,7 @@ const AdminPanel = ({ onLogout }) => {
                                                 <td>{t.experience === 'students' ? 'Студенты' : 'Профессионалы'}</td>
                                                 <td>{t.members_json?.length || 0}</td>
                                                 <td>{t.session_code || '—'}</td>
-                                                <td><button className="ab" onClick={async () => { if (!confirm('Сбросить команду?')) return; try { await resetTeam(t.id); loadTeams(); } catch (e) { alert(e.message); } }}>Сброс</button></td>
+                                                <td><button className="ab" onClick={() => openConfirm('Сбросить команду?', async () => { try { await resetTeam(t.id); loadTeams(); } catch (e) { alert(e.message); } })}>Сброс</button></td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -2040,6 +2056,14 @@ const AdminPanel = ({ onLogout }) => {
                     </div>
                 )}
             </main>
+
+            {confirmState && (
+                <ConfirmModal
+                    message={confirmState.message}
+                    onConfirm={() => { closeConfirm(); confirmState.onConfirm(); }}
+                    onCancel={closeConfirm}
+                />
+            )}
         </div>
     );
 };

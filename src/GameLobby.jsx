@@ -257,10 +257,19 @@ const GameLobby = () => {
     ];
 
     const handleJoin = (result) => {
-        // Если команда входит в новую сессию — сбрасываем статус игры и туторы
         const prevSessionId = useGameStore.getState().player.sessionId;
         const newSessionId  = result.sessionConfig?.sessionId;
-        if (prevSessionId !== newSessionId) {
+
+        if (result.rejoin) {
+            // Переподключение к той же сессии: сбрасываем game-данные чтобы
+            // onFullState восстановил их свежими из БД
+            useGameStore.setState(s => ({
+                fieldWork: { ...s.fieldWork, selectionsByLU: {} },
+                research:  { ...s.research,  progressByLU:   {} },
+                events:    { ...s.events,    lineScores: {}, historyByYear: {} },
+            }));
+        } else if (prevSessionId !== newSessionId) {
+            // Вход в новую сессию — полный сброс состояния и туторов
             useGameStore.setState(s => ({ game: { ...s.game, status: 'IN_PROGRESS' } }));
             TOUR_KEYS.forEach(k => localStorage.removeItem(k));
         }
