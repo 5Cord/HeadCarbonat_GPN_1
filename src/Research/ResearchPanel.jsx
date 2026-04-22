@@ -7,7 +7,7 @@ import RefusalMap from './RefusalMap';
 import ResearchPanelTour, { RefusalTour } from './Researchpaneltour';
 import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
-import { getLastSuccessfulSceneImage, getSceneImageFromMeta } from './sceneUtils';
+import { getLastSuccessfulSceneImage, getSceneImageFromMeta, resolveSceneImage, getScenario, WORK_SCENE_MAP } from './sceneUtils';
 
 
 const REFUSAL_YEARS = [3, 5];
@@ -16,6 +16,9 @@ const RESULTS_DURATION = 2 * 60;
 
 // ЛУ крупной нефтегазовой компании, доступные для обмена
 const COMPANY_LU_CELLS = ['B5', 'C5', 'B6', 'C6'];
+
+const DRILLING_GROUP_A = ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs']; // макс. 2 из 3
+const DRILLING_GROUP_B = ['testing', 'mun'];                                 // макс. 1 из 2
 
 const COLS_BY_YEAR = {
   1: ['srr_2d', 'srr_3d', '1pr'],
@@ -92,7 +95,8 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
 
   const globalTimer = useGameStore(s => s.globalTimer);
   const globalYear = useGameStore(s => s.game.currentYear);
-  const otherTeamsScene = useGameStore(s => s.otherTeamsScene);
+  const otherTeamsScene  = useGameStore(s => s.otherTeamsScene);
+  const cellScenarios    = useGameStore(s => s.cellScenarios);
   const triggerRefusal = useGameStore(s => s.triggerRefusal);
   const setTriggerRefusal = useGameStore(s => s.setTriggerRefusal);
   const timeRemaining = globalTimer.timeRemaining;
@@ -334,9 +338,30 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     const newOwned = { ...st.gridCells.owned };
     const newAll = { ...st.gridCells.allTeams };
     refsToRemove.forEach(ref => { delete newOwned[ref]; delete newAll[ref]; });
+
+    const WORKS_BY_YEAR = {
+      1: ['srr_3d','srr_2d','1pr'], 2: ['srr_3d','srr_2d','1pr'], 3: ['srr_3d','srr_2d','1pr'],
+      4: ['srr_3d','srr_2d','1pr','3r'], 5: ['3r'], 6: ['3r'],
+      7: ['drilling_5gs','drilling_6gs','drilling_7mzs','testing','mun'],
+      8: ['drilling_5gs','drilling_6gs','drilling_7mzs','testing','mun'],
+      9: ['drilling_5gs','drilling_6gs','drilling_7mzs','testing','mun'],
+      10: ['depression','bsko','ppd','3bs'],
+    };
+    const year = Math.min(Math.max(st.game.currentYear, 2), 10);
+    const works = WORKS_BY_YEAR[year];
+    const newScenarios = { ...st.cellScenarios };
+    refsToRemove.forEach(ref => {
+      newScenarios[ref] = {
+        workId: works[Math.floor(Math.random() * works.length)],
+        rank: Math.ceil(Math.random() * 3),
+        year,
+      };
+    });
+
     useGameStore.setState({
       gridCells: { owned: newOwned, allTeams: newAll },
       licenseUnits: { ...st.licenseUnits, current: Object.values(newOwned)[0] || null },
+      cellScenarios: newScenarios,
     });
     if (refsToRemove.includes(activeLU?.cellRef)) setActiveLU(null);
     setSelectedLUs(p => p.filter(id => !refsToRemove.includes(id)));
@@ -437,6 +462,31 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       ([id, p]) => id !== luId && !selectedLUs.includes(id) && p.columnsByYear?.[globalYear] === colId
     );
     if (usedByOther) return { ok: false, reason: `Столбец уже используется другим участком в ${globalYear} году` };
+
+    // Ограничения для лет 6–8: из группы A (5ГС/6ГС/7МЗС) — макс 2 в году, из группы B (ППД/МУН) — макс 1 за всю игру
+    if (DRILLING_GROUP_A.includes(colId) || DRILLING_GROUP_B.includes(colId)) {
+      const activeThisYear = Object.values(research.progressByLU)
+        .map(p => p.columnsByYear?.[globalYear])
+        .filter(Boolean);
+      if (DRILLING_GROUP_A.includes(colId)) {
+        const activeA = activeThisYear.filter(c => DRILLING_GROUP_A.includes(c));
+        const alreadyChosen = prog.columnsByYear?.[globalYear] === colId;
+        if (!alreadyChosen && activeA.length >= 2 && !activeA.includes(colId))
+          return { ok: false, reason: 'Уже выбраны 2 из 3 типов бурения в этом году' };
+      }
+      if (DRILLING_GROUP_B.includes(colId)) {
+        // Проверяем все годы 6–8, а не только текущий
+        const activeBAllYears = Object.values(research.progressByLU)
+          .flatMap(p => Object.entries(p.columnsByYear || {})
+            .filter(([yr]) => [6, 7, 8].includes(Number(yr)))
+            .map(([, col]) => col))
+          .filter(c => DRILLING_GROUP_B.includes(c));
+        const alreadyChosenThisYear = prog.columnsByYear?.[globalYear] === colId;
+        if (!alreadyChosenThisYear && activeBAllYears.length >= 1 && !activeBAllYears.includes(colId))
+          return { ok: false, reason: 'Тип тестирования уже выбран на другом году (6–8)' };
+      }
+    }
+
     const usedBefore = Object.values(prog.columnsByYear || {}).includes(colId);
     return { ok: true, reason: '', repeatable: usedBefore };
   }, [globalYear, allMobilized, getProgress, research.progressByLU, selectedLUs]);
@@ -672,17 +722,25 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
         if (gridCells.owned[cellRef]) {
           const img = getLastSuccessfulSceneImage(cellRef, fieldWork.selectionsByLU?.[cellRef], events, globalYear);
           if (img) map[cellRef] = img;
-        } else {
+        } else if (otherTeamsScene[cellRef]) {
           const scene = otherTeamsScene[cellRef];
-          if (scene) {
-            const img = getSceneImageFromMeta(cellRef, scene.metaByYear, scene.evScoreByYear);
+          const img = getSceneImageFromMeta(cellRef, scene.metaByYear, scene.evScoreByYear);
+          if (img) map[cellRef] = img;
+        } else {
+          const scenario = cellScenarios[cellRef];
+          if (scenario) {
+            const scenNum = getScenario(cellRef) ?? 0;
+            const rawRank = scenNum <= 1 ? 1 : scenNum <= 3 ? 2 : 3;
+            const maxRows = WORK_SCENE_MAP[scenario.workId]?.rows ?? 3;
+            const rank = Math.min(rawRank, maxRows);
+            const img = resolveSceneImage(scenNum, scenario.workId, rank, 'к');
             if (img) map[cellRef] = img;
           }
         }
       }
     }
     return map;
-  }, [gridCells.owned, fieldWork.selectionsByLU, events, globalYear, otherTeamsScene]);
+  }, [gridCells.owned, fieldWork.selectionsByLU, events, globalYear, otherTeamsScene, cellScenarios]);
 
   const getResultsTimerColor = () => {
     if (resultsTimeRemaining <= 10) return { bg: '#ffebee', border: '#c62828', text: '#c62828' };

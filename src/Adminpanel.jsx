@@ -19,7 +19,7 @@ const DEFAULT_TIMERS = {
     years: { 1: 25, 2: 20, 3: 15, 4: 15, 5: 10, 6: 15, 7: 15, 8: 15, 9: 10, 10: 10 },
 };
 
-const BUDGET_DEFAULTS = { students: 99999999, professionals: 99999999 };
+const BUDGET_DEFAULTS = { students: 20000, professionals: 20000 };
 
 const ALL_PHASES = [
     'LOBBY', 'REGION_MAP_SELECTION', 'REGION_MAP_AUCTION', 'REGION_MAP_POST_AUCTION', 'RESEARCH',

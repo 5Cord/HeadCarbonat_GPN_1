@@ -121,7 +121,7 @@
 /* ── Заголовок шага ── */
 .ezt-title {
   margin: 0 0 8px;
-  font-size: 16px;
+  font-size: 22px;
   font-weight: 800;
   color: #fff8eb;
   line-height: 1.3;
@@ -130,7 +130,7 @@
 /* ── Текст шага ── */
 .ezt-text {
   margin: 0 0 14px;
-  font-size: 13.5px;
+  font-size: 18px;
   line-height: 1.65;
   color: #c9a97a;
 }

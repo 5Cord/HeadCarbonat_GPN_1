@@ -198,6 +198,15 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const hasLUs  = ownedCount > 0;
 
 
+  const [showCaseIntro, setShowCaseIntro] = useState(
+    () => sessionStorage.getItem('caseIntroDone') !== '1'
+  );
+
+  const dismissCaseIntro = () => {
+    sessionStorage.setItem('caseIntroDone', '1');
+    setShowCaseIntro(false);
+  };
+
   const [showNirHint, setShowNirHint] = useState(false);
   const nirHintShownRef = useRef(sessionStorage.getItem('nirHintShown') === '1');
 
@@ -242,13 +251,16 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
     const blockedCount = allBlockedRefs.length;
     const ownedCount = ownedByAnyTeam.size;
     const freeCount = freeCellRefs.length;
-    const oneThird = Math.max(1, Math.ceil(freeCount / 3));
+    const thisTeamLUCount = Object.keys(ownedCells).length;
+    const calcFree = totalCells - blockedCount - thisTeamLUCount;
+    const available = Math.floor(calcFree / 2);
+    const toReveal = Math.max(1, Math.floor(available / 3));
 
     console.log(
-      `[RegionMap] Год ${globalYear} | Всего ячеек: ${totalCells} | Заблокировано (резервы/посёлки/компании): ${blockedCount} | Занято командами: ${ownedCount} | Свободных: ${freeCount} | 1/3 свободных: ${oneThird}`
+      `[RegionMap] Год ${globalYear} | Всего: ${totalCells} | Заблокировано: ${blockedCount} | ЛУ команды: ${thisTeamLUCount} | Расчётных свободных: ${calcFree} | Доступных (½): ${available} | Открываемых (⅓): ${toReveal}`
     );
 
-    assignCellScenarios(globalYear, freeCellRefs);
+    assignCellScenarios(globalYear, freeCellRefs, calcFree);
   }, [globalYear]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const contestedKeys = Object.keys(myContestedCells).sort().join(',');
@@ -620,6 +632,25 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
   return (
     <div className="region-map-fullscreen">
+
+      {showCaseIntro && (
+        <div className="case-intro-overlay">
+          <div className="case-intro-modal">
+            <h1 className="case-intro-title">Кейс</h1>
+            <div className="case-intro-divider" />
+            <div className="case-intro-body">
+              <p>В стране растёт интерес компаний к новому потенциально нефтеносному району.</p>
+              <p>По данным федеральных научных институтов, перспективы связаны с карбонатным комплексом платформенного типа.</p>
+              <p>На западе расположен складчато-надвиговый комплекс, где целевые объекты могут выходить на поверхность.</p>
+              <p>Изученность района крайне низкая: сейсморазведка 2D почти отсутствует, бурение не проводилось.</p>
+              <p>По периметру пробурены параметрические скважины, примыкающие к зоне лицензирования.</p>
+            </div>
+            <button className="case-intro-btn" onClick={dismissCaseIntro}>
+              Начать работу →
+            </button>
+          </div>
+        </div>
+      )}
 
       <GlobalTimer
         className="region-timer"

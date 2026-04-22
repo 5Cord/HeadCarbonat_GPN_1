@@ -907,7 +907,7 @@ const useGameStore = create(
         //   Год 4+:  новые ячейки не открываются
         //   Всегда (при смене года):  workId уже открытых ячеек обновляется
         //                             по пулу сценариев текущего года
-        assignCellScenarios: (year, freeCellRefs) => set((state) => {
+        assignCellScenarios: (year, freeCellRefs, calcFreeCount) => set((state) => {
           // Уже обрабатывали этот год — ничего не делаем
           if (year <= state.cellScenariosProcessedYear) return {};
 
@@ -917,10 +917,10 @@ const useGameStore = create(
             3: ['srr_3d', 'srr_2d', '1pr'],
             4: ['srr_3d', 'srr_2d', '1pr', '3r'],
             5: ['3r'],
-            6: ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'],
+            6: ['3r'],
             7: ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'],
             8: ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'],
-            9: ['depression', 'bsko', 'ppd', '3bs'],
+            9: ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs', 'testing', 'mun'],
             10: ['depression', 'bsko', 'ppd', '3bs'],
           };
 
@@ -942,7 +942,9 @@ const useGameStore = create(
           // Годы 1–3: открываем ещё 1/3 всех свободных ячеек (из тех, что не открыты)
           if (year <= 3) {
             const unopened = freeCellRefs.filter(r => !existing[r]);
-            const toOpen = Math.max(1, Math.ceil(freeCellRefs.length / 3));
+            const countForCalc = calcFreeCount ?? freeCellRefs.length;
+            const available = Math.floor(countForCalc / 2);
+            const toOpen = Math.max(1, Math.floor(available / 3));
             [...unopened]
               .sort(() => Math.random() - 0.5)
               .slice(0, toOpen)

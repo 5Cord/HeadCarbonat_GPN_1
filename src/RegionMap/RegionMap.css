@@ -2599,3 +2599,115 @@
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(59, 130, 246, 0.55);
 }
+
+/* ── Вступительный экран кейса ───────────────────────────────────────────── */
+.case-intro-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10100;
+  background: rgba(5, 12, 25, 0.92);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: case-intro-fade-in 0.5s ease;
+}
+
+@keyframes case-intro-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.case-intro-modal {
+  background: linear-gradient(160deg, #0f1e35 0%, #0a1628 60%, #071120 100%);
+  border: 1px solid rgba(100, 180, 255, 0.18);
+  border-radius: 20px;
+  padding: 56px 64px 52px;
+  max-width: 960px;
+  width: 90%;
+  box-shadow:
+    0 0 0 1px rgba(100, 180, 255, 0.08),
+    0 32px 80px rgba(0, 0, 0, 0.7),
+    0 0 60px rgba(30, 80, 160, 0.25);
+  animation: case-intro-slide-up 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  text-align: center;
+}
+
+@keyframes case-intro-slide-up {
+  from { opacity: 0; transform: translateY(32px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+.case-intro-badge {
+  display: inline-block;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #60a5fa;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 5px 16px;
+  border-radius: 20px;
+  margin-bottom: 24px;
+}
+
+.case-intro-title {
+  font-size: 38px;
+  font-weight: 800;
+  color: #e8f4ff;
+  margin: 0 0 20px;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  text-shadow: 0 2px 24px rgba(59, 130, 246, 0.35);
+}
+
+.case-intro-divider {
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  border-radius: 2px;
+  margin: 0 auto 32px;
+}
+
+.case-intro-body {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 44px;
+}
+
+.case-intro-body p {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.65;
+  color: #b8d4f0;
+  padding-left: 16px;
+  border-left: 2px solid rgba(59, 130, 246, 0.3);
+}
+
+.case-intro-btn {
+  display: inline-block;
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 15px 44px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  box-shadow: 0 6px 24px rgba(37, 99, 235, 0.5);
+  transition: all 0.18s;
+}
+
+.case-intro-btn:hover {
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 32px rgba(37, 99, 235, 0.6);
+}
+
+.case-intro-btn:active {
+  transform: translateY(0);
+}

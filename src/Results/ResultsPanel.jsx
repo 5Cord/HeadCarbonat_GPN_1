@@ -540,20 +540,6 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
         </div>
       )}
 
-      <div className="rp-legend">
-        {[
-          { color: 'gray', label: 'СРР (сейсморазведочные работы)' },
-          { color: 'orange', label: 'ГРР (геологоразведочные работы)' },
-          { color: 'beige', label: 'Бурение' },
-          { color: 'blue', label: 'Добыча' },
-        ].map(({ color, label }) => (
-          <div key={color} className="rp-legend-item">
-            <div className="rp-legend-dot" style={{ background: COLOR_MAP[color] }} />
-            <span>{label}</span>
-          </div>
-        ))}
-      </div>
-
       {showConfirm && (
         <ConfirmYearModal
           globalYear={globalYear} isLastYear={isLastYear}
