@@ -149,6 +149,7 @@ const useGameStore = create(
           yearlyStats: {},
           totalMoneySpent: 0,
           moneySpentByYear: {},
+          sessionUsedCardIds: [],
         },
 
         statistics: {
@@ -180,6 +181,7 @@ const useGameStore = create(
         navigateToResearch: false,
         navigateToRefusal: false,
         triggerRefusal: false,
+        showRegionMapBanner: false,
         yearEndToast: false,
 
         // ── Текущий экран ─────────────────────────────────────────────────
@@ -197,6 +199,7 @@ const useGameStore = create(
         setNavigateToResearch: (value) => set({ navigateToResearch: value }),
         setNavigateToRefusal: (value) => set({ navigateToRefusal: value }),
         setTriggerRefusal: (value) => set({ triggerRefusal: value }),
+        setShowRegionMapBanner: (value) => set({ showRegionMapBanner: value }),
         setYearEndToast: (value) => set({ yearEndToast: value }),
 
         // ── Таймер: методы ────────────────────────────────────────────────────
@@ -464,6 +467,7 @@ const useGameStore = create(
                   [prevYear]: historyEntry,
                 },
                 yearlyStats,
+                sessionUsedCardIds: currentEvents.sessionUsedCardIds || [],
               },
             };
           });
@@ -852,6 +856,15 @@ const useGameStore = create(
           }));
         },
 
+        addUsedEventCardIds: (ids) => {
+          if (!ids || ids.length === 0) return;
+          set((state) => {
+            const existing = new Set(state.events.sessionUsedCardIds || []);
+            ids.forEach(id => existing.add(id));
+            return { events: { ...state.events, sessionUsedCardIds: [...existing] } };
+          });
+        },
+
         selectFieldWork: (luId, d) => {
           const year = get().globalTimer.currentYear;
           const existing = get().fieldWork.selectionsByLU[luId] || {};
@@ -953,6 +966,22 @@ const useGameStore = create(
               });
           }
 
+          // ── Сценарии нефтяных компаний: ~70% случайных, назначаем один раз ────
+          const COMPANY_REFS = ['B5', 'C5', 'B6', 'C6'];
+          const COMPANY_WORK_POOL = ['srr_2d', 'srr_3d', '1pr'];
+          const companyCount = Math.max(1, Math.round(COMPANY_REFS.length * 0.7));
+          const companySubset = [...COMPANY_REFS].sort(() => Math.random() - 0.5).slice(0, companyCount);
+          companySubset.forEach(ref => {
+            if (!existing[ref]) {
+              updated[ref] = {
+                workId: COMPANY_WORK_POOL[Math.floor(Math.random() * COMPANY_WORK_POOL.length)],
+                rank: Math.ceil(Math.random() * 3),
+                year,
+                isCompanyCell: true,
+              };
+            }
+          });
+
           return { cellScenarios: updated, cellScenariosProcessedYear: year };
         }),
 
@@ -990,7 +1019,7 @@ const useGameStore = create(
             auctions: { active: {}, completed: {} },
             regionMap: { cells: [], resourceDensityRevealed: false },
             research: { availableWorks: [], progressByLU: {}, yearTransitionApplied: false },
-            events: { linesByLU: {}, revealedCards: {}, lineScores: {}, skippedLines: {}, historyByYear: {}, isCompleted: false, yearScores: {}, yearlyStats: {}, totalMoneySpent: 0, moneySpentByYear: {} },
+            events: { linesByLU: {}, revealedCards: {}, lineScores: {}, skippedLines: {}, historyByYear: {}, isCompleted: false, yearScores: {}, yearlyStats: {}, totalMoneySpent: 0, moneySpentByYear: {}, sessionUsedCardIds: [] },
             statistics: { yearlyData: {} },
             fieldWork: { availableOptions: [], selectionsByLU: {}, totalSpent: 0, totalSpentByYear: {} },
             otherTeamsScene: {},
@@ -998,6 +1027,7 @@ const useGameStore = create(
             cellScenariosProcessedYear: 0,
             results: { cardsByLU: {}, finalScore: 0 },
             triggerRefusal: false,
+            showRegionMapBanner: false,
             globalTimer: {
               currentYear: 1,
               timeRemaining: globalTimer.yearDurations?.[1] ?? YEAR_DURATIONS[1],

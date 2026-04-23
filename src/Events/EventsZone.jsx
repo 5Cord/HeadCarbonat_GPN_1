@@ -106,12 +106,13 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     skipEventLine, completeEvents, updateEventMoneySpent,
     pauseGlobalTimer, resumeGlobalTimer, setGlobalPhase, licenseUnits,
     resetEventCardsForNewYear, applyYearTransitionForAllLUs, advanceToNextYear,
-    setNavigateToRefusal,
+    setNavigateToRefusal, addUsedEventCardIds,
   } = useGameStore();
 
   const globalTimer = useGameStore(s => s.globalTimer);
   const globalYear = useGameStore(s => s.game.currentYear);
   const timeRemaining = useGameStore(s => s.globalTimer.timeRemaining);
+  const sessionUsedCardIds = useGameStore(s => s.events.sessionUsedCardIds);
   const isLastYear = globalYear >= 10;
 
   const [selectedCard, setSelectedCard] = useState(null);
@@ -212,41 +213,21 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
   };
 
   useEffect(() => {
-    // Opportunity и Random не повторяются за всю сессию (все годы)
-    const usedPersistentIds = new Set();
-    Object.values(events.historyByYear || {}).forEach(yearHistory => {
-      Object.values(yearHistory.linesByLU || {}).forEach(line => {
-        (line.cards || []).forEach(c => {
-          if (
-            (c.type === CARD_TYPES.OPPORTUNITY || c.type === CARD_TYPES.RANDOM) &&
-            c.data?.id
-          ) usedPersistentIds.add(c.data.id);
-        });
-      });
-    });
-    // Текущий год: opportunity и random уже сгенерированных ЛУ тоже учитываем
-    ownedLUs.forEach((lu) => {
-      const existing = events.linesByLU[lu.id];
-      if (existing) {
-        (existing.cards || []).forEach(c => {
-          if (
-            (c.type === CARD_TYPES.OPPORTUNITY || c.type === CARD_TYPES.RANDOM) &&
-            c.data?.id
-          ) usedPersistentIds.add(c.data.id);
-        });
-      }
-    });
+    // sessionUsedCardIds — авторитетный список всех карточек, уже выданных команде за сессию.
+    // Он накапливается и не сбрасывается при смене года.
+    const excludeIds = new Set(sessionUsedCardIds || []);
 
-    // Risk: дедупликация только в рамках текущего года
-    const usedCardIds = new Set(usedPersistentIds);
+    // Risk: дедупликация в рамках текущего года (risk-карты не накапливаются между годами)
     ownedLUs.forEach((lu) => {
       const existing = events.linesByLU[lu.id];
       if (existing && existing.year === globalYear) {
         (existing.cards || []).forEach(c => {
-          if (c.type === CARD_TYPES.RISK && c.data?.id) usedCardIds.add(c.data.id);
+          if (c.type === CARD_TYPES.RISK && c.data?.id) excludeIds.add(c.data.id);
         });
       }
     });
+
+    const newSessionIds = [];
 
     ownedLUs.forEach((lu) => {
       const hasResearch = hasResearchForLU(lu.id);
@@ -260,9 +241,15 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
         const rates = Object.values(yearRates);
         if (rates.length > 0) avgSuccess = rates.reduce((s, r) => s + r, 0) / rates.length;
 
-        const generatedCards = generateEventLine(avgSuccess, usedCardIds, player.experienceLevel);
-        // Регистрируем новые карточки как использованные
-        generatedCards.forEach(c => { if (c.data?.id) usedCardIds.add(c.data.id); });
+        const generatedCards = generateEventLine(avgSuccess, excludeIds, player.experienceLevel);
+        // Добавляем новые ID в локальный excludeIds (для кросс-ЛУ дедупликации в этом запуске)
+        // и в newSessionIds для сохранения в store
+        generatedCards.forEach(c => {
+          if (c.data?.id) {
+            excludeIds.add(c.data.id);
+            newSessionIds.push(c.data.id);
+          }
+        });
 
         const lineData = {
           luId: lu.id, luName: lu.name, year: globalYear,
@@ -317,6 +304,10 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
         });
       }
     });
+
+    if (newSessionIds.length > 0) {
+      addUsedEventCardIds(newSessionIds);
+    }
   }, [ownedLUs.length, research.progressByLU, events.linesByLU, globalYear]);
 
   const eventLines = ownedLUs.map(lu => {

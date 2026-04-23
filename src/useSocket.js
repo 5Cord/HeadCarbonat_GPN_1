@@ -83,7 +83,13 @@ export default function useSocket() {
         const { resetEventCardsForNewYear, applyYearTransitionForAllLUs } = useGameStore.getState();
         resetEventCardsForNewYear(year);
         applyYearTransitionForAllLUs(year - 1);
-        useGameStore.setState({ navigateToResearch: true, yearEndToast: true });
+        // После года отказа (3→4, 5→6) идём на карту региона, иначе — на НИРы
+        const fromRefusalYear = year === 4 || year === 6;
+        useGameStore.setState({
+          navigateToResearch: !fromRefusalYear,
+          showRegionMapBanner: fromRefusalYear,
+          yearEndToast: true,
+        });
       },
 
       // ── Карта ────────────────────────────────────────────────────────────

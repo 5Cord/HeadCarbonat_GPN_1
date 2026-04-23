@@ -143,6 +143,8 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const cellScenarios      = useGameStore(s => s.cellScenarios);
   const assignCellScenarios = useGameStore(s => s.assignCellScenarios);
   const globalYear         = useGameStore(s => s.globalTimer.currentYear);
+  const showRegionMapBanner   = useGameStore(s => s.showRegionMapBanner);
+  const setShowRegionMapBanner = useGameStore(s => s.setShowRegionMapBanner);
 
   const sessionConfig = player.sessionConfig ?? {};
   const MAX_LUS_PER_TEAM = sessionConfig.maxLUsPerTeam ?? 5;
@@ -193,6 +195,32 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
   const [autoAssignBanner, setAutoAssignBanner] = useState(null);
   const autoAssignTimerRef = useRef(null);
+
+  const REGION_BANNER_DURATION = 7000;
+  const [regionBannerProgress, setRegionBannerProgress] = useState(100);
+  const regionBannerIntervalRef = useRef(null);
+
+  useEffect(() => {
+    if (!showRegionMapBanner) {
+      clearInterval(regionBannerIntervalRef.current);
+      setRegionBannerProgress(100);
+      return;
+    }
+    setRegionBannerProgress(100);
+    const step = 100 / (REGION_BANNER_DURATION / 50);
+    regionBannerIntervalRef.current = setInterval(() => {
+      setRegionBannerProgress(prev => {
+        const next = prev - step;
+        if (next <= 0) {
+          clearInterval(regionBannerIntervalRef.current);
+          setShowRegionMapBanner(false);
+          return 0;
+        }
+        return next;
+      });
+    }, 50);
+    return () => clearInterval(regionBannerIntervalRef.current);
+  }, [showRegionMapBanner]);
 
   const mapDone = !isOurPhase && serverPhase !== 'LOBBY' && !isRegionMapPhase(serverPhase);
   const hasLUs  = ownedCount > 0;
@@ -671,6 +699,23 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         finishedText="Перейдите к полю «Научные исследования»"
       />
 
+      {showRegionMapBanner && (
+        <div className="post-auction-banner" style={{ background: 'linear-gradient(90deg,#1565c0,#1976d2)', display: 'flex', flexDirection: 'column', gap: 0, padding: 0, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', padding: '8px 16px' }}>
+            <span>Ознакомьтесь с картой региона и переходите к НИРам</span>
+            <button
+              onClick={() => { clearInterval(regionBannerIntervalRef.current); setShowRegionMapBanner(false); onNext?.(); }}
+              style={{ padding: '6px 16px', background: '#fff', color: '#1565c0', border: 'none', borderRadius: 6, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', fontSize: '0.85rem' }}
+            >
+              К НИРам →
+            </button>
+          </div>
+          <div style={{ height: 3, background: 'rgba(255,255,255,0.25)', width: '100%' }}>
+            <div style={{ height: '100%', width: `${regionBannerProgress}%`, background: '#fff', transition: 'width 0.05s linear' }} />
+          </div>
+        </div>
+      )}
+
       {currentPhase === 'post_auction' && showPostAuctionBanner && (
         <div className="post-auction-banner">Аукцион завершён! Есть время докупить свободные участки (аукционы недоступны)</div>
       )}
@@ -873,17 +918,42 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                     const isContested = isMyContestedCell(cellId);
                     const isAutoAssigned = ownedCells[cellId]?.isAutoAssigned;
                     const isDisabled = !isOurPhase || (currentPhase === 'auction' && !hasActiveAuction);
-                    const cellScenario = (!ownedByMe && !ownedByOther && !blockedType)
+                    const cellScenario = (!ownedByMe && !ownedByOther && (!blockedType || blockedType === 'company'))
                       ? cellScenarios[cellId]
                       : null;
 
+                    // Сценарий ячейки нефтяной компании — показываем всем командам даже после обмена
+                    const companyCellScenario = ownedByOther && cellScenarios[cellId]?.srrWorkId
+                      ? cellScenarios[cellId]
+                      : null;
+
+                    const enemyCompanySceneImg = (() => {
+                      if (!companyCellScenario) return null;
+                      const scenNum = getScenario(cellId) ?? 0;
+                      const maxRows = WORK_SCENE_MAP[companyCellScenario.workId]?.rows ?? 3;
+                      const rank = Math.min(companyCellScenario.rank ?? 1, maxRows);
+                      return resolveSceneImage(scenNum, companyCellScenario.workId, rank, 'к') ?? null;
+                    })();
+
                     const sceneImg = ownedByMe
-                      ? getLastSuccessfulSceneImage(
-                          cellId,
-                          fieldWork.selectionsByLU[cellId],
-                          events,
-                          globalTimer.currentYear,
-                        )
+                      ? (() => {
+                          const fwImg = getLastSuccessfulSceneImage(
+                            cellId,
+                            fieldWork.selectionsByLU[cellId],
+                            events,
+                            globalTimer.currentYear,
+                          );
+                          if (fwImg) return fwImg;
+                          // Участок получен от нефтяной компании — показываем сценарий до начала полевых работ
+                          const cs = cellScenarios[cellId];
+                          if (cs?.workId) {
+                            const scenNum = getScenario(cellId) ?? 0;
+                            const maxRows = WORK_SCENE_MAP[cs.workId]?.rows ?? 3;
+                            const rank = Math.min(cs.rank ?? 1, maxRows);
+                            return resolveSceneImage(scenNum, cs.workId, rank, 'к') ?? null;
+                          }
+                          return null;
+                        })()
                       : null;
 
                     const enemyCellData  = otherTeamsScene[cellId];
@@ -930,18 +1000,23 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                               {ownedByMe && !isContested && !isAutoAssigned && <span className="cell-mark cell-mark-own">OK</span>}
                             </>
                           )}
-                          {!sceneImg && ownedByOther && !enemySceneImg && <span className="cell-mark cell-mark-other">!</span>}
-                          {!sceneImg && ownedByOther && enemySceneImg && (
+                          {!sceneImg && ownedByOther && !enemySceneImg && !enemyCompanySceneImg && <span className="cell-mark cell-mark-other">!</span>}
+                          {!sceneImg && ownedByOther && (enemySceneImg || enemyCompanySceneImg) && (
                             <div className="cell-scene-img-wrap">
-                              <img src={enemySceneImg} alt={cellId} className="cell-scene-img" />
+                              <img src={enemySceneImg ?? enemyCompanySceneImg} alt={cellId} className="cell-scene-img" />
                               <div className="cell-scene-enemy-overlay" />
-                              <span className="cell-scene-enemy-badge">!</span>
+                              {!companyCellScenario && <span className="cell-scene-enemy-badge">!</span>}
                               <span className="cell-scene-label">{cellId}</span>
+                              {companyCellScenario && (
+                                <div className="cell-scenario-img-badge">
+                                  {SCENARIO_WORK_LABELS[companyCellScenario.workId] ?? companyCellScenario.workId}
+                                </div>
+                              )}
                             </div>
                           )}
                           {!sceneImg && !enemySceneImg && hasActiveAuction && !ownedByMe && !ownedByOther && <span className="cell-mark cell-mark-auction">LIVE</span>}
                           {!sceneImg && !enemySceneImg && isPendingAuction && <span className="cell-mark cell-mark-pending">WAIT</span>}
-                          {!sceneImg && blockedType && <span className="cell-mark cell-mark-blocked"></span>}
+                          {!sceneImg && blockedType && !scenarioImg && <span className="cell-mark cell-mark-blocked"></span>}
                           {!sceneImg && !enemySceneImg && isDisabled && !blockedType && !hasActiveAuction && <span className="cell-mark cell-mark-timer"></span>}
                           {cellScenario && !hasActiveAuction && !isPendingAuction && (
                             scenarioImg ? (

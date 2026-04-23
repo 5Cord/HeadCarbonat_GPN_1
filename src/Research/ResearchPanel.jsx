@@ -99,6 +99,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   const cellScenarios    = useGameStore(s => s.cellScenarios);
   const triggerRefusal = useGameStore(s => s.triggerRefusal);
   const setTriggerRefusal = useGameStore(s => s.setTriggerRefusal);
+  const setShowRegionMapBanner = useGameStore(s => s.setShowRegionMapBanner);
   const timeRemaining = globalTimer.timeRemaining;
 
   const socket = getSocket();
@@ -237,6 +238,11 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     if (prevYearRef.current === globalYear) return;
     const prevYear = prevYearRef.current;
     prevYearRef.current = globalYear;
+
+    // После перехода с года отказа — переходим на карту региона с плашкой
+    if (REFUSAL_YEARS.includes(prevYear)) {
+      setShowRegionMapBanner(true);
+    }
 
     const currentResearch = useGameStore.getState().research;
     const currentEvents = useGameStore.getState().events;
@@ -377,7 +383,17 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     delete newOwned[exchangeMyRef];
     delete newAll[exchangeMyRef];
 
-    // Получаем ЛУ компании
+    // Получаем ЛУ компании — сценарий уже был сгенерирован заранее в cellScenarios.
+    // Если по какой-то причине сценария нет — создаём запасной вариант.
+    const existingScenario = st.cellScenarios[exchangeCompanyRef];
+    const companyScenario = existingScenario ?? {
+      workId: '1pr',
+      srrWorkId: Math.random() < 0.5 ? 'srr_2d' : 'srr_3d',
+      rank: Math.ceil(Math.random() * 3),
+      year: globalYear,
+      isCompanyCell: true,
+    };
+
     newOwned[exchangeCompanyRef] = {
       cellRef: exchangeCompanyRef,
       name: `Участок ${exchangeCompanyRef}`,
@@ -392,9 +408,34 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       ownedByTeamName: player.teamName,
     };
 
+    // Работы, выполненные компанией: 1ПО + СРР 2Д|3Д (оба всегда гарантированы)
+    const companyCompletedWorks = [companyScenario.workId];
+    if (companyScenario.srrWorkId) companyCompletedWorks.push(companyScenario.srrWorkId);
+
+    // Обновляем cellScenarios только если сценария не было (fallback)
+    const cellScenariosUpdate = existingScenario
+      ? {}
+      : { cellScenarios: { ...st.cellScenarios, [exchangeCompanyRef]: companyScenario } };
+
+    // Инициализируем прогресс НИР для ячейки компании: колонки заблокированы
+    const existingProgress = st.research.progressByLU[exchangeCompanyRef] || defaultProgress();
+    const companyProgress = {
+      ...existingProgress,
+      blockedColumns: [...new Set([...(existingProgress.blockedColumns || []), ...companyCompletedWorks])],
+      companyCompletedWorks,
+    };
+
     useGameStore.setState({
       gridCells: { owned: newOwned, allTeams: newAll },
       licenseUnits: { ...st.licenseUnits, current: Object.values(newOwned)[0] || null },
+      research: {
+        ...st.research,
+        progressByLU: {
+          ...st.research.progressByLU,
+          [exchangeCompanyRef]: companyProgress,
+        },
+      },
+      ...cellScenariosUpdate,
     });
 
     if (activeLU?.cellRef === exchangeMyRef) setActiveLU(null);
@@ -404,6 +445,8 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       socket.emit('cell:company_exchange', {
         releaseRef: exchangeMyRef,
         acquireRef: exchangeCompanyRef,
+        scenario: companyScenario,
+        completedWorks: companyCompletedWorks,
       });
     }
 
@@ -721,7 +764,19 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
         const cellRef = `${row}${col}`;
         if (gridCells.owned[cellRef]) {
           const img = getLastSuccessfulSceneImage(cellRef, fieldWork.selectionsByLU?.[cellRef], events, globalYear);
-          if (img) map[cellRef] = img;
+          if (img) {
+            map[cellRef] = img;
+          } else {
+            // Участок получен от нефтяной компании — показываем сценарий до начала полевых работ
+            const scenario = cellScenarios[cellRef];
+            if (scenario?.workId) {
+              const scenNum = getScenario(cellRef) ?? 0;
+              const maxRows = WORK_SCENE_MAP[scenario.workId]?.rows ?? 3;
+              const rank = Math.min(scenario.rank ?? 1, maxRows);
+              const img2 = resolveSceneImage(scenNum, scenario.workId, rank, 'к');
+              if (img2) map[cellRef] = img2;
+            }
+          }
         } else if (otherTeamsScene[cellRef]) {
           const scene = otherTeamsScene[cellRef];
           const img = getSceneImageFromMeta(cellRef, scene.metaByYear, scene.evScoreByYear);
@@ -1464,7 +1519,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                 mode="exchange"
                 ownedCells={gridCells.owned}
                 allTeamsCells={gridCells.allTeams}
-                companyCells={COMPANY_LU_CELLS}
+                companyCells={COMPANY_LU_CELLS.filter(ref => !!cellScenarios[ref])}
                 selectedMyRef={exchangeMyRef}
                 selectedCompanyRef={exchangeCompanyRef}
                 onSelectMy={setExchangeMyRef}

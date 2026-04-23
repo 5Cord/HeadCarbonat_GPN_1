@@ -39,6 +39,7 @@ const GameBoard = () => {
         navigateToResearch, setNavigateToResearch,
         navigateToRefusal, setNavigateToRefusal,
         setTriggerRefusal,
+        showRegionMapBanner, setShowRegionMapBanner,
     } = useGameStore();
 
     const MAX_LUS_PER_TEAM = player.sessionConfig?.maxLUsPerTeam ?? 5;
@@ -84,6 +85,12 @@ const GameBoard = () => {
         setTriggerRefusal(true);
         setExpandedField(1);
     }, [navigateToRefusal]);
+
+    useEffect(() => {
+        if (!showRegionMapBanner) return;
+        setExpandedField(0);
+    }, [showRegionMapBanner]);
+
 
     useEffect(() => {
         if (!currentLU && infoCards.length > 0) {
@@ -231,7 +238,7 @@ const GameBoard = () => {
                         onComplete={goToMenu}
                         onBack={goToMenu}
                         onMenu={goToMenu}
-                        onNext={() => goToField(1)}
+                        onNext={() => { setShowRegionMapBanner(false); goToField(1); }}
                     />
                 ) : expandedField === 1 ? (
                     <ResearchPanel
