@@ -22,8 +22,13 @@ const medal = (rank) => {
     return `${rank + 1}.`;
 };
 
-// Основная метрика ранжирования — итоговый бюджет (чем больше осталось, тем лучше)
-const sortKey = (team) => team.finalBudget ?? 0;
+const sortKey = (team) => team.totalPoints ?? team.finalBudget ?? 0;
+
+const fmtReserves = (n) => n == null || n === 0 ? '—' : `${Number(n).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} тыс. т.`;
+const fmtProd     = (n) => n == null || n === 0 ? '—' : `${Number(n).toLocaleString('ru-RU')} т.`;
+
+const rankLabel = (r) => r == null ? '—' : `#${r}`;
+const rankColor = (r) => r === 1 ? '#b8860b' : r === 2 ? '#607d8b' : r === 3 ? '#8d5524' : '#555';
 
 // ── Fetcher статистики ────────────────────────────────────────────────────────
 
@@ -101,96 +106,67 @@ const TeamCard = ({ team, rank, isMe }) => {
                 </div>
 
                 {/* Основные показатели в заголовке */}
-                <div style={{ display: 'flex', gap: 18, alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
                     <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '0.72rem', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                            Бюджет
-                        </div>
-                        <div style={{ fontWeight: 800, fontSize: '1.1rem', color: budgetColor }}>
-                            {fmtBudget(team.finalBudget)}
-                        </div>
+                        <div style={{ fontSize: '0.68rem', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Бюджет</div>
+                        <div style={{ fontWeight: 800, fontSize: '1rem', color: budgetColor }}>{fmtBudget(team.finalBudget)}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '0.72rem', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                            Участки
-                        </div>
-                        <div style={{ fontWeight: 700, fontSize: '1.05rem', color: '#333' }}>
-                            {team.cellsCount ?? team.cells?.length ?? '—'}
-                        </div>
+                        <div style={{ fontSize: '0.68rem', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Очки</div>
+                        <div style={{ fontWeight: 800, fontSize: '1rem', color: '#1565c0' }}>{team.totalPoints ?? '—'}</div>
                     </div>
-                    <span
-                        style={{
-                            fontSize: 18,
-                            color: '#bbb',
-                            transform: open ? 'rotate(180deg)' : 'none',
-                            transition: 'transform 0.2s',
-                            display: 'inline-block',
-                        }}
-                    >
-                        ▾
-                    </span>
+                    <span style={{ fontSize: 18, color: '#bbb', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block' }}>▾</span>
                 </div>
             </div>
 
             {/* ── Детали (раскрывается) ── */}
             {open && (
                 <div style={{ padding: '0 18px 16px', borderTop: '1px solid #f0f0f0' }}>
-                    <div
-                        style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                            gap: 10,
-                            marginTop: 14,
-                        }}
-                    >
-                        {[
-                            { label: 'Начальный бюджет', value: fmtBudget(team.initialBudget), color: '#555' },
-                            { label: 'Итоговый бюджет', value: fmtBudget(team.finalBudget), color: budgetColor },
-                            { label: 'Потрачено на НИР', value: fmtBudget(team.totalResearchSpent), color: '#1565c0' },
-                            { label: 'Полевые работы', value: fmtBudget(team.totalFieldworkCost), color: '#6a1599' },
-                            { label: 'События (итого)', value: team.totalEventsScore != null ? (team.totalEventsScore >= 0 ? '+' : '') + fmt(team.totalEventsScore) : '—', color: team.totalEventsScore >= 0 ? '#2e7d32' : '#c62828' },
-                            { label: 'Участков', value: fmt(team.cellsCount ?? team.cells?.length), color: '#333' },
-                        ].map(({ label, value, color }) => (
-                            <div
-                                key={label}
-                                style={{
-                                    background: '#f8f9fa',
-                                    borderRadius: 8,
-                                    padding: '8px 12px',
-                                }}
-                            >
-                                <div style={{ fontSize: '0.72rem', color: '#999', marginBottom: 2 }}>{label}</div>
-                                <div style={{ fontWeight: 700, fontSize: '1rem', color }}>{value}</div>
-                            </div>
-                        ))}
+
+                    {/* ── Рейтинговые метрики ── */}
+                    <div style={{ marginTop: 14, marginBottom: 12 }}>
+                        <div style={{ fontSize: '0.72rem', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8, fontWeight: 600 }}>
+                            Рейтинговые показатели
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                            {[
+                                { label: 'Запасы ГРР', sublabel: 'Этап 1–5', value: fmtReserves(team.grr), rank: team.ranking?.grr?.rank, pts: team.ranking?.grr?.points },
+                                { label: 'Добыча', sublabel: 'Этап 6–8', value: fmtProd(team.stage2), rank: team.ranking?.stage2?.rank, pts: team.ranking?.stage2?.points },
+                                { label: 'Добыча', sublabel: 'Этап 9–10', value: fmtProd(team.stage3), rank: team.ranking?.stage3?.rank, pts: team.ranking?.stage3?.points },
+                            ].map(({ label, sublabel, value, rank, pts }) => (
+                                <div key={sublabel} style={{ background: '#f0f4ff', borderRadius: 10, padding: '10px 12px', border: '1px solid #c7d7f5' }}>
+                                    <div style={{ fontSize: '0.68rem', color: '#888', marginBottom: 1 }}>{sublabel}</div>
+                                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#1a1a1a', marginBottom: 4 }}>{label}</div>
+                                    <div style={{ fontWeight: 800, fontSize: '1rem', color: '#1565c0', marginBottom: 4 }}>{value}</div>
+                                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                        <span style={{ fontWeight: 700, fontSize: '0.82rem', color: rankColor(rank) }}>{rankLabel(rank)}</span>
+                                        {pts != null && <span style={{ fontSize: '0.75rem', color: '#888' }}>{pts} оч.</span>}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
-                    {/* Список участков */}
-                    {team.cells?.length > 0 && (
-                        <div style={{ marginTop: 12 }}>
-                            <div style={{ fontSize: '0.78rem', color: '#aaa', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                Участки
-                            </div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                {team.cells.map((c) => (
-                                    <span
-                                        key={c.cellRef}
-                                        style={{
-                                            background: '#e8f0fe',
-                                            color: '#1a56a6',
-                                            borderRadius: 6,
-                                            padding: '3px 10px',
-                                            fontSize: '0.82rem',
-                                            fontWeight: 600,
-                                        }}
-                                    >
-                                        {c.cellRef}
-                                        {c.auctionPrice ? ` (аукцион: ${fmt(c.auctionPrice)} млн)` : ''}
-                                    </span>
+                    {/* ── Финансовые метрики ── */}
+                    {(() => {
+                        const diff = (team.initialBudget ?? 0) - (team.finalBudget ?? 0);
+                        const diffColor = '#c62828';
+                        const diffValue = diff == null ? '—' : `${Number(diff).toLocaleString('ru-RU')} млн`;
+                        return (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                                {[
+                                    { label: 'Начальный бюджет', value: fmtBudget(team.initialBudget), color: '#555' },
+                                    { label: 'Оставшийся бюджет', value: fmtBudget(team.finalBudget), color: budgetColor },
+                                    { label: 'Итоговые затраты', value: diffValue, color: diffColor },
+                                ].map(({ label, value, color }) => (
+                                    <div key={label} style={{ background: '#f8f9fa', borderRadius: 8, padding: '8px 12px' }}>
+                                        <div style={{ fontSize: '0.72rem', color: '#999', marginBottom: 2 }}>{label}</div>
+                                        <div style={{ fontWeight: 700, fontSize: '1rem', color }}>{value}</div>
+                                    </div>
                                 ))}
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
                 </div>
             )}
         </div>
@@ -227,7 +203,6 @@ const GameOverScreen = () => {
             setLoading(true);
             setError(null);
             const data = await fetchFinalStats(sessionId);
-            // Сортируем по finalBudget убывание
             const sorted = [...(data.teams || [])].sort((a, b) => sortKey(b) - sortKey(a));
             setStats({ ...data, teams: sorted });
         } catch (e) {
@@ -363,7 +338,10 @@ const GameOverScreen = () => {
                                                 <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#555', marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                     {team.teamName}
                                                 </div>
-                                                <div style={{ fontSize: '0.72rem', color: '#2fa394', fontWeight: 700, marginBottom: 4 }}>
+                                                <div style={{ fontSize: '0.72rem', color: '#1565c0', fontWeight: 800, marginBottom: 2 }}>
+                                                    {team.totalPoints ?? 0} оч.
+                                                </div>
+                                                <div style={{ fontSize: '0.68rem', color: '#2fa394', fontWeight: 600, marginBottom: 4 }}>
                                                     {fmtBudget(team.finalBudget)}
                                                 </div>
                                                 <div

@@ -669,15 +669,15 @@
 }
 
 .totalSuccess.high {
-  color: #2e7d32;
+  color: #00e676;
 }
 
 .totalSuccess.medium {
-  color: #f9a825;
+  color: #ffee58;
 }
 
 .totalSuccess.low {
-  color: #c62828;
+  color: #ff5252;
 }
 
 .lockedTotal {

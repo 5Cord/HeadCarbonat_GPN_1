@@ -1335,6 +1335,7 @@ const DashboardTab = ({ sessions, globalStats }) => {
     const [teamsData, setTeamsData] = useState(null);
     const [expMap, setExpMap]       = useState({});
     const [ratingData, setRatingData] = useState(null);
+    const [topicData, setTopicData]   = useState(null);
     const [loading, setLoading]     = useState(false);
 
     const load = async (sid) => {
@@ -1343,10 +1344,12 @@ const DashboardTab = ({ sessions, globalStats }) => {
         setTeamsData(null);
         setExpMap({});
         setRatingData(null);
+        setTopicData(null);
         try {
-            const [sessJson, ratingJson] = await Promise.all([
+            const [sessJson, ratingJson, topicJson] = await Promise.all([
                 apiAction(`/api/admin/sessions/${sid}`, 'GET'),
                 apiAction(`/api/admin/sessions/${sid}/rating`, 'GET').catch(() => null),
+                apiAction(`/api/admin/sessions/${sid}/topic-stats`, 'GET').catch(() => null),
             ]);
 
             const teams = sessJson.teams ?? [];
@@ -1373,6 +1376,7 @@ const DashboardTab = ({ sessions, globalStats }) => {
             setTeamsData({ teams, teamCells, code: sessJson.code });
             setExpMap(map);
             if (ratingJson?.ok) setRatingData(ratingJson);
+            if (topicJson?.ok)  setTopicData(topicJson);
         } catch (e) { console.error(e); } finally { setLoading(false); }
     };
 
@@ -1584,24 +1588,108 @@ const DashboardTab = ({ sessions, globalStats }) => {
                         </ResponsiveContainer>
                     </div>
 
-                    {/* ── 4. Точность событий — grouped bars ── */}
-                    {eventsData.length > 0 && (
-                        <div className="dash-chart-card">
-                            <div className="dash-chart-title">Ответы на события</div>
-                            <div className="dash-chart-hint">Правильные vs Неправильные</div>
-                            <ResponsiveContainer width="100%" height={220}>
-                                <BarChart data={eventsData} margin={{ top: 8, right: 16, left: 0, bottom: 32 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#1e293b', fontWeight: 600 }} angle={-30} textAnchor="end" interval={0} />
-                                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                                    <Tooltip content={<EventsTooltip />} />
-                                    <Legend iconType="square" wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-                                    <Bar dataKey="correct" name="Правильно" fill="#22c55e" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                                    <Bar dataKey="wrong"   name="Неправильно" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
+                    {/* ── 4. Точность событий — нормированная диаграмма с накоплением ── */}
+                    {eventsData.length > 0 && (() => {
+                        const normData = eventsData.map(d => {
+                            const total = (d.correct || 0) + (d.wrong || 0);
+                            const correctPct = total > 0 ? Math.round((d.correct / total) * 100) : 0;
+                            const wrongPct   = total > 0 ? 100 - correctPct : 0;
+                            return { name: d.name, correctPct, wrongPct, correct: d.correct, wrong: d.wrong, total };
+                        });
+                        const NormTooltip = ({ active, payload, label }) => {
+                            if (!active || !payload?.length) return null;
+                            const d = normData.find(x => x.name === label) || {};
+                            return (
+                                <div className="dash-tooltip">
+                                    <div className="dash-tooltip-name">{label}</div>
+                                    <div style={{ color: '#16a34a' }}>Правильно: <strong>{d.correct}</strong> ({d.correctPct}%)</div>
+                                    <div style={{ color: '#dc2626' }}>Неправильно: <strong>{d.wrong}</strong> ({d.wrongPct}%)</div>
+                                    <div style={{ marginTop: 4, borderTop: '1px solid #e2e8f0', paddingTop: 4 }}>Всего: <strong>{d.total}</strong></div>
+                                </div>
+                            );
+                        };
+                        const CorrectLabel = ({ x, y, width, height, index }) => {
+                            const d = normData[index];
+                            if (!d || width < 55) return null;
+                            return <text x={x + width / 2} y={y + height / 2 + 4} textAnchor="middle" fill="#fff" fontSize={11} fontWeight={700}>{d.correct} ({d.correctPct}%)</text>;
+                        };
+                        const WrongLabel = ({ x, y, width, height, index }) => {
+                            const d = normData[index];
+                            if (!d || width < 55) return null;
+                            return <text x={x + width / 2} y={y + height / 2 + 4} textAnchor="middle" fill="#fff" fontSize={11} fontWeight={700}>{d.wrong} ({d.wrongPct}%)</text>;
+                        };
+                        return (
+                            <div className="dash-chart-card">
+                                <div className="dash-chart-title">Точность ответов на события</div>
+                                <div className="dash-chart-hint">100% диаграмма: зелёный — правильные, красный — неправильные</div>
+                                <ResponsiveContainer width="100%" height={Math.max(eventsData.length * 44 + 40, 180)}>
+                                    <BarChart data={normData} layout="vertical" margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                                        <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 11, fill: '#64748b' }} />
+                                        <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12, fill: '#1e293b', fontWeight: 600 }} />
+                                        <Tooltip content={<NormTooltip />} />
+                                        <Legend iconType="square" wrapperStyle={{ fontSize: 12, paddingTop: 6 }} />
+                                        <Bar dataKey="correctPct" name="Правильно" stackId="s" fill="#22c55e" maxBarSize={28} isAnimationActive={false} label={<CorrectLabel />} />
+                                        <Bar dataKey="wrongPct"   name="Неправильно" stackId="s" fill="#ef4444" maxBarSize={28} isAnimationActive={false} label={<WrongLabel />} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        );
+                    })()}
+
+                    {/* ── 5. Тепловая карта «Команды × Тематики» ── */}
+                    {topicData?.teams?.length > 0 && (() => {
+                        const allTopics = [...new Set(topicData.teams.flatMap(t => Object.keys(t.topics)))].sort();
+                        if (!allTopics.length) return (
+                            <div className="dash-chart-card dash-chart-card--wide">
+                                <div className="dash-chart-title">Сильные и слабые тематики команд</div>
+                                <div style={{ color: '#94a3b8', padding: 16, fontSize: 13 }}>Данные появятся после того как команды ответят на карточки событий</div>
+                            </div>
+                        );
+                        return (
+                            <div className="dash-chart-card dash-chart-card--wide">
+                                <div className="dash-chart-title">Сильные и слабые тематики команд</div>
+                                <div className="dash-chart-hint">Правильных/всего (%) по теме. Зелёный — сильная, красный — слабая, серый — нет данных</div>
+                                <div style={{ overflowX: 'auto', marginTop: 12 }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                        <thead>
+                                            <tr>
+                                                <th style={{ padding: '6px 10px', textAlign: 'left', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '2px solid #e2e8f0' }}>Команда</th>
+                                                {allTopics.map(t => (
+                                                    <th key={t} style={{ padding: '6px 6px', textAlign: 'center', color: '#64748b', fontWeight: 600, fontSize: 11, borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }} title={t}>
+                                                        {t.length > 12 ? t.slice(0, 11) + '…' : t}
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {topicData.teams.map((team, ri) => (
+                                                <tr key={team.teamId} style={{ background: ri % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                                                    <td style={{ padding: '7px 10px', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap', borderBottom: '1px solid #e2e8f0' }}>{team.teamName}</td>
+                                                    {allTopics.map(topic => {
+                                                        const d = team.topics[topic];
+                                                        if (!d) return (
+                                                            <td key={topic} style={{ padding: '7px 6px', textAlign: 'center', background: '#f1f5f9', color: '#94a3b8', borderBottom: '1px solid #e2e8f0', fontSize: 11 }}>—</td>
+                                                        );
+                                                        const total = d.correct + d.wrong;
+                                                        const pct = total > 0 ? Math.round(d.correct / total * 100) : 0;
+                                                        const bg = pct >= 70 ? `rgba(34,197,94,${0.15 + pct / 200})` : pct >= 40 ? `rgba(251,191,36,${0.2 + pct / 300})` : `rgba(239,68,68,${0.15 + (100 - pct) / 200})`;
+                                                        const color = pct >= 70 ? '#15803d' : pct >= 40 ? '#92400e' : '#991b1b';
+                                                        return (
+                                                            <td key={topic} style={{ padding: '7px 6px', textAlign: 'center', background: bg, color, fontWeight: 700, borderBottom: '1px solid #e2e8f0', fontSize: 12, lineHeight: 1.3 }}>
+                                                                <div>{d.correct}/{total}</div>
+                                                                <div style={{ fontSize: 11, opacity: 0.85 }}>({pct}%)</div>
+                                                            </td>
+                                                        );
+                                                    })}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                 </div>
                     </div>{/* конец левой колонки */}
@@ -1690,7 +1778,7 @@ const TotalRatingTable = ({ teams }) => {
                     <tr style={{ background: '#f0f9ff', borderBottom: '2px solid #bae6fd' }}>
                         <th style={{ padding: '10px 14px', textAlign: 'left',  fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Место</th>
                         <th style={{ padding: '10px 14px', textAlign: 'left',  fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Команда</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Запасы ГРР</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Геологоразведка</th>
                         <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Добыча (Проект.)</th>
                         <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Добыча (Управл.)</th>
                         <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Итого очков</th>
@@ -1782,7 +1870,7 @@ const RatingTab = ({ sessions, sessId: externalSessId }) => {
                     <TotalRatingTable teams={teams} />
 
                     <RatingTable
-                        title="1. Запасы ГРР (этап 1–5)"
+                        title="1. Геологоразведка (этап 1–5)"
                         hint="Площадь СРР × плотность запасов (ПО) + запасы по 3Р · больше = лучше"
                         teams={teams}
                         metricKey="grr"

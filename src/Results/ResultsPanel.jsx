@@ -7,6 +7,7 @@ import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
 import ResultsPanelTour from './ResultsPanelTour';
 import { WORK_SCENE_MAP, getScenario, resolveSceneImage, resolveSceneDesc } from '../Research/sceneUtils.js';
+import infaData from '../infa_.json';
 
 const renderWithSup = (text) => {
   if (!text) return null;
@@ -331,6 +332,17 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
   };
 
 
+  // Сценарий раскрывается после 5-го года, если на ЛУ было проведено бурение 3Р
+  const scenarioReveal = globalYear > 5
+    ? ownedLUs.flatMap(lu => {
+        const prog = research.progressByLU[lu.cellRef];
+        if (!prog?.mobilizedColumns?.includes('3r')) return [];
+        const scenId = getScenario(lu.cellRef);
+        const scenInfo = infaData.scenarios.find(s => s.id === scenId) ?? null;
+        return [{ lu, scenId, scenInfo }];
+      })
+    : [];
+
   const handleFinishYear = () => setShowConfirm(true);
 
   const confirmFinishYear = () => {
@@ -403,42 +415,67 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
 
       <div className="rp-lu-switcher">
         <span className="rp-lu-switcher-label">Выберите участок:</span>
-        <div className="rp-lu-switcher-row">
-          {ownedLUs.map(lu => {
-            const status = getLUStatus(lu.cellRef);
-            const isActive = lu.cellRef === activeLUId;
-            const score = events.lineScores?.[lu.cellRef] ?? 0;
-            const mob = research.progressByLU[lu.cellRef]?.mobilizedColumns?.length || 0;
-            const fw = fieldWork.selectionsByLU[lu.cellRef];
-            const fwCostBadge = getTotalCostAllYears(fw);
-            const wYears = getWorkedYears(fw);
-            return (
-              <div
-                key={lu.cellRef}
-                onClick={() => setActiveLUId(lu.cellRef)}
-                className={['rp-lu-card', isActive ? 'rp-lu-card--active' : '', `rp-lu-card--${status}`].join(' ')}
-              >
-                {isActive && <span className="rp-lu-check"></span>}
-                <div className="rp-lu-ref">{lu.cellRef}</div>
-                <div className="rp-lu-name">{lu.name}</div>
-                <div className="rp-lu-badges">
-                  {mob > 0 && <span className="rp-badge rp-badge-mob">{mob} НИР</span>}
-                  {score !== 0 && (
-                    <span className={`rp-badge ${score >= 0 ? 'rp-badge-pos' : 'rp-badge-neg'}`}>
-                      {score >= 0 ? '+' : ''}{score}
-                    </span>
-                  )}
-                  {fwCostBadge > 0 && <span className="rp-badge rp-badge-cost">{fwCostBadge} млн</span>}
-                  {wYears.length > 1 && (
-                    <span className="rp-badge" style={{ background: '#e8f0fe', color: '#3a5fc8', border: '1px solid #b0c4ef' }}>
-                      г. {wYears.join(', ')}
-                    </span>
-                  )}
+        <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+          <div className="rp-lu-switcher-row">
+            {ownedLUs.map(lu => {
+              const status = getLUStatus(lu.cellRef);
+              const isActive = lu.cellRef === activeLUId;
+              const score = events.lineScores?.[lu.cellRef] ?? 0;
+              const mob = research.progressByLU[lu.cellRef]?.mobilizedColumns?.length || 0;
+              const fw = fieldWork.selectionsByLU[lu.cellRef];
+              const fwCostBadge = getTotalCostAllYears(fw);
+              const wYears = getWorkedYears(fw);
+              return (
+                <div
+                  key={lu.cellRef}
+                  onClick={() => setActiveLUId(lu.cellRef)}
+                  className={['rp-lu-card', isActive ? 'rp-lu-card--active' : '', `rp-lu-card--${status}`].join(' ')}
+                >
+                  {isActive && <span className="rp-lu-check"></span>}
+                  <div className="rp-lu-ref">{lu.cellRef}</div>
+                  <div className="rp-lu-name">{lu.name}</div>
+                  <div className="rp-lu-badges">
+                    {mob > 0 && <span className="rp-badge rp-badge-mob">{mob} НИР</span>}
+                    {score !== 0 && (
+                      <span className={`rp-badge ${score >= 0 ? 'rp-badge-pos' : 'rp-badge-neg'}`}>
+                        {score >= 0 ? '+' : ''}{score}
+                      </span>
+                    )}
+                    {fwCostBadge > 0 && <span className="rp-badge rp-badge-cost">{fwCostBadge} млн</span>}
+                    {wYears.length > 1 && (
+                      <span className="rp-badge" style={{ background: '#e8f0fe', color: '#3a5fc8', border: '1px solid #b0c4ef' }}>
+                        г. {wYears.join(', ')}
+                      </span>
+                    )}
+                  </div>
+                  <div className="rp-lu-status-lbl">{STATUS_LABEL[status] || status}</div>
                 </div>
-                <div className="rp-lu-status-lbl">{STATUS_LABEL[status] || status}</div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+
+          {scenarioReveal.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {scenarioReveal.map(({ lu, scenId, scenInfo }) => (
+                <div key={lu.cellRef} style={{
+                  background: 'linear-gradient(135deg,#0d47a1,#1565c0)',
+                  borderRadius: 14,
+                  padding: '18px 24px',
+                  color: '#fff',
+                  minWidth: 280,
+                  maxWidth: 400,
+                  boxShadow: '0 4px 20px rgba(13,71,161,0.35)',
+                }}>
+                  <div style={{ fontSize: '2.8rem', fontWeight: 900, lineHeight: 1, marginBottom: 8 }}>
+                    Участок {lu.cellRef}
+                  </div>
+                  <div style={{ fontSize: '0.95rem', lineHeight: 1.6, opacity: 0.92 }}>
+                    {scenInfo?.description ?? '—'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <div style={{ marginTop: '12px' }}>
           <BudgetBar budget={player.budget} spent={totalSpent} theme="light" />

@@ -106,13 +106,14 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     skipEventLine, completeEvents, updateEventMoneySpent,
     pauseGlobalTimer, resumeGlobalTimer, setGlobalPhase, licenseUnits,
     resetEventCardsForNewYear, applyYearTransitionForAllLUs, advanceToNextYear,
-    setNavigateToRefusal, addUsedEventCardIds,
+    setNavigateToRefusal, addUsedEventCardIds, addUsedEventTopics,
   } = useGameStore();
 
   const globalTimer = useGameStore(s => s.globalTimer);
   const globalYear = useGameStore(s => s.game.currentYear);
   const timeRemaining = useGameStore(s => s.globalTimer.timeRemaining);
   const sessionUsedCardIds = useGameStore(s => s.events.sessionUsedCardIds);
+  const sessionUsedTopics = useGameStore(s => s.events.sessionUsedTopics || {});
   const isLastYear = globalYear >= 10;
 
   const [selectedCard, setSelectedCard] = useState(null);
@@ -241,15 +242,22 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
         const rates = Object.values(yearRates);
         if (rates.length > 0) avgSuccess = rates.reduce((s, r) => s + r, 0) / rates.length;
 
-        const generatedCards = generateEventLine(avgSuccess, excludeIds, player.experienceLevel);
+        const generatedCards = generateEventLine(avgSuccess, excludeIds, player.experienceLevel, sessionUsedTopics);
         // Добавляем новые ID в локальный excludeIds (для кросс-ЛУ дедупликации в этом запуске)
         // и в newSessionIds для сохранения в store
+        const newTopicCounts = {};
         generatedCards.forEach(c => {
           if (c.data?.id) {
             excludeIds.add(c.data.id);
             newSessionIds.push(c.data.id);
           }
+          if (c.type === CARD_TYPES.OPPORTUNITY && c.data?.topic) {
+            newTopicCounts[c.data.topic] = (newTopicCounts[c.data.topic] || 0) + 1;
+          }
         });
+        if (Object.keys(newTopicCounts).length > 0) {
+          addUsedEventTopics(newTopicCounts);
+        }
 
         const lineData = {
           luId: lu.id, luName: lu.name, year: globalYear,
@@ -467,6 +475,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
       isCorrect,
       points: pts,
       skipped: false,
+      topic: card.data.topic || '',
     });
 
     revealEventCard(luId, cardKey, { revealed: true, correct: isCorrect, points: pts, selectedAnswers: [...selectedAnswers] });
@@ -629,6 +638,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
           isCorrect: false,
           points: 0,
           skipped: true,
+          topic: card.data?.topic || '',
         });
       });
     }

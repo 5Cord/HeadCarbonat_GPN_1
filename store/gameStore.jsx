@@ -150,6 +150,7 @@ const useGameStore = create(
           totalMoneySpent: 0,
           moneySpentByYear: {},
           sessionUsedCardIds: [],
+          sessionUsedTopics: {},
         },
 
         statistics: {
@@ -468,6 +469,7 @@ const useGameStore = create(
                 },
                 yearlyStats,
                 sessionUsedCardIds: currentEvents.sessionUsedCardIds || [],
+                sessionUsedTopics: currentEvents.sessionUsedTopics || {},
               },
             };
           });
@@ -865,6 +867,17 @@ const useGameStore = create(
           });
         },
 
+        addUsedEventTopics: (topics) => {
+          if (!topics || Object.keys(topics).length === 0) return;
+          set((state) => {
+            const existing = { ...(state.events.sessionUsedTopics || {}) };
+            Object.entries(topics).forEach(([t, cnt]) => {
+              existing[t] = (existing[t] || 0) + cnt;
+            });
+            return { events: { ...state.events, sessionUsedTopics: existing } };
+          });
+        },
+
         selectFieldWork: (luId, d) => {
           const year = get().globalTimer.currentYear;
           const existing = get().fieldWork.selectionsByLU[luId] || {};
@@ -1019,7 +1032,7 @@ const useGameStore = create(
             auctions: { active: {}, completed: {} },
             regionMap: { cells: [], resourceDensityRevealed: false },
             research: { availableWorks: [], progressByLU: {}, yearTransitionApplied: false },
-            events: { linesByLU: {}, revealedCards: {}, lineScores: {}, skippedLines: {}, historyByYear: {}, isCompleted: false, yearScores: {}, yearlyStats: {}, totalMoneySpent: 0, moneySpentByYear: {}, sessionUsedCardIds: [] },
+            events: { linesByLU: {}, revealedCards: {}, lineScores: {}, skippedLines: {}, historyByYear: {}, isCompleted: false, yearScores: {}, yearlyStats: {}, totalMoneySpent: 0, moneySpentByYear: {}, sessionUsedCardIds: [], sessionUsedTopics: {} },
             statistics: { yearlyData: {} },
             fieldWork: { availableOptions: [], selectionsByLU: {}, totalSpent: 0, totalSpentByYear: {} },
             otherTeamsScene: {},
