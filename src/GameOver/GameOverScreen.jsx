@@ -152,19 +152,28 @@ const TeamCard = ({ team, rank, isMe }) => {
                         const diff = (team.initialBudget ?? 0) - (team.finalBudget ?? 0);
                         const diffColor = '#c62828';
                         const diffValue = diff == null ? '—' : `${Number(diff).toLocaleString('ru-RU')} млн`;
+                        const pipelineCost = team.totalPipelineCost ?? 0;
                         return (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-                                {[
-                                    { label: 'Начальный бюджет', value: fmtBudget(team.initialBudget), color: '#555' },
-                                    { label: 'Оставшийся бюджет', value: fmtBudget(team.finalBudget), color: budgetColor },
-                                    { label: 'Итоговые затраты', value: diffValue, color: diffColor },
-                                ].map(({ label, value, color }) => (
-                                    <div key={label} style={{ background: '#f8f9fa', borderRadius: 8, padding: '8px 12px' }}>
-                                        <div style={{ fontSize: '0.72rem', color: '#999', marginBottom: 2 }}>{label}</div>
-                                        <div style={{ fontWeight: 700, fontSize: '1rem', color }}>{value}</div>
+                            <>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                                    {[
+                                        { label: 'Начальный бюджет', value: fmtBudget(team.initialBudget), color: '#555' },
+                                        { label: 'Оставшийся бюджет', value: fmtBudget(team.finalBudget), color: budgetColor },
+                                        { label: 'Итоговые затраты', value: diffValue, color: diffColor },
+                                    ].map(({ label, value, color }) => (
+                                        <div key={label} style={{ background: '#f8f9fa', borderRadius: 8, padding: '8px 12px' }}>
+                                            <div style={{ fontSize: '0.72rem', color: '#999', marginBottom: 2 }}>{label}</div>
+                                            <div style={{ fontWeight: 700, fontSize: '1rem', color }}>{value}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div style={{ marginTop: 8, background: '#fff8f0', border: '1px solid #ffe0b2', borderRadius: 8, padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ fontSize: '0.78rem', color: '#e65100', fontWeight: 600 }}>🛢 Нефтепровод до точки сдачи</div>
+                                    <div style={{ fontWeight: 800, fontSize: '0.95rem', color: pipelineCost > 0 ? '#c62828' : '#2e7d32' }}>
+                                        {pipelineCost > 0 ? `−${pipelineCost.toLocaleString('ru-RU')} млн` : 'бесплатно'}
                                     </div>
-                                ))}
-                            </div>
+                                </div>
+                            </>
                         );
                     })()}
                 </div>

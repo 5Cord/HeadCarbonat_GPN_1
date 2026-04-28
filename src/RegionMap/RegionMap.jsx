@@ -8,6 +8,7 @@ import RegionMapTour from './Regionmaptour';
 import { getSocket } from '../apiHelpers';
 import { getLastSuccessfulSceneImage, getSceneImageFromMeta, getScenario, resolveSceneImage, WORK_SCENE_MAP } from '../Research/sceneUtils';
 import RegNirSvg from '../svgs/RegNir.svg';
+import NeftImg from '../assets/cards/Neft.png';
 
 const LICENSE_UNITS = [
   { id: 'well1', name: 'Парам. скважина №1', shortName: '1', cost: 10, cellRef: 'A2', position: 'top-left', customStyle: { top: '-130px', left: '0px' }, labelLeft: '0px', description: 'Целевой комплекс: светлые слоистые строматолитовые доломиты с прослоями гипса и ангидрита. Свойства: доломиты слабо пористые, с редкими выпотами густой нефти.', hasImage: false },
@@ -454,6 +455,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const getBlockedLabel = (type) => ({ reserve: 'Природный заказник', settlement: 'Населённый пункт', company: 'Занято нефтяной компанией' }[type] || 'Заблокировано');
 
   const getCellTooltipContent = (cellId) => {
+    if (cellId === '__neft_point__') return { title: 'Точка сдачи нефти', sub: 'Доступна с 9-го года' };
     const blockedType = getBlockedType(cellId);
     if (blockedType) return { title: getBlockedLabel(blockedType), sub: `${cellId} · недоступен` };
     const isContested = isMyContestedCell(cellId);
@@ -904,7 +906,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
             <div className="grid-row-headers">
               {rows.map(row => <div key={row} className="grid-row-header">{row}</div>)}
             </div>
-            <div className="grid-with-lu">
+            <div className="grid-with-lu" style={{ position: 'relative' }}>
               {rows.map(row => (
                 <div key={row} className="grid-row">
                   {cols.map(col => {
@@ -1059,6 +1061,25 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                   })}
                 </div>
               ))}
+              {globalTimer.currentYear >= 9 && (
+                <img
+                  src={NeftImg}
+                  alt="Точка сдачи нефти"
+                  className="neft-point-marker"
+                  style={{
+                    position: 'absolute',
+                    left: 401,
+                    top: 267,
+                    width: 48,
+                    height: 48,
+                    transform: 'translate(-50%, -50%)',
+                    zIndex: 10,
+                    cursor: 'default',
+                  }}
+                  onMouseMove={(e) => setCellTooltip({ cellId: '__neft_point__', x: e.clientX, y: e.clientY })}
+                  onMouseLeave={() => setCellTooltip(null)}
+                />
+              )}
             </div>
           </div>
         </div>
