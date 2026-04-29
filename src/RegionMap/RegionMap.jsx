@@ -60,6 +60,118 @@ const getLUNamePosition = (position) => {
 const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
 const cols = Array.from({ length: 10 }, (_, i) => i + 1);
 
+// ── Зоны нефтепровода ─────────────────────────────────────────────────────────
+
+const ZONE_COLORS = {
+  0:    '#29a694',
+  500:  '#d9b98a',
+  1000: '#cf7d22',
+  1500: '#00548b',
+  2000: '#0a2240',
+  2500: '#ff0000',
+};
+
+const PIPELINE_ZONE_CELLS = {
+  0:    ['D6','D7','E6','E7'],
+  500:  ['C5','C6','C7','C8','D8','E8','F8','F7','F6','F5','E5','D5'],
+  1000: ['B4','B5','B6','B7','B8','B9','C9','D9','E9','F9','G9','G8','G7','G6','G5','G4','F4','E4','D4','C4'],
+  1500: ['A3','A4','A5','A6','A7','A8','A9','A10','B3','C3','D3','E3','F3','G3','H3','H4','H5','H6','H7','H8','H9','H10','B10','C10','D10','E10','F10','G10'],
+  2000: ['A2','B2','C2','D2','E2','F2','G2','H2','I2','I3','I4','I5','I6','I7','I8','I9','I10'],
+  2500: ['A1','B1','C1','D1','E1','F1','G1','H1','I1','J1','J2','J3','J4','J5','J6','J7','J8','J9','J10'],
+};
+
+const _ZONE_ROW = 'ABCDEFGHIJ';
+const _CELL_U   = 67; // 65px cell + 2px gap
+
+function _zoneBoundaryEdges(cells) {
+  const set = new Set(cells);
+  const out = [];
+  for (const id of cells) {
+    const r = _ZONE_ROW.indexOf(id[0]);
+    const c = parseInt(id.slice(1), 10) - 1;
+    const x = c * _CELL_U, y = r * _CELL_U, u = _CELL_U;
+    if (!set.has(`${_ZONE_ROW[r - 1]}${c + 1}`)) out.push({ x1: x,   y1: y,   x2: x+u, y2: y   }); // top
+    if (!set.has(`${_ZONE_ROW[r + 1]}${c + 1}`)) out.push({ x1: x,   y1: y+u, x2: x+u, y2: y+u }); // bottom
+    if (!set.has(`${_ZONE_ROW[r]}${c}`))          out.push({ x1: x,   y1: y,   x2: x,   y2: y+u }); // left
+    if (!set.has(`${_ZONE_ROW[r]}${c + 2}`))      out.push({ x1: x+u, y1: y,   x2: x+u, y2: y+u }); // right
+  }
+  return out;
+}
+
+function _tracePolygons(edges) {
+  const adj = new Map();
+  edges.forEach((e, i) => {
+    const k1 = `${e.x1},${e.y1}`, k2 = `${e.x2},${e.y2}`;
+    if (!adj.has(k1)) adj.set(k1, []);
+    if (!adj.has(k2)) adj.set(k2, []);
+    adj.get(k1).push(i);
+    adj.get(k2).push(i);
+  });
+  const used = new Set();
+  const polys = [];
+  for (let si = 0; si < edges.length; si++) {
+    if (used.has(si)) continue;
+    const pts = [];
+    let ei = si;
+    let entryKey = `${edges[si].x1},${edges[si].y1}`;
+    while (!used.has(ei)) {
+      used.add(ei);
+      const e = edges[ei];
+      const p1k = `${e.x1},${e.y1}`, p2k = `${e.x2},${e.y2}`;
+      const exitKey = entryKey === p1k ? p2k : p1k;
+      pts.push(entryKey.split(',').map(Number));
+      const next = (adj.get(exitKey) || []).find(ni => !used.has(ni));
+      if (next == null) break;
+      entryKey = exitKey;
+      ei = next;
+    }
+    if (pts.length >= 3) polys.push(pts);
+  }
+  return polys;
+}
+
+// Вычисляем один раз при загрузке модуля
+const ZONE_CONTOUR_PATHS = (() => {
+  const result = {};
+  for (const [cost, cells] of Object.entries(PIPELINE_ZONE_CELLS)) {
+    result[cost] = _tracePolygons(_zoneBoundaryEdges(cells));
+  }
+  return result;
+})();
+
+function ZoneContours() {
+  const size = 10 * _CELL_U;
+  return (
+    <svg
+      style={{ position: 'absolute', top: 0, left: 0, width: size, height: size, pointerEvents: 'none', zIndex: 5, overflow: 'visible' }}
+      viewBox={`0 0 ${size} ${size}`}
+    >
+      <defs>
+        <filter id="zone-glow" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      {Object.entries(ZONE_CONTOUR_PATHS).map(([cost, polys]) =>
+        polys.map((pts, pi) => (
+          <path
+            key={`${cost}-${pi}`}
+            d={`M ${pts.map(([x, y]) => `${x} ${y}`).join(' L ')} Z`}
+            fill="none"
+            stroke={ZONE_COLORS[Number(cost)]}
+            strokeWidth="2.5"
+            strokeLinejoin="miter"
+            filter="url(#zone-glow)"
+          />
+        ))
+      )}
+    </svg>
+  );
+}
+
 // ── Модалки ───────────────────────────────────────────────────────────────────
 
 const ConfirmModal = ({ isOpen, onClose, onConfirm, title, children, confirmLabel = 'Подтвердить', cancelLabel = 'Отмена', confirmVariant = 'primary' }) => {
@@ -1061,6 +1173,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                   })}
                 </div>
               ))}
+              <ZoneContours />
               {globalTimer.currentYear >= 9 && (
                 <img
                   src={NeftImg}

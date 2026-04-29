@@ -1238,11 +1238,13 @@ const TeamsMonitor = ({ sessionId }) => {
 
 // ── Dashboard: графики по командам ────────────────────────────────────────────
 const SPEND_CATS = [
-    { key: 'lu_card',   label: 'Карточки ЛУ', color: '#6366f1' },
-    { key: 'auction',   label: 'Аукцион',      color: '#f59e0b' },
-    { key: 'research',  label: 'НИР',          color: '#8b5cf6' },
-    { key: 'fieldwork', label: 'Полевые',      color: '#0ea5e9' },
-    { key: 'events',    label: 'События',      color: '#ec4899' },
+    { key: 'auction',   label: 'Аукционы',          color: '#f59e0b' },
+    { key: 'lu_card',   label: 'Карточки ЛУ',       color: '#6366f1' },
+    { key: 'research',  label: 'НИР',               color: '#8b5cf6' },
+    { key: 'fieldwork', label: 'Полевые работы',    color: '#0ea5e9' },
+    { key: 'events',    label: 'События',           color: '#ec4899' },
+    { key: 'pipeline',  label: 'Нефтепровод',       color: '#92400e' },
+    { key: 'other',     label: 'Инф. карточки',     color: '#94a3b8' },
 ];
 
 const mlnFmt = v => `${Number(v || 0).toLocaleString('ru-RU', { maximumFractionDigits: 0 })} млн`;
@@ -1707,7 +1709,7 @@ const DashboardTab = ({ sessions, globalStats }) => {
 
 // ── Рейтинг: вспомогательные компоненты ──────────────────────────────────────
 
-const RatingTable = ({ title, hint, teams, metricKey, valueLabel }) => {
+const RatingTable = ({ title, hint, teams, metricKey, valueLabel, costKey }) => {
     const sorted = [...teams].sort((a, b) => {
         const ra = a.ranking[metricKey]?.rank, rb = b.ranking[metricKey]?.rank;
         if (ra == null && rb == null) return 0;
@@ -1727,14 +1729,16 @@ const RatingTable = ({ title, hint, teams, metricKey, valueLabel }) => {
                         <th style={{ padding: '8px 12px', textAlign: 'left',   fontSize: 12, color: '#64748b', fontWeight: 600 }}>Место</th>
                         <th style={{ padding: '8px 12px', textAlign: 'left',   fontSize: 12, color: '#64748b', fontWeight: 600 }}>Команда</th>
                         <th style={{ padding: '8px 12px', textAlign: 'right',  fontSize: 12, color: '#64748b', fontWeight: 600 }}>Значение</th>
+                        {costKey && <th style={{ padding: '8px 12px', textAlign: 'right', fontSize: 12, color: '#64748b', fontWeight: 600 }}>Расходы, млн</th>}
                         <th style={{ padding: '8px 12px', textAlign: 'center', fontSize: 12, color: '#64748b', fontWeight: 600 }}>Очки</th>
                     </tr>
                 </thead>
                 <tbody>
                     {sorted.map((t, idx) => {
-                        const r   = t.ranking[metricKey];
+                        const r    = t.ranking[metricKey];
                         const rank = r?.rank;
                         const pts  = r?.points ?? 0;
+                        const cost = costKey ? (t.stageCosts?.[costKey] ?? 0) : null;
                         const rowBg = rank === 1 ? '#fefce8' : idx % 2 === 0 ? '#fff' : '#f8fafc';
                         return (
                             <tr key={t.teamId} style={{ background: rowBg, borderBottom: '1px solid #e2e8f0' }}>
@@ -1745,6 +1749,11 @@ const RatingTable = ({ title, hint, teams, metricKey, valueLabel }) => {
                                 <td style={{ padding: '9px 12px', textAlign: 'right', fontSize: 13, color: '#475569' }}>
                                     {valueLabel(t.metrics[metricKey])}
                                 </td>
+                                {costKey && (
+                                    <td style={{ padding: '9px 12px', textAlign: 'right', fontSize: 13, color: cost > 0 ? '#c2410c' : '#94a3b8' }}>
+                                        {cost > 0 ? `−${fmtNumber(cost)}` : '—'}
+                                    </td>
+                                )}
                                 <td style={{ padding: '9px 12px', textAlign: 'center', fontWeight: 700, fontSize: 14, color: '#1e40af' }}>{pts}</td>
                             </tr>
                         );
@@ -1778,9 +1787,9 @@ const TotalRatingTable = ({ teams }) => {
                     <tr style={{ background: '#f0f9ff', borderBottom: '2px solid #bae6fd' }}>
                         <th style={{ padding: '10px 14px', textAlign: 'left',  fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Место</th>
                         <th style={{ padding: '10px 14px', textAlign: 'left',  fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Команда</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Геологоразведка</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Добыча (Проект.)</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Добыча (Управл.)</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>ГРР (1–5)</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Проектирование (6–8)</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Управление (9–10)</th>
                         <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Итого очков</th>
                     </tr>
                 </thead>
@@ -1792,6 +1801,10 @@ const TotalRatingTable = ({ teams }) => {
                         const grr    = t.metrics.grr?.value;
                         const s2     = t.metrics.stage2?.value;
                         const s3     = t.metrics.stage3?.value;
+                        const c1     = t.stageCosts?.stage1_5  ?? 0;
+                        const c2     = t.stageCosts?.stage6_8  ?? 0;
+                        const c3     = t.stageCosts?.stage9_10 ?? 0;
+                        const costStyle = { display: 'block', fontSize: 11, color: '#c2410c', marginTop: 2 };
                         return (
                             <tr key={t.teamId} style={{ background: rowBg, borderBottom: '1px solid #e2e8f0' }}>
                                 <td style={{ padding: '10px 14px', fontWeight: 700, fontSize: 14, color: r <= 3 ? '#1e40af' : '#64748b' }}>
@@ -1801,14 +1814,17 @@ const TotalRatingTable = ({ teams }) => {
                                 <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#475569' }}>
                                     {grr != null ? `${fmtNumber(Math.round(grr))} тыс. т.` : '—'}
                                     <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: 11 }}>({pt('grr')} оч.)</span>
+                                    {c1 > 0 && <span style={costStyle}>−{fmtNumber(c1)} млн</span>}
                                 </td>
                                 <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#475569' }}>
                                     {s2 != null ? `${fmtNumber(s2)} т.` : '—'}
                                     <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: 11 }}>({pt('stage2')} оч.)</span>
+                                    {c2 > 0 && <span style={costStyle}>−{fmtNumber(c2)} млн</span>}
                                 </td>
                                 <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#475569' }}>
                                     {s3 != null ? `${fmtNumber(s3)} т.` : '—'}
                                     <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: 11 }}>({pt('stage3')} оч.)</span>
+                                    {c3 > 0 && <span style={costStyle}>−{fmtNumber(c3)} млн</span>}
                                 </td>
                                 <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, fontSize: 15, color: '#1e40af' }}>{t.totalPoints}</td>
                             </tr>
@@ -1874,6 +1890,7 @@ const RatingTab = ({ sessions, sessId: externalSessId }) => {
                         hint="Площадь СРР × плотность запасов (ПО) + запасы по 3Р · больше = лучше"
                         teams={teams}
                         metricKey="grr"
+                        costKey="stage1_5"
                         valueLabel={m => m.value != null && m.value > 0
                             ? `${fmtNumber(Math.round(m.value))} тыс. т.`
                             : '—'}
@@ -1884,6 +1901,7 @@ const RatingTab = ({ sessions, sessId: externalSessId }) => {
                         hint="Сумма «Доп. добыча за год» по всем ЛУ и годам 6–8 · больше = лучше"
                         teams={teams}
                         metricKey="stage2"
+                        costKey="stage6_8"
                         valueLabel={m => m.value != null && m.value > 0
                             ? `${fmtNumber(m.value)} т.`
                             : '—'}
@@ -1894,6 +1912,7 @@ const RatingTab = ({ sessions, sessId: externalSessId }) => {
                         hint="Сумма «Доп. добыча за год» по всем ЛУ и годам 9–10 · больше = лучше"
                         teams={teams}
                         metricKey="stage3"
+                        costKey="stage9_10"
                         valueLabel={m => m.value != null && m.value > 0
                             ? `${fmtNumber(m.value)} т.`
                             : '—'}
