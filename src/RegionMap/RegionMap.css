@@ -2711,3 +2711,48 @@
 .case-intro-btn:active {
   transform: translateY(0);
 }
+
+/* ── Готовность команды ──────────────────────────────────────────────────── */
+.ready-btn-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.ready-control-btn {
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  color: #fff;
+}
+
+.ready-control-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #15803d, #16a34a);
+  transform: translateX(4px);
+  box-shadow: 0 6px 16px rgba(22, 163, 74, 0.45);
+}
+
+.ready-control-btn--done,
+.ready-control-btn--done:disabled {
+  background: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.6);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  cursor: default;
+  box-shadow: none;
+}
+
+.ready-control-btn--locked,
+.ready-control-btn--locked:disabled {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.ready-control-counter {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  white-space: nowrap;
+}

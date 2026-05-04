@@ -307,6 +307,9 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const prevContestedKeysRef = useRef('');
 
   const [autoAssignBanner, setAutoAssignBanner] = useState(null);
+
+  const [selectionReady, setSelectionReady] = useState(false);
+  const [selectionReadyStatus, setSelectionReadyStatus] = useState({ readyCount: 0, totalCount: 0 });
   const autoAssignTimerRef = useRef(null);
 
   const REGION_BANNER_DURATION = 7000;
@@ -477,6 +480,23 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   }, [myId]);
 
   useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const onSelectionReadyStatus = ({ readyCount, totalCount }) => {
+      setSelectionReadyStatus({ readyCount, totalCount });
+    };
+    socket.on('selection:ready_status', onSelectionReadyStatus);
+    return () => socket.off('selection:ready_status', onSelectionReadyStatus);
+  }, []);
+
+  useEffect(() => {
+    if (currentPhase !== 'selection') {
+      setSelectionReady(false);
+      setSelectionReadyStatus({ readyCount: 0, totalCount: 0 });
+    }
+  }, [currentPhase]);
+
+  useEffect(() => {
     const handleResize = () => setIsWideScreen(window.innerWidth > 1580);
     window.addEventListener('resize', handleResize);
     return () => {
@@ -605,6 +625,16 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const isMyContestedCell = (ref) => !!myContestedCells[ref];
   const canBuyCells = () => currentPhase === 'selection' || currentPhase === 'post_auction';
   const canJoinAuction = () => currentPhase === 'selection' || currentPhase === 'auction';
+
+  const handleSelectionReady = () => {
+    if (selectionReady) return;
+    const socket = getSocket();
+    if (socket?.connected && player.sessionId) {
+      socket.emit('selection:ready', {}, (res) => {
+        if (res?.ok) setSelectionReady(true);
+      });
+    }
+  };
 
   // ── Покупка карточки ЛУ ───────────────────────────────────────────────────
   const handleLUClick = (lu) => {
@@ -882,6 +912,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
       <div className="map-controls">
         <button className={`control-btn back-control-btn ${isOurPhase ? 'control-btn-locked' : ''}`} onClick={isOurPhase ? undefined : onBack} disabled={isOurPhase} title={isOurPhase ? 'Дождитесь завершения всех этапов карты региона' : ''}>← Назад</button>
         <button className={`control-btn back-control-btn ${isOurPhase ? 'control-btn-locked' : ''}`} onClick={isOurPhase ? undefined : onMenu} disabled={isOurPhase} title={isOurPhase ? 'Дождитесь завершения всех этапов карты региона' : ''}>В меню</button>
+
         {onNext && (() => {
           const mapDone = !isOurPhase && serverPhase !== 'LOBBY' && !isRegionMapPhase(serverPhase);
           const hasLUs = ownedCount > 0;
@@ -889,6 +920,24 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
           const hint = isOurPhase ? `Дождитесь завершения всех этапов карты` : !hasLUs ? 'Сначала выберите хотя бы один участок' : 'Ожидайте завершения всех этапов карты';
           return <button className="control-btn next-control-btn next-control-btn-disabled" disabled title={hint}>{isOurPhase ? `⏳ Идёт ${currentPhase === 'selection' ? 'выбор участков' : currentPhase === 'auction' ? 'аукцион' : 'допокупка'}…` : 'Далее — Научные исследования'}</button>;
         })()}
+
+        {currentPhase === 'selection' && (
+          <div className="ready-btn-group">
+            <button
+              className={`control-btn ready-control-btn ${selectionReady ? 'ready-control-btn--done' : ''} ${totalCommittedCells < MAX_LUS_PER_TEAM ? 'ready-control-btn--locked' : ''}`}
+              onClick={handleSelectionReady}
+              disabled={totalCommittedCells < MAX_LUS_PER_TEAM || selectionReady}
+              title={totalCommittedCells < MAX_LUS_PER_TEAM ? `Сначала выберите все участки (${totalCommittedCells} / ${MAX_LUS_PER_TEAM})` : selectionReady ? 'Вы уже подтвердили готовность' : ''}
+            >
+              {selectionReady ? '✓ Готово' : 'Готовность команды'}
+            </button>
+            {selectionReadyStatus.totalCount > 0 && (
+              <div className="ready-control-counter">
+                {selectionReadyStatus.readyCount} / {selectionReadyStatus.totalCount} готовы
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {import.meta.env.DEV && currentPhase === 'auction' && (
@@ -1173,7 +1222,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                   })}
                 </div>
               ))}
-              <ZoneContours />
+              {globalYear >= 9 && <ZoneContours />}
               {globalTimer.currentYear >= 9 && (
                 <img
                   src={NeftImg}
