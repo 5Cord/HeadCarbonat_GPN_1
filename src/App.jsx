@@ -5,6 +5,7 @@ import GameBoard from './GameBoard';
 import AdminPanel from './Adminpanel';
 import GameOverScreen from './GameOver/GameOverScreen'; // ← НОВЫЙ ИМПОРТ
 import YearEndToast from './YearEndToast';
+import BugReportModal from './BugReportModal';
 import useGameStore from '../store/gameStore';
 import useGlobalTimer from './useGlobalTimer';
 import useSocket from './useSocket';
@@ -141,6 +142,7 @@ function App() {
   // иначе React падает с "Rendered more hooks than during the previous render".
   const [hydrated, setHydrated]   = useState(false);
   const [showAdmin, setShowAdmin] = useState(isAdminRoute);
+  const [showBugReport, setShowBugReport] = useState(false);
 
   // Ждём гидрацию Zustand persist.
   // При обновлении страницы persist восстанавливает стор АСИНХРОННО —
@@ -210,29 +212,41 @@ function App() {
     sessionStorage.clear();
   };
 
+  const btnBase = {
+    padding: '6px 14px',
+    background: 'rgba(10,34,64,0.85)',
+    color: '#fff',
+    border: '1.5px solid rgba(255,255,255,0.2)',
+    borderRadius: 8,
+    fontSize: '0.8rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    backdropFilter: 'blur(6px)',
+    whiteSpace: 'nowrap',
+  };
+
   return (
     <>
       <GameBoard />
       <AdminAccessButton onLogin={() => setShowAdmin(true)} onLogout={() => setShowAdmin(false)} />
-      <div style={{ position: 'fixed', bottom: 56, right: 16, zIndex: 9999 }}>
+      <div style={{ position: 'fixed', bottom: 56, right: 16, zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
         <button
-          onClick={handleLeave}
-          style={{
-            padding: '6px 14px',
-            background: 'rgba(10,34,64,0.85)',
-            color: '#fff',
-            border: '1.5px solid rgba(255,255,255,0.2)',
-            borderRadius: 8,
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-            backdropFilter: 'blur(6px)',
-            whiteSpace: 'nowrap',
-          }}
+          onClick={() => setShowBugReport(true)}
+          style={{ ...btnBase, background: 'rgba(20,10,40,0.85)', borderColor: 'rgba(239,68,68,0.4)', color: '#fca5a5' }}
         >
+        Сообщить о баге
+        </button>
+        <button onClick={handleLeave} style={btnBase}>
           Выйти из сессии
         </button>
       </div>
+      {showBugReport && (
+        <BugReportModal
+          onClose={() => setShowBugReport(false)}
+          sessionId={player.sessionId}
+          teamName={player.name}
+        />
+      )}
       {gameStatus === 'FINISHED' && <GameOverScreen />}
       {yearEndToast && <YearEndToast />}
     </>

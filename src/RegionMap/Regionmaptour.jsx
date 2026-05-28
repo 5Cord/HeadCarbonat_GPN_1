@@ -330,6 +330,7 @@ export default function RegionMapTour({ onDone, maxLUs = 5 }) {
         <Arrow placement={current.placement} />
 
         {/* Заголовок */}
+        
         <div className="tour-tooltip-header">
           <span className="tour-step-icon">{current.icon}</span>
           <span className="tour-step-label">Шаг {step + 1} из {TOUR_STEPS.length}</span>

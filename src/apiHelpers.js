@@ -192,6 +192,12 @@ export const exportData = async (type, format = 'csv') => {
 
 export const healthCheck = () => apiFetch('/health');
 
+export const submitBugReport = ({ location, description, sessionId, teamName }) =>
+  apiFetch('/bug-reports', {
+    method: 'POST',
+    body: JSON.stringify({ location, description, sessionId, teamName }),
+  });
+
 export default {
   getSocket, connectSocket, disconnectSocket,
   getSessionByCode, joinSession, getSessionStatus, leaveSession,

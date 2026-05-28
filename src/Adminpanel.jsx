@@ -1923,6 +1923,113 @@ const RatingTab = ({ sessions, sessId: externalSessId }) => {
     );
 };
 
+// ── Вкладка «Баг репорт» ──────────────────────────────────────────────────────
+const BugReportsTab = () => {
+    const [reports, setReports] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    const load = async () => {
+        setLoading(true); setError(null);
+        try {
+            const data = await apiAction('/api/admin/bug-reports', 'GET');
+            setReports(Array.isArray(data) ? data : []);
+        } catch (e) {
+            setError(e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => { load(); }, []);
+
+    const remove = async (id) => {
+        try {
+            await apiAction(`/api/admin/bug-reports/${id}`, 'DELETE');
+            setReports(prev => prev.filter(r => r.id !== id));
+        } catch (e) {
+            alert('Ошибка удаления: ' + e.message);
+        }
+    };
+
+    const fmt = (ts) => {
+        if (!ts) return '—';
+        const d = new Date(Number(ts) * 1000);
+        return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    };
+
+    return (
+        <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                <h2 style={{ margin: 0 }}>Баг-репорты</h2>
+                <button className="tb tb-gray" onClick={load} disabled={loading}>↻ Обновить</button>
+                {reports.length > 0 && <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.82rem' }}>{reports.length} шт.</span>}
+            </div>
+
+            {loading && <div className="ap-loading">Загрузка…</div>}
+            {error && <div style={{ color: '#fca5a5', padding: '12px 0' }}>Ошибка: {error}</div>}
+
+            {!loading && reports.length === 0 && !error && (
+                <p className="ap-empty">Баг-репортов нет.</p>
+            )}
+
+            {reports.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {reports.map(r => (
+                        <div key={r.id} style={{
+                            background: 'rgba(255,255,255,0.04)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: 10,
+                            padding: '14px 16px',
+                            position: 'relative',
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
+                                <span style={{
+                                    background: 'rgba(96,165,250,0.15)',
+                                    border: '1px solid rgba(96,165,250,0.3)',
+                                    borderRadius: 6,
+                                    padding: '2px 10px',
+                                    fontSize: '0.78rem',
+                                    fontWeight: 600,
+                                    color: '#93c5fd',
+                                    whiteSpace: 'nowrap',
+                                }}>{r.location}</span>
+                                {r.team_name && (
+                                    <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>
+                                        👤 {r.team_name}
+                                    </span>
+                                )}
+                                {r.session_id && (
+                                    <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.35)' }}>
+                                        сессия: {r.session_id}
+                                    </span>
+                                )}
+                                <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.3)', marginLeft: 'auto' }}>
+                                    {fmt(r.created_at)}
+                                </span>
+                            </div>
+                            <p style={{ margin: '10px 0 0', fontSize: '0.88rem', color: 'rgba(255,255,255,0.8)', lineHeight: 1.55, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                                {r.description}
+                            </p>
+                            <button
+                                onClick={() => remove(r.id)}
+                                style={{
+                                    position: 'absolute', top: 10, right: 10,
+                                    background: 'none', border: 'none',
+                                    color: 'rgba(239,68,68,0.5)', cursor: 'pointer',
+                                    fontSize: '1rem', lineHeight: 1, padding: '2px 6px',
+                                    borderRadius: 4,
+                                }}
+                                title="Удалить"
+                            >×</button>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 // ── Главный компонент AdminPanel ───────────────────────────────────────────────
 const AdminPanel = ({ onLogout }) => {
     const [loggedIn, setLoggedIn] = useState(() => !!getSavedToken());
@@ -2001,11 +2108,12 @@ const AdminPanel = ({ onLogout }) => {
     };
 
     const TABS = [
-        { id: 'create',    label: '+ Создать' },
-        { id: 'control',   label: 'Управление сессией' },
-        { id: 'sessions',  label: 'Сессии' },
-        // { id: 'teams',     label: 'Команды' },
-        { id: 'dashboard', label: 'Статистика' },
+        { id: 'create',     label: '+ Создать' },
+        { id: 'control',    label: 'Управление сессией' },
+        { id: 'sessions',   label: 'Сессии' },
+        // { id: 'teams',   label: 'Команды' },
+        { id: 'dashboard',  label: 'Статистика' },
+        { id: 'bugreports', label: 'Баг репорт' },
     ];
 
     return (
@@ -2162,6 +2270,8 @@ const AdminPanel = ({ onLogout }) => {
                         <DashboardTab sessions={sessions} globalStats={stats} />
                     </div>
                 )}
+
+                {tab === 'bugreports' && <BugReportsTab />}
             </main>
 
             {confirmState && (
