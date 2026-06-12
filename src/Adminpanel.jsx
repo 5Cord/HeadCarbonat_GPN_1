@@ -3,6 +3,9 @@ import {
     getAdminSessions, getAdminTeams, getAdminStats,
     deleteSession, resetTeam, exportData,
     adminLogin, getAdminSessionDetails,
+    updateSessionIntro,
+    getPresets, createPreset, updatePreset, deletePreset,
+    getIntroPresets, createIntroPreset, updateIntroPreset, deleteIntroPreset,
 } from './apiHelpers';
 import { io as socketIO } from 'socket.io-client';
 import {
@@ -20,6 +23,35 @@ const DEFAULT_TIMERS = {
 };
 
 const BUDGET_DEFAULTS = { students: 20000, professionals: 20000 };
+
+const DEFAULT_CASE_INTRO = {
+    title: 'Кейс',
+    paragraphs: [
+        'В стране растёт интерес компаний к новому потенциально нефтеносному району.',
+        'По данным федеральных научных институтов, перспективы связаны с карбонатным комплексом платформенного типа.',
+        'На западе расположен складчато-надвиговый комплекс, где целевые объекты могут выходить на поверхность.',
+        'Изученность района крайне низкая: сейсморазведка 2D почти отсутствует, бурение не проводилось.',
+        'По периметру пробурены параметрические скважины, примыкающие к зоне лицензирования.',
+    ],
+    buttonText: 'Начать работу →',
+};
+
+// ── Преобразование таймеров пресета/сессии в форму TimersForm ────────────────
+const timersFromConfig = (cfg) => {
+    const years = { ...DEFAULT_TIMERS.years };
+    Object.entries(cfg?.timers || {}).forEach(([y, v]) => {
+        const n = Number(y);
+        if (n >= 1 && n <= 10) years[n] = Number(v);
+    });
+    return {
+        regionMap: {
+            selection: Number(cfg?.regionMapTimers?.selection ?? DEFAULT_TIMERS.regionMap.selection),
+            auction: Number(cfg?.regionMapTimers?.auction ?? DEFAULT_TIMERS.regionMap.auction),
+            postAuction: Number(cfg?.regionMapTimers?.postAuction ?? DEFAULT_TIMERS.regionMap.postAuction),
+        },
+        years,
+    };
+};
 
 const ALL_PHASES = [
     'LOBBY', 'REGION_MAP_SELECTION', 'REGION_MAP_AUCTION', 'REGION_MAP_POST_AUCTION', 'RESEARCH',
@@ -187,6 +219,162 @@ const TimersForm = ({ timers, onChange }) => {
     );
 };
 
+// ── Редактор стартового окна (кейс) ──────────────────────────────────────────
+const normalizeName = (s) => s.trim().toLowerCase();
+
+const IntroContentEditor = ({ value, onChange, hidePresetPicker }) => {
+    const intro = value ?? DEFAULT_CASE_INTRO;
+    const [presets, setPresets] = useState([]);
+    const [presetId, setPresetId] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [prompt, setPrompt] = useState(null); // null | { mode: 'create' | 'rename' }
+    const [promptError, setPromptError] = useState('');
+    const [confirmDelete, setConfirmDelete] = useState(false);
+    const setField = (k, v) => onChange({ ...intro, [k]: v });
+    const setParagraph = (idx, v) => onChange({ ...intro, paragraphs: intro.paragraphs.map((p, j) => j === idx ? v : p) });
+    const addParagraph = () => onChange({ ...intro, paragraphs: [...(intro.paragraphs ?? []), ''] });
+    const removeParagraph = (idx) => onChange({ ...intro, paragraphs: intro.paragraphs.filter((_, j) => j !== idx) });
+
+    useEffect(() => {
+        if (hidePresetPicker) return;
+        getIntroPresets().then(setPresets).catch(() => setPresets([]));
+    }, [hidePresetPicker]);
+
+    const selectedPreset = presets.find(p => p.id === presetId) || null;
+
+    const applyPreset = (id) => {
+        setPresetId(id);
+        if (!id) {
+            onChange(JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)));
+            return;
+        }
+        const preset = presets.find(p => p.id === id);
+        if (preset) onChange(preset.introContent ?? JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)));
+    };
+
+    const isDuplicateName = (name, excludeId) =>
+        presets.some(p => p.id !== excludeId && normalizeName(p.name) === normalizeName(name));
+
+    const handleCreate = () => { setPromptError(''); setPrompt({ mode: 'create' }); };
+    const handleRename = () => { if (!selectedPreset) return; setPromptError(''); setPrompt({ mode: 'rename' }); };
+
+    const handlePromptConfirm = async (rawName) => {
+        const name = (rawName || '').trim();
+        if (!name) { setPromptError('Укажите название пресета'); return; }
+        if (prompt.mode === 'create' && isDuplicateName(name)) {
+            setPromptError('Пресет с таким названием уже существует');
+            return;
+        }
+        if (prompt.mode === 'rename' && isDuplicateName(name, selectedPreset.id)) {
+            setPromptError('Пресет с таким названием уже существует');
+            return;
+        }
+        setBusy(true);
+        try {
+            if (prompt.mode === 'create') {
+                const created = await createIntroPreset({ name, introContent: intro });
+                setPresets(p => [created, ...p]);
+                setPresetId(created.id);
+            } else {
+                const updated = await updateIntroPreset(selectedPreset.id, { name });
+                setPresets(p => p.map(x => x.id === updated.id ? updated : x));
+            }
+            setPrompt(null);
+        } catch (e) {
+            setPromptError(e.message);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleSave = async () => {
+        if (!selectedPreset) return;
+        setBusy(true);
+        try {
+            const updated = await updateIntroPreset(selectedPreset.id, { introContent: intro });
+            setPresets(p => p.map(x => x.id === updated.id ? updated : x));
+        } catch (e) {
+            alert('Ошибка: ' + e.message);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!selectedPreset) return;
+        setBusy(true);
+        try {
+            await deleteIntroPreset(selectedPreset.id);
+            setPresets(p => p.filter(x => x.id !== selectedPreset.id));
+            setPresetId('');
+        } catch (e) {
+            alert('Ошибка: ' + e.message);
+        } finally {
+            setBusy(false);
+            setConfirmDelete(false);
+        }
+    };
+
+    return (
+        <div className="intro-editor-form">
+            {!hidePresetPicker && (
+                <>
+                    <div className="intro-section-label">Пресет</div>
+                    <div className="tf-row">
+                        <select className="preset-select" style={{ flex: 1 }} value={presetId} onChange={e => applyPreset(e.target.value)}>
+                            <option value="">По умолчанию</option>
+                            {presets.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="intro-preset-actions">
+                        <button className="preset-action-btn paction-create" onClick={handleCreate} disabled={busy}>Сохранить как новый пресет</button>
+                        <button className="preset-action-btn paction-save" onClick={handleSave} disabled={busy || !selectedPreset}>Обновить пресет</button>
+                        <button className="preset-action-btn paction-rename" onClick={handleRename} disabled={busy || !selectedPreset}>Переименовать пресет</button>
+                        <button className="preset-action-btn paction-delete" onClick={() => setConfirmDelete(true)} disabled={busy || !selectedPreset}>Удалить пресет</button>
+                    </div>
+                </>
+            )}
+
+            <div className="intro-section-label">Содержимое окна</div>
+            <div className="tf-row">
+                <label>Заголовок</label>
+                <input className="text-input" type="text" placeholder="Например: Кейс" value={intro.title ?? ''} onChange={e => setField('title', e.target.value)} />
+            </div>
+            <div className="tf-row">
+                <label>Текст кнопки</label>
+                <input className="text-input" type="text" placeholder="Например: Начать работу →" value={intro.buttonText ?? ''} onChange={e => setField('buttonText', e.target.value)} />
+            </div>
+            <div className="fs-title" style={{ marginTop: '.5rem' }}>Параграфы</div>
+            {(intro.paragraphs ?? []).map((p, idx) => (
+                <div key={idx} className="intro-paragraph-row">
+                    <span className="intro-paragraph-num">{idx + 1}</span>
+                    <textarea className="intro-paragraph-input" rows={2} placeholder="Текст параграфа…" value={p} onChange={e => setParagraph(idx, e.target.value)} />
+                    <button className="ghost-btn" onClick={() => removeParagraph(idx)}>✕</button>
+                </div>
+            ))}
+            <button className="ghost-btn" onClick={addParagraph}>+ Добавить параграф</button>
+
+            {prompt && (
+                <PromptModal
+                    title={prompt.mode === 'create' ? 'Название нового пресета стартового окна:' : 'Новое название пресета:'}
+                    initialValue={prompt.mode === 'rename' ? (selectedPreset?.name ?? '') : ''}
+                    confirmLabel={prompt.mode === 'create' ? 'Создать' : 'Сохранить'}
+                    error={promptError}
+                    onConfirm={handlePromptConfirm}
+                    onCancel={() => setPrompt(null)}
+                />
+            )}
+            {confirmDelete && (
+                <ConfirmModal
+                    message={`Удалить пресет «${selectedPreset?.name}»?`}
+                    onConfirm={handleDelete}
+                    onCancel={() => setConfirmDelete(false)}
+                />
+            )}
+        </div>
+    );
+};
+
 const LiveTimersEditor = ({ sessionId, adminSocket }) => {
     const [timers, setTimers] = useState(JSON.parse(JSON.stringify(DEFAULT_TIMERS)));
     const [loading, setLoading] = useState(false);
@@ -237,6 +425,43 @@ const LiveTimersEditor = ({ sessionId, adminSocket }) => {
     );
 };
 
+const IntroEditor = ({ sessionId }) => {
+    const [intro, setIntro] = useState(JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)));
+    const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+
+    useEffect(() => {
+        if (!sessionId) return;
+        setSaved(false); setLoading(true);
+        getAdminSessionDetails(sessionId)
+            .then(s => setIntro(s.introContent ?? JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO))))
+            .catch(() => setIntro(JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO))))
+            .finally(() => setLoading(false));
+    }, [sessionId]);
+
+    const handleSave = async () => {
+        setSaving(true); setSaved(false);
+        try {
+            await updateSessionIntro(sessionId, intro);
+            setSaved(true); setTimeout(() => setSaved(false), 2500);
+        } catch (e) { alert('Ошибка: ' + e.message); } finally { setSaving(false); }
+    };
+
+    return (
+        <div className="live-editor">
+            <div className="live-editor-head">
+                <span>Стартовое окно (кейс)</span>
+                <button className="ghost-btn" onClick={() => setIntro(JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)))}>↺ сброс</button>
+            </div>
+            {loading ? <div className="live-editor-loading">Загрузка…</div> : <IntroContentEditor value={intro} onChange={setIntro} />}
+            <button className={`apply-btn ${saved ? 'apply-btn-saved' : ''}`} onClick={handleSave} disabled={saving || loading || !sessionId}>
+                {saving ? 'Сохраняю…' : saved ? 'Сохранено!' : 'Сохранить'}
+            </button>
+        </div>
+    );
+};
+
 const ConfirmModal = ({ message, onConfirm, onCancel }) => (
     <div className="cm-overlay" onClick={onCancel}>
         <div className="cm-box" onClick={e => e.stopPropagation()}>
@@ -248,6 +473,30 @@ const ConfirmModal = ({ message, onConfirm, onCancel }) => (
         </div>
     </div>
 );
+
+const PromptModal = ({ title, initialValue = '', confirmLabel = 'ОК', error, onConfirm, onCancel }) => {
+    const [value, setValue] = useState(initialValue);
+    return (
+        <div className="cm-overlay" onClick={onCancel}>
+            <div className="cm-box" onClick={e => e.stopPropagation()}>
+                <p className="cm-message">{title}</p>
+                <input
+                    className="cm-input"
+                    type="text"
+                    autoFocus
+                    value={value}
+                    onChange={e => setValue(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && onConfirm(value)}
+                />
+                {error && <p className="cm-error">{error}</p>}
+                <div className="cm-actions">
+                    <button className="cm-btn cm-btn-cancel" onClick={onCancel}>Отмена</button>
+                    <button className="cm-btn cm-btn-confirm" onClick={() => onConfirm(value)}>{confirmLabel}</button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const TimerControl = ({ sessionId, sessions, adminSocket, onRefresh, openConfirm }) => {
     const [timer, setTimer] = useState(null);
@@ -390,19 +639,59 @@ const TimerControl = ({ sessionId, sessions, adminSocket, onRefresh, openConfirm
     );
 };
 
+// ── Сворачиваемый блок (аккордеон) ───────────────────────────────────────────
+const CollapsibleSection = ({ title, extra, defaultOpen = false, children }) => {
+    const [open, setOpen] = useState(defaultOpen);
+    return (
+        <div className="fs">
+            <div className="fs-title-row collapsible-header" onClick={() => setOpen(o => !o)}>
+                <span className="fs-title">
+                    <span className={`collapsible-arrow ${open ? 'collapsible-arrow-open' : ''}`}>▸</span>
+                    {title}
+                </span>
+                {extra && <span onClick={e => e.stopPropagation()}>{extra}</span>}
+            </div>
+            {open && children}
+        </div>
+    );
+};
+
 const CreateSessionTab = ({ onGoToControl }) => {
     const [step, setStep] = useState('form');
     const [loading, setLoad] = useState(false);
     const [error, setError] = useState('');
     const [created, setCreated] = useState(null);
     const [copied, setCopied] = useState(false);
+    const [presets, setPresets] = useState([]);
+    const [presetId, setPresetId] = useState('');
 
     const [form, setForm] = useState({
         gameMode: 'online', playerType: 'students', maxLUs: 3,
         budgets: { ...BUDGET_DEFAULTS },
         timers: JSON.parse(JSON.stringify(DEFAULT_TIMERS)),
+        introContent: JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)),
     });
     const sf = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+    useEffect(() => {
+        getPresets().then(setPresets).catch(() => setPresets([]));
+    }, []);
+
+    const applyPreset = (id) => {
+        setPresetId(id);
+        if (!id) return;
+        const preset = presets.find(p => p.id === id);
+        if (!preset) return;
+        setForm(f => ({
+            ...f,
+            gameMode: preset.gameMode ?? f.gameMode,
+            playerType: preset.playerType ?? f.playerType,
+            maxLUs: preset.maxLUsPerTeam ?? f.maxLUs,
+            budgets: { ...f.budgets, [preset.playerType]: preset.budget ?? f.budgets[preset.playerType] },
+            timers: timersFromConfig(preset),
+            introContent: preset.introContent ?? JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)),
+        }));
+    };
 
     const handleCreate = async () => {
         setError(''); setLoad(true);
@@ -411,7 +700,7 @@ const CreateSessionTab = ({ onGoToControl }) => {
             const r = await fetch(`${API_URL}/api/admin/sessions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ gameMode: form.gameMode, playerType: form.playerType, maxLUsPerTeam: form.maxLUs, budget: form.budgets[form.playerType], budgets: form.budgets, regionMapTimers: form.timers.regionMap, timers: form.timers.years }),
+                body: JSON.stringify({ gameMode: form.gameMode, playerType: form.playerType, maxLUsPerTeam: form.maxLUs, budget: form.budgets[form.playerType], budgets: form.budgets, regionMapTimers: form.timers.regionMap, timers: form.timers.years, introContent: form.introContent }),
             });
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const res = await r.json();
@@ -443,6 +732,15 @@ const CreateSessionTab = ({ onGoToControl }) => {
     return (
         <div className="create-form">
             <div className="create-form-left">
+                {presets.length > 0 && (
+                    <div className="fs">
+                        <div className="fs-title">Пресет</div>
+                        <select className="text-input" value={presetId} onChange={e => applyPreset(e.target.value)}>
+                            <option value="">— не выбран —</option>
+                            {presets.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                    </div>
+                )}
                 <div className="fs">
                     <div className="fs-title">Режим игры</div>
                     <div className="toggle-row">
@@ -492,11 +790,298 @@ const CreateSessionTab = ({ onGoToControl }) => {
                     </div>
                     <TimersForm timers={form.timers} onChange={v => sf('timers', v)} />
                 </div>
+                <CollapsibleSection
+                    title="Стартовое окно (кейс)"
+                    extra={<button className="ghost-btn" onClick={() => sf('introContent', JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)))}>↺ Сброс</button>}
+                >
+                    <IntroContentEditor value={form.introContent} onChange={v => sf('introContent', v)} />
+                </CollapsibleSection>
                 {error && <div className="form-error">{error}</div>}
                 <button className="create-btn" onClick={handleCreate} disabled={loading}>
                     {loading ? 'Создание…' : 'Создать сессию'}
                 </button>
             </div>
+        </div>
+    );
+};
+
+// ── Пресеты ────────────────────────────────────────────────────────────────
+
+const PresetForm = ({ initial, onSave, onCancel, saving, existingNames = [] }) => {
+    const [form, setForm] = useState(() => ({
+        name: initial?.name ?? '',
+        gameMode: initial?.gameMode ?? 'online',
+        playerType: initial?.playerType ?? 'students',
+        maxLUs: initial?.maxLUsPerTeam ?? 3,
+        budgets: { ...BUDGET_DEFAULTS, ...(initial ? { [initial.playerType]: initial.budget } : {}) },
+        timers: timersFromConfig(initial),
+        introContent: initial?.introContent ?? JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)),
+        adminNotes: initial?.adminNotes ?? '',
+    }));
+    const [nameError, setNameError] = useState('');
+    const sf = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+    const handleSave = () => {
+        const trimmed = form.name.trim();
+        if (!trimmed) { setNameError('Укажите название пресета'); return; }
+        if (existingNames.some(n => normalizeName(n) === normalizeName(trimmed))) {
+            setNameError('Пресет с таким названием уже существует');
+            return;
+        }
+        setNameError('');
+        onSave({
+            name: form.name.trim(),
+            gameMode: form.gameMode,
+            playerType: form.playerType,
+            maxLUsPerTeam: form.maxLUs,
+            budget: form.budgets[form.playerType],
+            budgets: form.budgets,
+            regionMapTimers: form.timers.regionMap,
+            timers: form.timers.years,
+            introContent: form.introContent,
+            adminNotes: form.adminNotes,
+        });
+    };
+
+    return (
+        <div className="create-form">
+            <div className="create-form-left">
+                <div className="fs">
+                    <div className="fs-title">Название пресета</div>
+                    <input className="text-input" type="text" value={form.name} onChange={e => { sf('name', e.target.value); setNameError(''); }} placeholder="Например: Демо для студентов" />
+                    {nameError && <p className="cm-error" style={{ textAlign: 'left' }}>{nameError}</p>}
+                </div>
+                <div className="fs">
+                    <div className="fs-title">Режим игры</div>
+                    <div className="toggle-row">
+                        {[['online', 'Онлайн'], ['solo', 'Одиночная']].map(([v, l]) => (
+                            <button key={v} className={`tog ${form.gameMode === v ? 'tog-on' : ''}`} onClick={() => sf('gameMode', v)}>{l}</button>
+                        ))}
+                    </div>
+                </div>
+                <div className="fs">
+                    <div className="fs-title">Тип игроков</div>
+                    <div className="toggle-row">
+                        {[['students', 'Студенты'], ['professionals', 'Профессионалы']].map(([v, l]) => (
+                            <button key={v} className={`tog ${form.playerType === v ? 'tog-on' : ''}`} onClick={() => sf('playerType', v)}>{l}</button>
+                        ))}
+                    </div>
+                </div>
+                <div className="fs">
+                    <div className="fs-title">Бюджеты (млн ₽)</div>
+                    {[['students', 'Студенты'], ['professionals', 'Профессионалы']].map(([key, label]) => (
+                        <div key={key} className="tf-row">
+                            <label>{label}</label>
+                            <div className="tf-row-right">
+                                <input className="num-input" type="number" min={1} value={form.budgets[key]}
+                                    onChange={e => setForm(f => ({ ...f, budgets: { ...f.budgets, [key]: Number(e.target.value) } }))} />
+                                <span>млн</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <div className="fs">
+                    <div className="fs-title">Лицензионные участки</div>
+                    <div className="tf-row">
+                        <label>Макс. ЛУ на команду</label>
+                        <div className="tf-row-right">
+                            <input className="num-input" type="number" min={3} max={5} value={form.maxLUs}
+                                onChange={e => sf('maxLUs', Math.max(3, Math.min(5, Number(e.target.value))))} />
+                            <span>(3–5)</span>
+                        </div>
+                    </div>
+                </div>
+                <div className="fs">
+                    <div className="fs-title">Заметки</div>
+                    <textarea className="intro-paragraph-input" rows={2} value={form.adminNotes} onChange={e => sf('adminNotes', e.target.value)} />
+                </div>
+            </div>
+            <div className="create-form-right">
+                <div className="fs">
+                    <div className="fs-title-row">
+                        <span className="fs-title">Таймеры</span>
+                        <button className="ghost-btn" onClick={() => sf('timers', JSON.parse(JSON.stringify(DEFAULT_TIMERS)))}>↺ Сброс</button>
+                    </div>
+                    <TimersForm timers={form.timers} onChange={v => sf('timers', v)} />
+                </div>
+                <CollapsibleSection
+                    title="Стартовое окно (кейс)"
+                    extra={<button className="ghost-btn" onClick={() => sf('introContent', JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)))}>↺ Сброс</button>}
+                >
+                    <IntroContentEditor value={form.introContent} onChange={v => sf('introContent', v)} />
+                </CollapsibleSection>
+                <div style={{ display: 'flex', gap: 10 }}>
+                    <button className="create-btn" onClick={handleSave} disabled={saving}>
+                        {saving ? 'Сохранение…' : 'Сохранить пресет'}
+                    </button>
+                    <button className="secondary-btn" onClick={onCancel}>Отмена</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ── Редактор отдельного пресета стартового окна ──────────────────────────────
+const IntroPresetEditor = ({ initial, onSave, onCancel, saving, existingNames = [] }) => {
+    const [name, setName] = useState(initial?.name ?? '');
+    const [intro, setIntro] = useState(initial?.introContent ?? JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)));
+    const [nameError, setNameError] = useState('');
+
+    const handleSave = () => {
+        const trimmed = name.trim();
+        if (!trimmed) { setNameError('Укажите название пресета'); return; }
+        if (existingNames.some(n => normalizeName(n) === normalizeName(trimmed))) {
+            setNameError('Пресет с таким названием уже существует');
+            return;
+        }
+        setNameError('');
+        onSave({ name: trimmed, introContent: intro });
+    };
+
+    return (
+        <div className="fs">
+            <div className="fs-title">Название пресета</div>
+            <input className="text-input" type="text" value={name} onChange={e => { setName(e.target.value); setNameError(''); }} placeholder="Например: Альтернативный кейс" />
+            {nameError && <p className="cm-error" style={{ textAlign: 'left' }}>{nameError}</p>}
+            <div className="fs-title" style={{ marginTop: '.75rem' }}>Содержимое</div>
+            <IntroContentEditor value={intro} onChange={setIntro} hidePresetPicker />
+            <div style={{ display: 'flex', gap: 10, marginTop: '.75rem' }}>
+                <button className="create-btn" onClick={handleSave} disabled={saving}>
+                    {saving ? 'Сохранение…' : 'Сохранить'}
+                </button>
+                <button className="secondary-btn" onClick={onCancel}>Отмена</button>
+            </div>
+        </div>
+    );
+};
+
+// ── Пресеты стартового окна (список) ─────────────────────────────────────────
+const IntroPresetsSection = () => {
+    const [presets, setPresets] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [editing, setEditing] = useState(null); // null | 'new' | preset
+    const [saving, setSaving] = useState(false);
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
+    const load = () => {
+        setLoading(true);
+        getIntroPresets().then(setPresets).catch(() => setPresets([])).finally(() => setLoading(false));
+    };
+    useEffect(() => { load(); }, []);
+
+    const handleSave = async (data) => {
+        setSaving(true);
+        try {
+            if (editing === 'new') await createIntroPreset(data);
+            else await updateIntroPreset(editing.id, data);
+            setEditing(null);
+            load();
+        } catch (e) { alert('Ошибка: ' + e.message); } finally { setSaving(false); }
+    };
+
+    const handleDelete = async (id) => {
+        try { await deleteIntroPreset(id); load(); } catch (e) { alert('Ошибка: ' + e.message); } finally { setConfirmDeleteId(null); }
+    };
+
+    if (editing) {
+        const existingNames = presets.filter(p => editing === 'new' || p.id !== editing.id).map(p => p.name);
+        return <IntroPresetEditor initial={editing === 'new' ? null : editing} onSave={handleSave} onCancel={() => setEditing(null)} saving={saving} existingNames={existingNames} />;
+    }
+
+    return (
+        <div className="fs">
+            <div className="fs-title-row">
+                <span className="fs-title">Пресеты стартового окна</span>
+                <button className="ghost-btn" onClick={() => setEditing('new')}>+ Создать</button>
+            </div>
+            {loading && <div className="live-editor-loading">Загрузка…</div>}
+            {!loading && presets.length === 0 && <p className="ap-empty">Нет сохранённых пресетов.</p>}
+            {presets.map(p => (
+                <div key={p.id} className="tf-row">
+                    <label>{p.name}</label>
+                    <div className="tf-row-right">
+                        <button className="ghost-btn" onClick={() => setEditing(p)}>Изменить</button>
+                        <button className="ghost-btn" onClick={() => setConfirmDeleteId(p.id)}>Удалить</button>
+                    </div>
+                </div>
+            ))}
+            {confirmDeleteId && (
+                <ConfirmModal
+                    message={`Удалить пресет «${presets.find(p => p.id === confirmDeleteId)?.name}»?`}
+                    onConfirm={() => handleDelete(confirmDeleteId)}
+                    onCancel={() => setConfirmDeleteId(null)}
+                />
+            )}
+        </div>
+    );
+};
+
+const PresetsTab = () => {
+    const [presets, setPresets] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [editing, setEditing] = useState(null); // null | 'new' | preset
+    const [saving, setSaving] = useState(false);
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
+    const load = () => {
+        setLoading(true);
+        getPresets().then(setPresets).catch(() => setPresets([])).finally(() => setLoading(false));
+    };
+    useEffect(() => { load(); }, []);
+
+    const handleSave = async (data) => {
+        setSaving(true);
+        try {
+            if (editing === 'new') await createPreset(data);
+            else await updatePreset(editing.id, data);
+            setEditing(null);
+            load();
+        } catch (e) { alert('Ошибка: ' + e.message); } finally { setSaving(false); }
+    };
+
+    const handleDelete = async (id) => {
+        try { await deletePreset(id); load(); } catch (e) { alert('Ошибка: ' + e.message); } finally { setConfirmDeleteId(null); }
+    };
+
+    if (editing) {
+        return <PresetForm initial={editing === 'new' ? null : editing} onSave={handleSave} onCancel={() => setEditing(null)} saving={saving} existingNames={presets.filter(p => editing === 'new' || p.id !== editing.id).map(p => p.name)} />;
+    }
+
+    return (
+        <div>
+            <div className="fs-title-row">
+                <h2 style={{ margin: 0 }}>Пресеты</h2>
+                <button className="create-btn" onClick={() => setEditing('new')}>+ Создать пресет</button>
+            </div>
+            {loading && <div className="ap-loading">Загрузка…</div>}
+            {!loading && presets.length === 0 && <p className="ap-empty">Нет сохранённых пресетов.</p>}
+            <div className="sessions-grid">
+                {presets.map(p => (
+                    <div key={p.id} className="session-card">
+                        <div className="sc-header">
+                            <strong>{p.name}</strong>
+                        </div>
+                        <div style={{ fontSize: '.85rem', color: 'var(--text3)', display: 'flex', flexDirection: 'column', gap: 2, marginBottom: '.5rem' }}>
+                            <span>{p.gameMode === 'online' ? 'Онлайн' : 'Одиночная'} · {p.playerType === 'students' ? 'Студенты' : 'Профессионалы'}</span>
+                            <span>Бюджет: {fmtMln(p.budget)} млн · Макс. ЛУ: {p.maxLUsPerTeam}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <button className="ghost-btn" onClick={() => setEditing(p)}>Редактировать</button>
+                            <button className="ghost-btn" onClick={() => setConfirmDeleteId(p.id)}>Удалить</button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+            <div style={{ marginTop: '1rem' }}>
+                <IntroPresetsSection />
+            </div>
+            {confirmDeleteId && (
+                <ConfirmModal
+                    message={`Удалить пресет «${presets.find(p => p.id === confirmDeleteId)?.name}»?`}
+                    onConfirm={() => handleDelete(confirmDeleteId)}
+                    onCancel={() => setConfirmDeleteId(null)}
+                />
+            )}
         </div>
     );
 };
@@ -2109,6 +2694,7 @@ const AdminPanel = ({ onLogout }) => {
 
     const TABS = [
         { id: 'create',     label: '+ Создать' },
+        { id: 'presets',    label: 'Пресеты' },
         { id: 'control',    label: 'Управление сессией' },
         { id: 'sessions',   label: 'Сессии' },
         // { id: 'teams',   label: 'Команды' },
@@ -2140,6 +2726,8 @@ const AdminPanel = ({ onLogout }) => {
 
                 {tab === 'create' && <CreateSessionTab onGoToControl={goToControl} />}
 
+                {tab === 'presets' && <PresetsTab />}
+
                 {tab === 'control' && (
                     <div className="control-wrap">
                         <h2>Управление сессией</h2>
@@ -2157,6 +2745,12 @@ const AdminPanel = ({ onLogout }) => {
                                     <div className="live-editor-card" style={{ marginTop: '1rem' }}>
                                         <div className="live-editor-card-title">Таймеры сессии</div>
                                         <LiveTimersEditor sessionId={controlSess} adminSocket={adminSocketRef} />
+                                    </div>
+                                )}
+                                {controlSess && (
+                                    <div className="live-editor-card" style={{ marginTop: '1rem' }}>
+                                        <div className="live-editor-card-title">Стартовое окно</div>
+                                        <IntroEditor sessionId={controlSess} />
                                     </div>
                                 )}
                             </div>

@@ -23,6 +23,18 @@ const LICENSE_UNITS = [
   { id: 'outcrop', name: 'Обнажение', shortName: 'О', cost: 10, cellRef: 'D1', position: 'left', customStyle: { top: '0', left: '-130px' }, description: 'Горные породы: ритмично-слоистые светло-серые известняки и доломиты с микробиальными биотермами до 10 м толщиной. Встречаются поры, каверны и трещины с запахом углеводородов.', hasImage: false },
 ];
 
+const DEFAULT_CASE_INTRO = {
+  title: 'Кейс',
+  paragraphs: [
+    'В стране растёт интерес компаний к новому потенциально нефтеносному району.',
+    'По данным федеральных научных институтов, перспективы связаны с карбонатным комплексом платформенного типа.',
+    'На западе расположен складчато-надвиговый комплекс, где целевые объекты могут выходить на поверхность.',
+    'Изученность района крайне низкая: сейсморазведка 2D почти отсутствует, бурение не проводилось.',
+    'По периметру пробурены параметрические скважины, примыкающие к зоне лицензирования.',
+  ],
+  buttonText: 'Начать работу →',
+};
+
 const BLOCKED_CELLS = {
   reserve: ['C3', 'C4', 'D3', 'D4'],
   settlement: ['G6', 'G7', 'H6', 'H7'],
@@ -805,24 +817,25 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   return (
     <div className="region-map-fullscreen">
 
-      {showCaseIntro && (
-        <div className="case-intro-overlay">
-          <div className="case-intro-modal">
-            <h1 className="case-intro-title">Кейс</h1>
-            <div className="case-intro-divider" />
-            <div className="case-intro-body">
-              <p>В стране растёт интерес компаний к новому потенциально нефтеносному району.</p>
-              <p>По данным федеральных научных институтов, перспективы связаны с карбонатным комплексом платформенного типа.</p>
-              <p>На западе расположен складчато-надвиговый комплекс, где целевые объекты могут выходить на поверхность.</p>
-              <p>Изученность района крайне низкая: сейсморазведка 2D почти отсутствует, бурение не проводилось.</p>
-              <p>По периметру пробурены параметрические скважины, примыкающие к зоне лицензирования.</p>
+      {showCaseIntro && (() => {
+        const intro = sessionConfig.introContent ?? DEFAULT_CASE_INTRO;
+        return (
+          <div className="case-intro-overlay">
+            <div className="case-intro-modal">
+              <h1 className="case-intro-title">{intro.title || DEFAULT_CASE_INTRO.title}</h1>
+              <div className="case-intro-divider" />
+              <div className="case-intro-body">
+                {(intro.paragraphs ?? DEFAULT_CASE_INTRO.paragraphs).map((p, i) => (
+                  <p key={i}>{p}</p>
+                ))}
+              </div>
+              <button className="case-intro-btn" onClick={dismissCaseIntro}>
+                {intro.buttonText || DEFAULT_CASE_INTRO.buttonText}
+              </button>
             </div>
-            <button className="case-intro-btn" onClick={dismissCaseIntro}>
-              Начать работу →
-            </button>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <GlobalTimer
         className="region-timer"

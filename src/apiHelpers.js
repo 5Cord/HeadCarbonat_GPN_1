@@ -181,6 +181,18 @@ export const resetTeam             = (id)     => adminFetch(`/teams/${id}/reset`
 export const updateGameConfig      = (config) => adminFetch('/config', { method: 'PUT', body: JSON.stringify(config) });
 export const getGameConfig         = ()        => adminFetch('/config');
 
+export const updateSessionIntro    = (id, introContent) => adminFetch(`/sessions/${id}/intro`, { method: 'PATCH', body: JSON.stringify({ introContent }) });
+
+export const getPresets            = ()       => adminFetch('/presets');
+export const createPreset          = (preset) => adminFetch('/presets', { method: 'POST', body: JSON.stringify(preset) });
+export const updatePreset          = (id, preset) => adminFetch(`/presets/${id}`, { method: 'PUT', body: JSON.stringify(preset) });
+export const deletePreset          = (id)     => adminFetch(`/presets/${id}`, { method: 'DELETE' });
+
+export const getIntroPresets       = ()       => adminFetch('/intro-presets');
+export const createIntroPreset     = (preset) => adminFetch('/intro-presets', { method: 'POST', body: JSON.stringify(preset) });
+export const updateIntroPreset     = (id, preset) => adminFetch(`/intro-presets/${id}`, { method: 'PUT', body: JSON.stringify(preset) });
+export const deleteIntroPreset     = (id)     => adminFetch(`/intro-presets/${id}`, { method: 'DELETE' });
+
 export const exportData = async (type, format = 'csv') => {
   const token = localStorage.getItem('auth_token');
   const res = await fetch(`${API_BASE}/admin/export/${type}?format=${format}`, {

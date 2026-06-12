@@ -469,6 +469,197 @@ body,
   -moz-appearance: textfield;
 }
 
+/* ── Текстовые поля (название, заголовок, селекты) ── */
+.text-input {
+  width: 100%;
+  padding: .4rem .6rem;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  font-size: .95rem;
+  color: var(--text);
+  background: var(--surface);
+  transition: border-color .15s;
+  box-sizing: border-box;
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* ── Красивый селект пресетов ── */
+.preset-select {
+  width: 100%;
+  padding: .5rem 2.25rem .5rem .75rem;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  font-size: .95rem;
+  font-weight: 500;
+  color: var(--text);
+  background-color: var(--surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right .75rem center;
+  background-size: 14px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+  box-sizing: border-box;
+}
+
+.preset-select:hover {
+  border-color: var(--accent);
+}
+
+.preset-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, .15);
+}
+
+/* ── Редактор стартового окна ── */
+.intro-editor-form {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.intro-editor-form .tf-row label {
+  min-width: 110px;
+}
+
+.intro-preset-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+/* ── Сворачиваемый блок (аккордеон) ── */
+.collapsible-header {
+  cursor: pointer;
+  user-select: none;
+}
+
+.collapsible-arrow {
+  display: inline-block;
+  margin-right: .4rem;
+  font-size: .75rem;
+  color: var(--text3);
+  transition: transform .15s;
+}
+
+.collapsible-arrow-open {
+  transform: rotate(90deg);
+}
+
+/* ── Цветные кнопки управления пресетом ── */
+.preset-action-btn {
+  padding: .4rem .9rem;
+  border-radius: 8px;
+  border: 1.5px solid transparent;
+  font-size: .85rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  transition: opacity .15s, transform .1s, background-color .15s;
+}
+
+.preset-action-btn:hover:not(:disabled) {
+  opacity: .85;
+}
+
+.preset-action-btn:active:not(:disabled) {
+  transform: scale(.97);
+}
+
+.preset-action-btn:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+.paction-create {
+  border-color: var(--success);
+  color: var(--success);
+  background: rgba(34, 197, 94, .08);
+}
+
+.paction-save {
+  border-color: var(--accent);
+  color: var(--accent2);
+  background: rgba(41, 166, 148, .08);
+}
+
+.paction-rename {
+  border-color: var(--warn);
+  color: var(--warn);
+  background: rgba(207, 125, 34, .08);
+}
+
+.paction-delete {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: rgba(229, 57, 53, .08);
+}
+
+/* ── Подзаголовки секций редактора ── */
+.intro-section-label {
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text3);
+  margin: .5rem 0 .15rem;
+  padding-bottom: .25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.intro-section-label:first-child {
+  margin-top: 0;
+}
+
+/* ── Нумерация параграфов ── */
+.intro-paragraph-num {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--border);
+  color: var(--text3);
+  font-size: .75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.intro-paragraph-row {
+  display: flex;
+  gap: .5rem;
+  align-items: flex-start;
+}
+
+.intro-paragraph-input {
+  flex: 1;
+  width: 100%;
+  padding: .4rem .6rem;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  font-size: .9rem;
+  color: var(--text);
+  background: var(--surface);
+  resize: vertical;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.intro-paragraph-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 /* ── Годовая сетка таймеров ── */
 .tf-years-grid {
   display: grid;
@@ -2878,4 +3069,27 @@ body,
 .cm-btn-confirm {
   background: #ef4444;
   color: #fff;
+}
+
+.cm-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: .6rem .75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border, #334155);
+  background: var(--bg, #0f172a);
+  color: var(--text, #f1f5f9);
+  font-size: .95rem;
+}
+
+.cm-input:focus {
+  outline: none;
+  border-color: var(--accent, #38bdf8);
+}
+
+.cm-error {
+  margin: -.5rem 0 0;
+  color: #ef4444;
+  font-size: .85rem;
+  text-align: center;
 }
