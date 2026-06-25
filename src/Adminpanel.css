@@ -3078,7 +3078,7 @@ body,
   border-radius: 8px;
   border: 1px solid var(--border, #334155);
   background: var(--bg, #0f172a);
-  color: var(--text, #f1f5f9);
+  color: #ffffff !important;
   font-size: .95rem;
 }
 
@@ -3092,4 +3092,126 @@ body,
   color: #ef4444;
   font-size: .85rem;
   text-align: center;
+}
+
+/* ── Редактор карточек ЛУ ─────────────────────────────────────────────────── */
+.lu-cards-editor {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+.lu-card-row {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: .65rem;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+.lu-card-row-head {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.lu-card-badge {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #1976d2;
+  color: #fff;
+  font-weight: 700;
+  font-size: .8rem;
+}
+.lu-card-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: .35rem .5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: .9rem;
+}
+.lu-card-cost {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+}
+.lu-card-cost .num-input {
+  width: 72px;
+}
+.lu-card-desc {
+  width: 100%;
+  box-sizing: border-box;
+  padding: .4rem .5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: .85rem;
+  font-family: inherit;
+  resize: vertical;
+}
+.lu-card-img-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .6rem;
+}
+.lu-card-img-default-tag {
+  font-size: .75rem;
+  color: #64748b;
+  background: #e2e8f0;
+  border-radius: 4px;
+  padding: .15rem .4rem;
+}
+.lu-card-img-upload {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .35rem .7rem;
+  border: 1px dashed #94a3b8;
+  border-radius: 6px;
+  color: #475569;
+  font-size: .82rem;
+  cursor: pointer;
+}
+.lu-card-img-upload:hover {
+  border-color: #1976d2;
+  color: #1976d2;
+}
+.lu-card-img-preview {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  position: relative;
+  cursor: zoom-in;
+}
+.lu-card-img-preview img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  /* Ховером управляет контейнер фиксированного размера, а не сама картинка —
+     иначе увеличенная картинка двигает свою же hover-границу и происходит дёрганье. */
+  pointer-events: none;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.lu-card-img-preview:hover img {
+  transform: scale(4.5);
+  transform-origin: left center;
+  object-fit: contain;
+  background: #fff;
+  position: relative;
+  z-index: 50;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
+}
+/* Кнопка/метка остаются поверх увеличенной картинки и кликабельны */
+.lu-card-img-preview .ghost-btn,
+.lu-card-img-preview .lu-card-img-default-tag {
+  position: relative;
+  z-index: 1;
 }

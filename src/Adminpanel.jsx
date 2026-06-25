@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
-    getAdminSessions, getAdminTeams, getAdminStats,
-    deleteSession, resetTeam, exportData,
+    getAdminTeams, getAdminStats,
+    deleteSession, resetTeam,
     adminLogin, getAdminSessionDetails,
-    updateSessionIntro,
     getPresets, createPreset, updatePreset, deletePreset,
     getIntroPresets, createIntroPreset, updateIntroPreset, deleteIntroPreset,
+    getResearchPresets, createResearchPreset, updateResearchPreset, deleteResearchPreset,
 } from './apiHelpers';
+import { MOBILIZATION_WORKS, normalizeResearchConfig } from './Research/researchData';
+import { DEFAULT_LU_CARDS } from './RegionMap/luCards';
 import { io as socketIO } from 'socket.io-client';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -128,22 +130,48 @@ function useAdminFetch(url, deps = []) {
         }
     }, [url, token]);
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { load(); }, [load, ...deps]);
 
     return { data, loading, error, reload: load };
 }
 
 const MinuteInput = ({ value, onChange, disabled }) => {
-    const [raw, setRaw] = useState(String(value ?? ''));
-    useEffect(() => setRaw(String(value ?? '')), [value]);
+    const [editing, setEditing] = useState(false);
+    const [raw, setRaw] = useState('');
+    const display = editing ? raw : String(value ?? '');
     const commit = () => {
         const n = parseFloat(String(raw).replace(',', '.'));
         const v = isNaN(n) || n < 0 ? 0 : Math.min(Math.round(n * 1000) / 1000, 120);
-        setRaw(String(v)); onChange(v);
+        setEditing(false);
+        onChange(v);
     };
     return (
         <input className="min-input" type="number" min={0} max={120} step="any"
-            value={raw} onChange={e => setRaw(e.target.value)} onBlur={commit} disabled={disabled} />
+            value={display}
+            onFocus={() => { setRaw(String(value ?? '')); setEditing(true); }}
+            onChange={e => setRaw(e.target.value)}
+            onBlur={commit} disabled={disabled} />
+    );
+};
+
+// Целочисленный инпут с буфером ввода и клампом [min, max] на blur.
+const IntInput = ({ value, onChange, min = 0, max = 100000, className, style }) => {
+    const [editing, setEditing] = useState(false);
+    const [raw, setRaw] = useState('');
+    const display = editing ? raw : String(value ?? 0);
+    const commit = () => {
+        const n = Math.round(Number(String(raw).replace(',', '.')));
+        const v = !Number.isFinite(n) ? min : Math.max(min, Math.min(max, n));
+        setEditing(false);
+        onChange(v);
+    };
+    return (
+        <input className={className} style={style} type="number" min={min} max={max}
+            value={display}
+            onFocus={() => { setRaw(String(value ?? 0)); setEditing(true); }}
+            onChange={e => setRaw(e.target.value)}
+            onBlur={commit} />
     );
 };
 
@@ -221,6 +249,110 @@ const TimersForm = ({ timers, onChange }) => {
 
 // ── Редактор стартового окна (кейс) ──────────────────────────────────────────
 const normalizeName = (s) => s.trim().toLowerCase();
+
+// ── Конфигурация НИР (виды работ) ────────────────────────────────────────────
+// Временно отключённый функционал пресетов сессии целиком (создание/выбор).
+// Код сохранён — для возврата достаточно поставить true. Пресеты стартового
+// окна, НИР и (в будущем) карточек ЛУ остаются доступны независимо от флага.
+const ENABLE_SESSION_PRESETS = false;
+
+const RESEARCH_RATE_MAX = 95;
+// Ширины замороженных (sticky) левых колонок таблицы редактора НИР.
+// Фиксированные, чтобы sticky-смещение колонки «Стоимость» было детерминированным.
+const RESEARCH_NAME_COL_W = 240;   // колонка «Вид работ»
+const RESEARCH_COST_COL_W = 78;    // колонка «Стоимость»
+// Свежая копия дефолтной конфигурации видов работ (безопасна для мутаций).
+const freshResearchConfig = () => normalizeResearchConfig(null);
+// Короткое имя мобилизационной колонки для заголовка таблицы редактора.
+const shortMobName = (name) => String(name || '').replace(/^Успешность\s+/i, '');
+
+// ── Карточки ЛУ (название, цена, описание, картинка) ─────────────────────────
+// Картинка едет base64 в конфиге сессии, поэтому исходник уменьшаем в браузере
+// до миниатюры — грузится файл любого размера, а в конфиге остаётся лёгкий JPEG.
+const MAX_LU_IMAGE_DIM = 900;                  // макс. сторона миниатюры, px
+const MAX_LU_SOURCE_BYTES = 20 * 1024 * 1024;  // защита от гигантских исходников
+// Свежая копия дефолтных карточек (безопасна для мутаций).
+const freshLUCards = () => JSON.parse(JSON.stringify(DEFAULT_LU_CARDS));
+
+const LUCardsEditor = ({ value, onChange }) => {
+    const cards = (Array.isArray(value) && value.length > 0) ? value : freshLUCards();
+    const [imgError, setImgError] = useState('');
+
+    const setField = (i, key, v) => onChange(cards.map((c, j) => j === i ? { ...c, [key]: v } : c));
+    const resetCard = (i) => {
+        const def = DEFAULT_LU_CARDS.find(d => d.id === cards[i].id);
+        if (def) onChange(cards.map((c, j) => j === i ? JSON.parse(JSON.stringify(def)) : c));
+    };
+
+    const handleImage = (i, file) => {
+        setImgError('');
+        if (!file) return;
+        if (!file.type.startsWith('image/')) { setImgError('Можно загрузить только изображение'); return; }
+        if (file.size > MAX_LU_SOURCE_BYTES) {
+            setImgError(`Файл слишком большой (макс. ${Math.round(MAX_LU_SOURCE_BYTES / 1024 / 1024)} МБ)`); return;
+        }
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            const scale = Math.min(1, MAX_LU_IMAGE_DIM / Math.max(img.width, img.height));
+            const w = Math.max(1, Math.round(img.width * scale));
+            const h = Math.max(1, Math.round(img.height * scale));
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#fff';            // JPEG без альфы — подложка белым
+            ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+            URL.revokeObjectURL(url);
+            try {
+                setField(i, 'image', canvas.toDataURL('image/jpeg', 0.85));
+            } catch {
+                setImgError('Не удалось обработать изображение');
+            }
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); setImgError('Не удалось прочитать изображение'); };
+        img.src = url;
+    };
+
+    return (
+        <div className="lu-cards-editor">
+            {imgError && <div className="form-error">{imgError}</div>}
+            {cards.map((c, i) => (
+                <div key={c.id} className="lu-card-row">
+                    <div className="lu-card-row-head">
+                        <span className="lu-card-badge">{c.shortName}</span>
+                        <input className="lu-card-name" value={c.name}
+                            onChange={e => setField(i, 'name', e.target.value)} placeholder="Название" />
+                        <div className="lu-card-cost">
+                            <input className="num-input" type="number" min={0} value={c.cost}
+                                onChange={e => setField(i, 'cost', Number(e.target.value))} />
+                            <span>млн</span>
+                        </div>
+                        <button className="ghost-btn" type="button" title="Сбросить карточку" onClick={() => resetCard(i)}>↺</button>
+                    </div>
+                    <textarea className="lu-card-desc" rows={3} value={c.description}
+                        onChange={e => setField(i, 'description', e.target.value)} placeholder="Описание" />
+                    <div className="lu-card-img-row">
+                        {(c.image || c.defaultImage) && (
+                            <div className="lu-card-img-preview">
+                                <img src={c.image || c.defaultImage} alt={c.name} />
+                                {c.image
+                                    ? <button className="ghost-btn" type="button" onClick={() => setField(i, 'image', null)}>Удалить картинку</button>
+                                    : <span className="lu-card-img-default-tag">по умолчанию</span>}
+                            </div>
+                        )}
+                        <label className="lu-card-img-upload">
+                            <span>{(c.image || c.defaultImage) ? 'Заменить картинку' : '＋ Картинка (необязательно)'}</span>
+                            <input type="file" accept="image/*" hidden
+                                onChange={e => { handleImage(i, e.target.files?.[0]); e.target.value = ''; }} />
+                        </label>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+};
 
 const IntroContentEditor = ({ value, onChange, hidePresetPicker }) => {
     const intro = value ?? DEFAULT_CASE_INTRO;
@@ -375,6 +507,242 @@ const IntroContentEditor = ({ value, onChange, hidePresetPicker }) => {
     );
 };
 
+// ── Редактор конфигурации НИР (виды работ, стоимость, % успеха) ───────────────
+const ResearchConfigEditor = ({ value, onChange, hidePresetPicker }) => {
+    const works = (Array.isArray(value) && value.length > 0) ? value : freshResearchConfig();
+    const [presets, setPresets] = useState([]);
+    const [presetId, setPresetId] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [prompt, setPrompt] = useState(null); // null | { mode: 'create' | 'rename' }
+    const [promptError, setPromptError] = useState('');
+    const [confirmDelete, setConfirmDelete] = useState(false);
+    const [pendingPresetId, setPendingPresetId] = useState(null); // null | { id } — отложенная смена пресета
+
+    useEffect(() => {
+        if (hidePresetPicker) return;
+        getResearchPresets().then(setPresets).catch(() => setPresets([]));
+    }, [hidePresetPicker]);
+
+    const selectedPreset = presets.find(p => p.id === presetId) || null;
+
+    // ── Несохранённые изменения: текущая таблица vs эталон выбранного пресета ──
+    const baselineConfig = selectedPreset ? normalizeResearchConfig(selectedPreset.researchConfig) : freshResearchConfig();
+    const sameConfig = (a, b) => JSON.stringify(normalizeResearchConfig(a)) === JSON.stringify(normalizeResearchConfig(b));
+    const hasUnsavedChanges = !sameConfig(works, baselineConfig);
+
+    // ── Дубли названий видов работ (trim + регистронезависимо, пустые игнорируем) ──
+    const duplicateWorkNames = (() => {
+        const seen = new Map();
+        works.forEach(w => {
+            const key = normalizeName(w?.name || '');
+            if (!key) return;
+            seen.set(key, (seen.get(key) || 0) + 1);
+        });
+        return new Set([...seen.entries()].filter(([, n]) => n > 1).map(([k]) => k));
+    })();
+    const isDuplicateRow = (w) => duplicateWorkNames.has(normalizeName(w?.name || ''));
+    const hasDuplicateNames = duplicateWorkNames.size > 0;
+
+    const doApplyPreset = (id) => {
+        setPresetId(id);
+        if (!id) { onChange(freshResearchConfig()); return; }
+        const preset = presets.find(p => p.id === id);
+        if (preset) onChange(normalizeResearchConfig(preset.researchConfig));
+    };
+
+    const requestApplyPreset = (id) => {
+        if (id === presetId) return;
+        if (hasUnsavedChanges) { setPendingPresetId({ id }); return; }
+        doApplyPreset(id);
+    };
+
+    // ── Правка ячеек таблицы ──────────────────────────────────────────────────
+    const setName = (i, v) => onChange(works.map((w, j) => j === i ? { ...w, name: v } : w));
+    const setCost = (i, v) => onChange(works.map((w, j) => j === i ? { ...w, cost: v } : w));
+    const setRate = (i, mobId, v) => onChange(works.map((w, j) =>
+        j === i ? { ...w, successRates: { ...w.successRates, [mobId]: v } } : w));
+    const addRow = () => onChange([
+        ...works,
+        {
+            id: `rw_custom_${Date.now()}`,
+            name: '',
+            cost: 0,
+            successRates: Object.fromEntries(MOBILIZATION_WORKS.map(m => [m.id, 0])),
+        },
+    ]);
+    const removeRow = (i) => onChange(works.filter((_, j) => j !== i));
+
+    // ── CRUD пресетов НИР ─────────────────────────────────────────────────────
+    const isDuplicateName = (name, excludeId) =>
+        presets.some(p => p.id !== excludeId && normalizeName(p.name) === normalizeName(name));
+
+    const handleCreate = () => { setPromptError(''); setPrompt({ mode: 'create' }); };
+    const handleRename = () => { if (!selectedPreset) return; setPromptError(''); setPrompt({ mode: 'rename' }); };
+
+    const handlePromptConfirm = async (rawName) => {
+        const name = (rawName || '').trim();
+        if (!name) { setPromptError('Укажите название пресета'); return; }
+        if (prompt.mode === 'create' && isDuplicateName(name)) {
+            setPromptError('Пресет с таким названием уже существует'); return;
+        }
+        if (prompt.mode === 'rename' && isDuplicateName(name, selectedPreset.id)) {
+            setPromptError('Пресет с таким названием уже существует'); return;
+        }
+        setBusy(true);
+        try {
+            if (prompt.mode === 'create') {
+                const created = await createResearchPreset({ name, researchConfig: works });
+                setPresets(p => [created, ...p]);
+                setPresetId(created.id);
+            } else {
+                const updated = await updateResearchPreset(selectedPreset.id, { name });
+                setPresets(p => p.map(x => x.id === updated.id ? updated : x));
+            }
+            setPrompt(null);
+        } catch (e) {
+            setPromptError(e.message);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleSave = async () => {
+        if (!selectedPreset) return;
+        setBusy(true);
+        try {
+            const updated = await updateResearchPreset(selectedPreset.id, { researchConfig: works });
+            setPresets(p => p.map(x => x.id === updated.id ? updated : x));
+        } catch (e) {
+            alert('Ошибка: ' + e.message);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!selectedPreset) return;
+        setBusy(true);
+        try {
+            await deleteResearchPreset(selectedPreset.id);
+            setPresets(p => p.filter(x => x.id !== selectedPreset.id));
+            setPresetId('');
+        } catch (e) {
+            alert('Ошибка: ' + e.message);
+        } finally {
+            setBusy(false);
+            setConfirmDelete(false);
+        }
+    };
+
+    const rateColor = (v) => v >= 15 ? '#16a34a' : v > 0 ? '#0f766e' : '#cbd5e1';
+
+    return (
+        <div className="research-editor-form">
+            {!hidePresetPicker && (
+                <>
+                    <div className="intro-section-label">Пресет НИР</div>
+                    <div className="tf-row">
+                        <select className="preset-select" style={{ flex: 1 }} value={presetId} onChange={e => requestApplyPreset(e.target.value)}>
+                            <option value="">По умолчанию</option>
+                            {presets.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="intro-preset-actions">
+                        <button className="preset-action-btn paction-create" onClick={handleCreate} disabled={busy || hasDuplicateNames}>Сохранить как новый пресет</button>
+                        <button className="preset-action-btn paction-save" onClick={handleSave} disabled={busy || !selectedPreset || hasDuplicateNames}>Обновить пресет</button>
+                        <button className="preset-action-btn paction-rename" onClick={handleRename} disabled={busy || !selectedPreset}>Переименовать пресет</button>
+                        <button className="preset-action-btn paction-delete" onClick={() => setConfirmDelete(true)} disabled={busy || !selectedPreset}>Удалить пресет</button>
+                    </div>
+                </>
+            )}
+
+            <div className="intro-section-label">Виды работ ({works.length})</div>
+
+            <div className="research-editor-scroll" style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+                <table className="research-editor-table" style={{ borderCollapse: 'collapse', fontSize: 12, width: '100%' }}>
+                    <thead>
+                        <tr style={{ background: '#f8fafc' }}>
+                            <th style={{ position: 'sticky', left: 0, background: '#f8fafc', textAlign: 'left', padding: '6px 8px', width: RESEARCH_NAME_COL_W, minWidth: RESEARCH_NAME_COL_W, maxWidth: RESEARCH_NAME_COL_W, borderBottom: '2px solid #e2e8f0', zIndex: 3 }}>Вид работ</th>
+                            <th style={{ position: 'sticky', left: RESEARCH_NAME_COL_W, background: '#f8fafc', padding: '6px 6px', width: RESEARCH_COST_COL_W, minWidth: RESEARCH_COST_COL_W, maxWidth: RESEARCH_COST_COL_W, borderBottom: '2px solid #e2e8f0', borderRight: '1px solid #e2e8f0', zIndex: 3 }}>Стоимость</th>
+                            {MOBILIZATION_WORKS.map(m => (
+                                <th key={m.id} title={m.name} style={{ padding: '6px 4px', minWidth: 52, borderBottom: '2px solid #e2e8f0', color: '#475569', fontWeight: 600, lineHeight: 1.15 }}>
+                                    {shortMobName(m.name)}
+                                </th>
+                            ))}
+                            <th style={{ padding: '6px 4px', borderBottom: '2px solid #e2e8f0' }}></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {works.map((w, i) => (
+                            <tr key={w.id || i} style={{ borderBottom: '1px solid #eef2f7' }}>
+                                <td style={{ position: 'sticky', left: 0, background: '#fff', padding: '4px 8px', width: RESEARCH_NAME_COL_W, minWidth: RESEARCH_NAME_COL_W, maxWidth: RESEARCH_NAME_COL_W, borderRight: '1px solid #eef2f7', zIndex: 1 }}>
+                                    <textarea
+                                        className="research-name-input"
+                                        rows={2}
+                                        value={w.name}
+                                        onChange={e => setName(i, e.target.value)}
+                                        placeholder="Название вида работ"
+                                        title={isDuplicateRow(w) ? 'Такое название уже есть у другого вида работ' : undefined}
+                                        style={{ width: '100%', resize: 'vertical', fontSize: 12, padding: '4px 6px', border: `1px solid ${isDuplicateRow(w) ? '#dc2626' : '#e2e8f0'}`, borderRadius: 6, boxSizing: 'border-box', background: isDuplicateRow(w) ? '#fef2f2' : '#fff' }}
+                                    />
+                                </td>
+                                <td style={{ position: 'sticky', left: RESEARCH_NAME_COL_W, background: '#fff', padding: '4px 6px', width: RESEARCH_COST_COL_W, minWidth: RESEARCH_COST_COL_W, maxWidth: RESEARCH_COST_COL_W, textAlign: 'center', borderRight: '1px solid #eef2f7', zIndex: 1 }}>
+                                    <IntInput value={w.cost} min={0} max={100000} onChange={v => setCost(i, v)}
+                                        style={{ width: 64, padding: '4px 6px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, textAlign: 'right' }} />
+                                </td>
+                                {MOBILIZATION_WORKS.map(m => (
+                                    <td key={m.id} style={{ padding: '3px 3px', textAlign: 'center' }}>
+                                        <IntInput value={w.successRates?.[m.id] ?? 0} min={0} max={RESEARCH_RATE_MAX} onChange={v => setRate(i, m.id, v)}
+                                            style={{ width: 44, padding: '4px 2px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, textAlign: 'center', color: rateColor(w.successRates?.[m.id] ?? 0), fontWeight: (w.successRates?.[m.id] ?? 0) > 0 ? 600 : 400 }} />
+                                    </td>
+                                ))}
+                                <td style={{ padding: '3px 4px', textAlign: 'center' }}>
+                                    <button className="ghost-btn" title="Удалить вид работ" onClick={() => removeRow(i)} style={{ color: '#dc2626' }}>✕</button>
+                                </td>
+                            </tr>
+                        ))}
+                        <tr>
+                            <td style={{ position: 'sticky', left: 0, background: '#fff', padding: '6px 8px', width: RESEARCH_NAME_COL_W, minWidth: RESEARCH_NAME_COL_W, maxWidth: RESEARCH_NAME_COL_W, borderRight: '1px solid #eef2f7', zIndex: 1 }}>
+                                <button className="ghost-btn" onClick={addRow}>+ Добавить вид работ</button>
+                            </td>
+                            <td colSpan={MOBILIZATION_WORKS.length + 2} style={{ background: '#fff' }} />
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p className="apply-hint" style={{ marginTop: 6 }}>Стоимость — в млн ₽. Процент успеха в ячейке — 0…{RESEARCH_RATE_MAX}.</p>
+            {hasDuplicateNames && (
+                <p className="form-error" style={{ marginTop: 6 }}>Есть виды работ с одинаковыми названиями — переименуйте, чтобы сохранить пресет.</p>
+            )}
+
+            {pendingPresetId !== null && (
+                <ConfirmModal
+                    message="Есть несохранённые изменения в таблице видов работ. Применить выбранный пресет и потерять их?"
+                    onConfirm={() => { doApplyPreset(pendingPresetId.id); setPendingPresetId(null); }}
+                    onCancel={() => setPendingPresetId(null)}
+                />
+            )}
+            {prompt && (
+                <PromptModal
+                    title={prompt.mode === 'create' ? 'Название нового пресета НИР:' : 'Новое название пресета:'}
+                    initialValue={prompt.mode === 'rename' ? (selectedPreset?.name ?? '') : ''}
+                    confirmLabel={prompt.mode === 'create' ? 'Создать' : 'Сохранить'}
+                    error={promptError}
+                    onConfirm={handlePromptConfirm}
+                    onCancel={() => setPrompt(null)}
+                />
+            )}
+            {confirmDelete && (
+                <ConfirmModal
+                    message={`Удалить пресет «${selectedPreset?.name}»?`}
+                    onConfirm={handleDelete}
+                    onCancel={() => setConfirmDelete(false)}
+                />
+            )}
+        </div>
+    );
+};
+
 const LiveTimersEditor = ({ sessionId, adminSocket }) => {
     const [timers, setTimers] = useState(JSON.parse(JSON.stringify(DEFAULT_TIMERS)));
     const [loading, setLoading] = useState(false);
@@ -421,43 +789,6 @@ const LiveTimersEditor = ({ sessionId, adminSocket }) => {
                 {saving ? 'Применяю…' : saved ? 'Применено!' : 'Применить к сессии'}
             </button>
             <p className="apply-hint">Новое время вступит в силу при следующей смене фазы или года.</p>
-        </div>
-    );
-};
-
-const IntroEditor = ({ sessionId }) => {
-    const [intro, setIntro] = useState(JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)));
-    const [loading, setLoading] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [saved, setSaved] = useState(false);
-
-    useEffect(() => {
-        if (!sessionId) return;
-        setSaved(false); setLoading(true);
-        getAdminSessionDetails(sessionId)
-            .then(s => setIntro(s.introContent ?? JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO))))
-            .catch(() => setIntro(JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO))))
-            .finally(() => setLoading(false));
-    }, [sessionId]);
-
-    const handleSave = async () => {
-        setSaving(true); setSaved(false);
-        try {
-            await updateSessionIntro(sessionId, intro);
-            setSaved(true); setTimeout(() => setSaved(false), 2500);
-        } catch (e) { alert('Ошибка: ' + e.message); } finally { setSaving(false); }
-    };
-
-    return (
-        <div className="live-editor">
-            <div className="live-editor-head">
-                <span>Стартовое окно (кейс)</span>
-                <button className="ghost-btn" onClick={() => setIntro(JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)))}>↺ сброс</button>
-            </div>
-            {loading ? <div className="live-editor-loading">Загрузка…</div> : <IntroContentEditor value={intro} onChange={setIntro} />}
-            <button className={`apply-btn ${saved ? 'apply-btn-saved' : ''}`} onClick={handleSave} disabled={saving || loading || !sessionId}>
-                {saving ? 'Сохраняю…' : saved ? 'Сохранено!' : 'Сохранить'}
-            </button>
         </div>
     );
 };
@@ -670,10 +1001,13 @@ const CreateSessionTab = ({ onGoToControl }) => {
         budgets: { ...BUDGET_DEFAULTS },
         timers: JSON.parse(JSON.stringify(DEFAULT_TIMERS)),
         introContent: JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)),
+        researchConfig: freshResearchConfig(),
+        luCards: freshLUCards(),
     });
     const sf = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
     useEffect(() => {
+        if (!ENABLE_SESSION_PRESETS) return;
         getPresets().then(setPresets).catch(() => setPresets([]));
     }, []);
 
@@ -690,6 +1024,7 @@ const CreateSessionTab = ({ onGoToControl }) => {
             budgets: { ...f.budgets, [preset.playerType]: preset.budget ?? f.budgets[preset.playerType] },
             timers: timersFromConfig(preset),
             introContent: preset.introContent ?? JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)),
+            researchConfig: normalizeResearchConfig(preset.researchConfig),
         }));
     };
 
@@ -700,7 +1035,7 @@ const CreateSessionTab = ({ onGoToControl }) => {
             const r = await fetch(`${API_URL}/api/admin/sessions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ gameMode: form.gameMode, playerType: form.playerType, maxLUsPerTeam: form.maxLUs, budget: form.budgets[form.playerType], budgets: form.budgets, regionMapTimers: form.timers.regionMap, timers: form.timers.years, introContent: form.introContent }),
+                body: JSON.stringify({ gameMode: form.gameMode, playerType: form.playerType, maxLUsPerTeam: form.maxLUs, budget: form.budgets[form.playerType], budgets: form.budgets, regionMapTimers: form.timers.regionMap, timers: form.timers.years, introContent: form.introContent, researchConfig: form.researchConfig, luCards: form.luCards.map(c => { const cc = { ...c }; delete cc.defaultImage; return cc; }) }),
             });
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const res = await r.json();
@@ -732,7 +1067,7 @@ const CreateSessionTab = ({ onGoToControl }) => {
     return (
         <div className="create-form">
             <div className="create-form-left">
-                {presets.length > 0 && (
+                {ENABLE_SESSION_PRESETS && presets.length > 0 && (
                     <div className="fs">
                         <div className="fs-title">Пресет</div>
                         <select className="text-input" value={presetId} onChange={e => applyPreset(e.target.value)}>
@@ -791,10 +1126,22 @@ const CreateSessionTab = ({ onGoToControl }) => {
                     <TimersForm timers={form.timers} onChange={v => sf('timers', v)} />
                 </div>
                 <CollapsibleSection
-                    title="Стартовое окно (кейс)"
+                    title="Стартовое окно"
                     extra={<button className="ghost-btn" onClick={() => sf('introContent', JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)))}>↺ Сброс</button>}
                 >
                     <IntroContentEditor value={form.introContent} onChange={v => sf('introContent', v)} />
+                </CollapsibleSection>
+                <CollapsibleSection
+                    title="Научные исследования (виды работ)"
+                    extra={<button className="ghost-btn" onClick={() => sf('researchConfig', freshResearchConfig())}>↺ Сброс</button>}
+                >
+                    <ResearchConfigEditor value={form.researchConfig} onChange={v => sf('researchConfig', v)} />
+                </CollapsibleSection>
+                <CollapsibleSection
+                    title="Карточки информации (карта региона)"
+                    extra={<button className="ghost-btn" onClick={() => sf('luCards', freshLUCards())}>↺ Сброс</button>}
+                >
+                    <LUCardsEditor value={form.luCards} onChange={v => sf('luCards', v)} />
                 </CollapsibleSection>
                 {error && <div className="form-error">{error}</div>}
                 <button className="create-btn" onClick={handleCreate} disabled={loading}>
@@ -816,6 +1163,7 @@ const PresetForm = ({ initial, onSave, onCancel, saving, existingNames = [] }) =
         budgets: { ...BUDGET_DEFAULTS, ...(initial ? { [initial.playerType]: initial.budget } : {}) },
         timers: timersFromConfig(initial),
         introContent: initial?.introContent ?? JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)),
+        researchConfig: normalizeResearchConfig(initial?.researchConfig),
         adminNotes: initial?.adminNotes ?? '',
     }));
     const [nameError, setNameError] = useState('');
@@ -839,6 +1187,7 @@ const PresetForm = ({ initial, onSave, onCancel, saving, existingNames = [] }) =
             regionMapTimers: form.timers.regionMap,
             timers: form.timers.years,
             introContent: form.introContent,
+            researchConfig: form.researchConfig,
             adminNotes: form.adminNotes,
         });
     };
@@ -909,6 +1258,12 @@ const PresetForm = ({ initial, onSave, onCancel, saving, existingNames = [] }) =
                     extra={<button className="ghost-btn" onClick={() => sf('introContent', JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)))}>↺ Сброс</button>}
                 >
                     <IntroContentEditor value={form.introContent} onChange={v => sf('introContent', v)} />
+                </CollapsibleSection>
+                <CollapsibleSection
+                    title="НИРы (виды работ, проценты)"
+                    extra={<button className="ghost-btn" onClick={() => sf('researchConfig', freshResearchConfig())}>↺ Сброс</button>}
+                >
+                    <ResearchConfigEditor value={form.researchConfig} onChange={v => sf('researchConfig', v)} />
                 </CollapsibleSection>
                 <div style={{ display: 'flex', gap: 10 }}>
                     <button className="create-btn" onClick={handleSave} disabled={saving}>
@@ -1016,6 +1371,101 @@ const IntroPresetsSection = () => {
     );
 };
 
+// ── Редактор отдельного пресета НИР ───────────────────────────────────────────
+const ResearchPresetEditor = ({ initial, onSave, onCancel, saving, existingNames = [] }) => {
+    const [name, setName] = useState(initial?.name ?? '');
+    const [config, setConfig] = useState(() => normalizeResearchConfig(initial?.researchConfig));
+    const [nameError, setNameError] = useState('');
+
+    const handleSave = () => {
+        const trimmed = name.trim();
+        if (!trimmed) { setNameError('Укажите название пресета'); return; }
+        if (existingNames.some(n => normalizeName(n) === normalizeName(trimmed))) {
+            setNameError('Пресет с таким названием уже существует');
+            return;
+        }
+        setNameError('');
+        onSave({ name: trimmed, researchConfig: config });
+    };
+
+    return (
+        <div className="fs">
+            <div className="fs-title">Название пресета</div>
+            <input className="text-input" type="text" value={name} onChange={e => { setName(e.target.value); setNameError(''); }} placeholder="Например: Усложнённый НИР" />
+            {nameError && <p className="cm-error" style={{ textAlign: 'left' }}>{nameError}</p>}
+            <div className="fs-title" style={{ marginTop: '.75rem' }}>Конфигурация</div>
+            <ResearchConfigEditor value={config} onChange={setConfig} hidePresetPicker />
+            <div style={{ display: 'flex', gap: 10, marginTop: '.75rem' }}>
+                <button className="create-btn" onClick={handleSave} disabled={saving}>
+                    {saving ? 'Сохранение…' : 'Сохранить'}
+                </button>
+                <button className="secondary-btn" onClick={onCancel}>Отмена</button>
+            </div>
+        </div>
+    );
+};
+
+// ── Пресеты НИР (список) ──────────────────────────────────────────────────────
+const ResearchPresetsSection = () => {
+    const [presets, setPresets] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [editing, setEditing] = useState(null); // null | 'new' | preset
+    const [saving, setSaving] = useState(false);
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
+    const load = () => {
+        setLoading(true);
+        getResearchPresets().then(setPresets).catch(() => setPresets([])).finally(() => setLoading(false));
+    };
+    useEffect(() => { load(); }, []);
+
+    const handleSave = async (data) => {
+        setSaving(true);
+        try {
+            if (editing === 'new') await createResearchPreset(data);
+            else await updateResearchPreset(editing.id, data);
+            setEditing(null);
+            load();
+        } catch (e) { alert('Ошибка: ' + e.message); } finally { setSaving(false); }
+    };
+
+    const handleDelete = async (id) => {
+        try { await deleteResearchPreset(id); load(); } catch (e) { alert('Ошибка: ' + e.message); } finally { setConfirmDeleteId(null); }
+    };
+
+    if (editing) {
+        const existingNames = presets.filter(p => editing === 'new' || p.id !== editing.id).map(p => p.name);
+        return <ResearchPresetEditor initial={editing === 'new' ? null : editing} onSave={handleSave} onCancel={() => setEditing(null)} saving={saving} existingNames={existingNames} />;
+    }
+
+    return (
+        <div className="fs">
+            <div className="fs-title-row">
+                <span className="fs-title">Пресеты НИР (виды работ, стоимость, % успеха)</span>
+                <button className="ghost-btn" onClick={() => setEditing('new')}>+ Создать</button>
+            </div>
+            {loading && <div className="live-editor-loading">Загрузка…</div>}
+            {!loading && presets.length === 0 && <p className="ap-empty">Нет сохранённых пресетов.</p>}
+            {presets.map(p => (
+                <div key={p.id} className="tf-row">
+                    <label>{p.name} <span style={{ color: '#94a3b8', fontWeight: 400 }}>· {(p.researchConfig?.length ?? 0)} видов</span></label>
+                    <div className="tf-row-right">
+                        <button className="ghost-btn" onClick={() => setEditing(p)}>Изменить</button>
+                        <button className="ghost-btn" onClick={() => setConfirmDeleteId(p.id)}>Удалить</button>
+                    </div>
+                </div>
+            ))}
+            {confirmDeleteId && (
+                <ConfirmModal
+                    message={`Удалить пресет «${presets.find(p => p.id === confirmDeleteId)?.name}»?`}
+                    onConfirm={() => handleDelete(confirmDeleteId)}
+                    onCancel={() => setConfirmDeleteId(null)}
+                />
+            )}
+        </div>
+    );
+};
+
 const PresetsTab = () => {
     const [presets, setPresets] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -1027,7 +1477,7 @@ const PresetsTab = () => {
         setLoading(true);
         getPresets().then(setPresets).catch(() => setPresets([])).finally(() => setLoading(false));
     };
-    useEffect(() => { load(); }, []);
+    useEffect(() => { if (ENABLE_SESSION_PRESETS) load(); }, []);
 
     const handleSave = async (data) => {
         setSaving(true);
@@ -1049,33 +1499,40 @@ const PresetsTab = () => {
 
     return (
         <div>
-            <div className="fs-title-row">
-                <h2 style={{ margin: 0 }}>Пресеты</h2>
-                <button className="create-btn" onClick={() => setEditing('new')}>+ Создать пресет</button>
-            </div>
-            {loading && <div className="ap-loading">Загрузка…</div>}
-            {!loading && presets.length === 0 && <p className="ap-empty">Нет сохранённых пресетов.</p>}
-            <div className="sessions-grid">
-                {presets.map(p => (
-                    <div key={p.id} className="session-card">
-                        <div className="sc-header">
-                            <strong>{p.name}</strong>
-                        </div>
-                        <div style={{ fontSize: '.85rem', color: 'var(--text3)', display: 'flex', flexDirection: 'column', gap: 2, marginBottom: '.5rem' }}>
-                            <span>{p.gameMode === 'online' ? 'Онлайн' : 'Одиночная'} · {p.playerType === 'students' ? 'Студенты' : 'Профессионалы'}</span>
-                            <span>Бюджет: {fmtMln(p.budget)} млн · Макс. ЛУ: {p.maxLUsPerTeam}</span>
-                        </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <button className="ghost-btn" onClick={() => setEditing(p)}>Редактировать</button>
-                            <button className="ghost-btn" onClick={() => setConfirmDeleteId(p.id)}>Удалить</button>
-                        </div>
+            <h2 style={{ margin: '0 0 0.85rem' }}>Пресеты</h2>
+            {ENABLE_SESSION_PRESETS && (
+                <>
+                    <div className="fs-title-row" style={{ justifyContent: 'flex-start' }}>
+                        <button className="create-btn" onClick={() => setEditing('new')}>+ Создать пресет</button>
                     </div>
-                ))}
-            </div>
+                    {loading && <div className="ap-loading">Загрузка…</div>}
+                    {!loading && presets.length === 0 && <p className="ap-empty">Нет сохранённых пресетов.</p>}
+                    <div className="sessions-grid">
+                        {presets.map(p => (
+                            <div key={p.id} className="session-card">
+                                <div className="sc-header">
+                                    <strong>{p.name}</strong>
+                                </div>
+                                <div style={{ fontSize: '.85rem', color: 'var(--text3)', display: 'flex', flexDirection: 'column', gap: 2, marginBottom: '.5rem' }}>
+                                    <span>{p.gameMode === 'online' ? 'Онлайн' : 'Одиночная'} · {p.playerType === 'students' ? 'Студенты' : 'Профессионалы'}</span>
+                                    <span>Бюджет: {fmtMln(p.budget)} млн · Макс. ЛУ: {p.maxLUsPerTeam}</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button className="ghost-btn" onClick={() => setEditing(p)}>Редактировать</button>
+                                    <button className="ghost-btn" onClick={() => setConfirmDeleteId(p.id)}>Удалить</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
             <div style={{ marginTop: '1rem' }}>
                 <IntroPresetsSection />
             </div>
-            {confirmDeleteId && (
+            <div style={{ marginTop: '1rem' }}>
+                <ResearchPresetsSection />
+            </div>
+            {ENABLE_SESSION_PRESETS && confirmDeleteId && (
                 <ConfirmModal
                     message={`Удалить пресет «${presets.find(p => p.id === confirmDeleteId)?.name}»?`}
                     onConfirm={() => handleDelete(confirmDeleteId)}
@@ -1636,7 +2093,7 @@ const AdminMonitoring = ({ sessionId, teamId, teamName, onClose }) => {
 };
 
 // ── BudgetBreakdown (компактный в карточке команды) ───────────────────────────
-const BudgetBreakdown = ({ initial, current, spentByType = {}, incomeByType = {}, eventStats = null, currentYearSpent = 0, lu = [], members = [], isOnline = false, isOpen = false }) => {
+const BudgetBreakdown = ({ initial, current, lu = [], members = [], isOnline = false }) => {
     const spent = initial - current;
     const pct = initial > 0 ? Math.max(0, Math.min(100, (current / initial) * 100)) : 0;
     const isLow = current < initial * 0.2;
@@ -1718,6 +2175,7 @@ const TeamsMonitor = ({ sessionId }) => {
     useEffect(() => {
         setData(null); setOpenIds(new Set()); setExpensesMap({});
         load(sessionId);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sessionId]);
 
     const toggle = (teamId) => {
@@ -1986,10 +2444,6 @@ const DashboardTab = ({ sessions, globalStats }) => {
         return { name: t.name, ...Object.fromEntries(SPEND_CATS.map(c => [c.key, sp[c.key] || 0])) };
     });
 
-    const luData = [...teams]
-        .sort((a, b) => (teamsData?.teamCells?.[b.id]?.length ?? 0) - (teamsData?.teamCells?.[a.id]?.length ?? 0))
-        .map(t => ({ name: t.name, lu: teamsData?.teamCells?.[t.id]?.length ?? 0 }));
-
     const eventsData = sorted
         .filter(t => expMap[t.id]?.eventStats)
         .map(t => ({
@@ -2103,7 +2557,7 @@ const DashboardTab = ({ sessions, globalStats }) => {
                             <div style={{ marginTop: 16, borderTop: '1px solid #e2e8f0', paddingTop: 14 }}>
                                 <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>Итоговые места</div>
                                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                                    {finalStandings.map((t, i) => {
+                                    {finalStandings.map((t) => {
                                         const rank = standingRanks[t.teamId];
                                         const color = RATING_LINE_COLORS[ratingTeams.findIndex(r => r.teamId === t.teamId) % RATING_LINE_COLORS.length];
                                         return (
@@ -2653,6 +3107,7 @@ const AdminPanel = ({ onLogout }) => {
         sock.on('timer:tick', d => setHeaderTimer(p => p ? { ...p, ...d } : d));
     }, [loggedIn]);
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { if (loggedIn) { const t = sessionStorage.getItem('admin_tab') || 'create'; setTab(t); } }, []);
 
     if (!loggedIn) {
@@ -2667,8 +3122,8 @@ const AdminPanel = ({ onLogout }) => {
     };
 
     const loadSessions = async () => { setLoading(true); try { setSessions(await apiAction('/api/admin/sessions', 'GET')); } catch (e) { console.error(e); } finally { setLoading(false); } };
-    const loadTeams = async () => { setLoading(true); try { setTeams(await getAdminTeams()); } catch { } finally { setLoading(false); } };
-    const loadDash = async () => { setLoading(true); try { setStats(await getAdminStats()); } catch { } finally { setLoading(false); } };
+    const loadTeams = async () => { setLoading(true); try { setTeams(await getAdminTeams()); } catch { /* ignore */ } finally { setLoading(false); } };
+    const loadDash = async () => { setLoading(true); try { setStats(await getAdminStats()); } catch { /* ignore */ } finally { setLoading(false); } };
 
     const changeTab = t => {
         setTab(t); sessionStorage.setItem('admin_tab', t);
@@ -2681,15 +3136,6 @@ const AdminPanel = ({ onLogout }) => {
         await loadSessions();
         setControlSess(sessionId);
         changeTab('control');
-    };
-
-    const handleExport = async (type) => {
-        try {
-            const blob = await exportData(type, 'csv');
-            const url = URL.createObjectURL(blob);
-            const a = Object.assign(document.createElement('a'), { href: url, download: `${type}_${Date.now()}.csv` });
-            document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-        } catch (e) { alert('Ошибка: ' + e.message); }
     };
 
     const TABS = [
@@ -2745,12 +3191,6 @@ const AdminPanel = ({ onLogout }) => {
                                     <div className="live-editor-card" style={{ marginTop: '1rem' }}>
                                         <div className="live-editor-card-title">Таймеры сессии</div>
                                         <LiveTimersEditor sessionId={controlSess} adminSocket={adminSocketRef} />
-                                    </div>
-                                )}
-                                {controlSess && (
-                                    <div className="live-editor-card" style={{ marginTop: '1rem' }}>
-                                        <div className="live-editor-card-title">Стартовое окно</div>
-                                        <IntroEditor sessionId={controlSess} />
                                     </div>
                                 )}
                             </div>

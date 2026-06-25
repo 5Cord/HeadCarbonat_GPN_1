@@ -392,6 +392,30 @@ export const MOBILIZATION_WORKS = [
   { id: '3bs', name: 'Успешность ЗБС', cost: 100, round: 3, years: [9, 10], dependency: null }
 ];
 
+// Дефолтная конфигурация видов работ (используется, если у сессии нет своей).
+// Глубокая копия, чтобы редактирование в админке не мутировало исходные данные.
+export const DEFAULT_RESEARCH_WORKS = RESEARCH_WORKS;
+
+// Приводит конфиг НИР из админки/сессии к безопасному виду:
+// — гарантирует наличие id/name/cost и числовых successRates по всем мобилизациям.
+export const normalizeResearchConfig = (config) => {
+  const source = Array.isArray(config) && config.length > 0 ? config : DEFAULT_RESEARCH_WORKS;
+  const mobIds = MOBILIZATION_WORKS.map(m => m.id);
+  return source.map((w, i) => {
+    const rates = {};
+    mobIds.forEach(id => {
+      const v = Number(w?.successRates?.[id]);
+      rates[id] = Number.isFinite(v) ? v : 0;
+    });
+    return {
+      id: w?.id || `rw_custom_${i + 1}`,
+      name: w?.name ?? '',
+      cost: Number.isFinite(Number(w?.cost)) ? Number(w.cost) : 0,
+      successRates: rates,
+    };
+  });
+};
+
 export const RESEARCH_ROUNDS = [
   { id: 1, name: 'Раунд 1: ГРР', years: [1, 2, 3, 4, 5], description: 'Геологоразведочные работы (1-5 год)' },
   { id: 2, name: 'Раунд 2: Бурение', years: [6, 7, 8], description: 'Опытно-промышленная разработка (6-8 год)' },

@@ -61,6 +61,7 @@ const defaultSessionConfig = {
     postAuction: 2,
   },
   maxLUsPerTeam: 5,
+  researchConfig: null,
 };
 
 const defaultPlayer = {

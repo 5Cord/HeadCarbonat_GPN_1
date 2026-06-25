@@ -1,5 +1,5 @@
 // RegionMap.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import './RegionMap.css';
 import useGameStore, { AUCTION_START_PRICE } from '../../store/gameStore';
 import GlobalTimer from '../GlobalTimer';
@@ -7,21 +7,8 @@ import AuctionDashboard from './Auctiondashboard';
 import RegionMapTour from './Regionmaptour';
 import { getSocket } from '../apiHelpers';
 import { getLastSuccessfulSceneImage, getSceneImageFromMeta, getScenario, resolveSceneImage, WORK_SCENE_MAP } from '../Research/sceneUtils';
-import RegNirSvg from '../svgs/RegNir.svg';
+import { resolveLicenseUnits } from './luCards';
 import NeftImg from '../assets/cards/Neft.png';
-
-const LICENSE_UNITS = [
-  { id: 'well1', name: 'Парам. скважина №1', shortName: '1', cost: 10, cellRef: 'A2', position: 'top-left', customStyle: { top: '-130px', left: '0px' }, labelLeft: '0px', description: 'Целевой комплекс: светлые слоистые строматолитовые доломиты с прослоями гипса и ангидрита. Свойства: доломиты слабо пористые, с редкими выпотами густой нефти.', hasImage: false },
-  { id: 'well2', name: 'Парам. скважина №2', shortName: '2', cost: 10, cellRef: 'A5', position: 'top-left', customStyle: { top: '-130px', left: '0px' }, labelLeft: '0px', description: 'Целевой комплекс: светлые тонкослоистые известняки и доломиты, прослоями зернистые. Свойства: межзерновая пористость, признаки нефтенасыщения по порам.', hasImage: false },
-  { id: 'seismic', name: 'ОиИ архивных СРР 2D', shortName: 'И', cost: 30, cellRef: 'A10', position: 'corner-bottom-left', customStyle: { top: '-130px', left: '80px' }, labelLeft: '100px', description: 'По данным двухмерной сейсморазведки выделяются ориентированные с юго-запада на северо-восток объекты, похожие на структурные валы. В центральной части территории между ними фиксируется палеопрогиб.', hasImage: false },
-  { id: 'well3', name: 'Парам. скважина №3', shortName: '3', cost: 10, cellRef: 'B10', position: 'right', customStyle: { top: '0', left: '85px' }, labelLeft: '85px', description: 'Целевой комплекс: тонкослоистые черные кремнистые известняки с повышенным содержанием органического углерода. Свойства: мощность комплекса сильно сокращена.', hasImage: false },
-  { id: 'well4', name: 'Парам. скважина №4', shortName: '4', cost: 20, cellRef: 'E10', position: 'right', customStyle: { top: '0px', left: '85px' }, labelLeft: '85px', description: 'Целевой комплекс: массивные трещиновато-кавернозные известняки с кораллами и губками. Свойства: по кавернам обильные выполы (выпоты) нефти.', hasImage: false },
-  { id: 'well5', name: 'Парам. скважина №5', shortName: '5', cost: 20, cellRef: 'J8', position: 'right', customStyle: { top: '85px', left: '0px' }, labelLeft: '0px', description: 'Целевой комплекс: светлые слоистые известняки и доломиты (зернистые и микритовые). Свойства: прослоями породы пористые, с признаками углеводородов.', hasImage: false },
-  { id: 'well6', name: 'Парам. скважина №6', shortName: '6', cost: 10, cellRef: 'J3', position: 'right', customStyle: { top: '85px', left: '0px' }, labelLeft: '0px', description: 'Целевой комплекс: тонкослоистые черные кремнистые известняки с повышенным содержанием органического углерода, с остатками планктонной фауны. Свойства: мощность комплекса сильно сокращена.', hasImage: false },
-  { id: 'research', name: 'Региональная НИР', shortName: 'Н', cost: 70, cellRef: 'J1', position: 'corner-top-right', customStyle: { top: '85px', left: '-118px' }, labelLeft: '-120px', description: 'Выполнены: космогеологическое моделирование, структурно-генетическое моделирование, бассейновое моделирование, оценка ресурсов. Карта плотности ресурсов углеводородов (тысяч тонн условного топлива на квадратный километр): 10-50, 5-10, менее 5.', hasImage: true, imagePath: RegNirSvg },
-  { id: 'quarry', name: 'Карьер', shortName: 'К', cost: 20, cellRef: 'F1', position: 'left', customStyle: { top: '0', left: '-130px' }, description: 'Горные породы: известняки и доломиты массивные, химически чистые, органогенные, кавернозно-трещиноватые. Тип: разрабатываемый содовый карьер.', hasImage: false },
-  { id: 'outcrop', name: 'Обнажение', shortName: 'О', cost: 10, cellRef: 'D1', position: 'left', customStyle: { top: '0', left: '-130px' }, description: 'Горные породы: ритмично-слоистые светло-серые известняки и доломиты с микробиальными биотермами до 10 м толщиной. Встречаются поры, каверны и трещины с запахом углеводородов.', hasImage: false },
-];
 
 const DEFAULT_CASE_INTRO = {
   title: 'Кейс',
@@ -273,6 +260,12 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
   const sessionConfig = player.sessionConfig ?? {};
   const MAX_LUS_PER_TEAM = sessionConfig.maxLUsPerTeam ?? 5;
+
+  // Карточки ЛУ: дефолты + настройки сессии из админки (name/cost/description/image)
+  const licenseUnitsList = useMemo(
+    () => resolveLicenseUnits(sessionConfig.luCards),
+    [sessionConfig.luCards],
+  );
 
   const globalTimer = useGameStore(s => s.globalTimer);
   const serverPhase = globalTimer.phase;
@@ -704,7 +697,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const luSpent = selectedLU.reduce((sum, lu) => sum + (lu.cost || 0), 0);
   const auctionSpent = Object.values(ownedCells).reduce((sum, c) => sum + (c.auctionPrice || 0), 0);
   const totalSpent = luSpent + auctionSpent;
-  const getLUPosition = (cellId) => LICENSE_UNITS.find(lu => lu.cellRef === cellId);
+  const getLUPosition = (cellId) => licenseUnitsList.find(lu => lu.cellRef === cellId);
 
   const handleGridCellClick = (cellRef) => {
     if (!isOurPhase) { showAlert('Время истекло', 'Время на выбор участков истекло.'); return; }

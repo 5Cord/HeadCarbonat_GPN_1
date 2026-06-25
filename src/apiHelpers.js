@@ -193,6 +193,11 @@ export const createIntroPreset     = (preset) => adminFetch('/intro-presets', { 
 export const updateIntroPreset     = (id, preset) => adminFetch(`/intro-presets/${id}`, { method: 'PUT', body: JSON.stringify(preset) });
 export const deleteIntroPreset     = (id)     => adminFetch(`/intro-presets/${id}`, { method: 'DELETE' });
 
+export const getResearchPresets    = ()       => adminFetch('/research-presets');
+export const createResearchPreset  = (preset) => adminFetch('/research-presets', { method: 'POST', body: JSON.stringify(preset) });
+export const updateResearchPreset  = (id, preset) => adminFetch(`/research-presets/${id}`, { method: 'PUT', body: JSON.stringify(preset) });
+export const deleteResearchPreset  = (id)     => adminFetch(`/research-presets/${id}`, { method: 'DELETE' });
+
 export const exportData = async (type, format = 'csv') => {
   const token = localStorage.getItem('auth_token');
   const res = await fetch(`${API_BASE}/admin/export/${type}?format=${format}`, {

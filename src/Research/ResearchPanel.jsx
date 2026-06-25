@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { RESEARCH_WORKS, MOBILIZATION_WORKS } from './researchData';
+import { MOBILIZATION_WORKS, normalizeResearchConfig } from './researchData';
 import useGameStore from '../../store/gameStore';
 import GlobalTimer from '../GlobalTimer';
 import styles from './ResearchPanel.module.css';
@@ -475,6 +475,12 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       auctionPrice: c.auctionPrice || 0,
     })),
     [gridCells.owned]);
+
+  // Виды работ берём из конфигурации сессии (правится в админке), иначе — дефолт.
+  const researchWorks = useMemo(
+    () => normalizeResearchConfig(player.sessionConfig?.researchConfig),
+    [player.sessionConfig?.researchConfig]
+  );
 
   const getProgress = useCallback((luId) => research.progressByLU[luId] || defaultProgress(), [research.progressByLU]);
 
@@ -1146,7 +1152,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
               </tr>
             </thead>
             <tbody>
-              {RESEARCH_WORKS.map(work => (
+              {researchWorks.map(work => (
                 <tr key={work.id}>
                   <td className={styles.workName}>{work.name}</td>
                   <td className={styles.workCost}>{work.cost} млн</td>
