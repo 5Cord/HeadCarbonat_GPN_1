@@ -198,6 +198,25 @@ export const createResearchPreset  = (preset) => adminFetch('/research-presets',
 export const updateResearchPreset  = (id, preset) => adminFetch(`/research-presets/${id}`, { method: 'PUT', body: JSON.stringify(preset) });
 export const deleteResearchPreset  = (id)     => adminFetch(`/research-presets/${id}`, { method: 'DELETE' });
 
+// ── Вопросы «Зоны событий» (админка + игра) ──────────────────────────────────
+export const getAdminQuestions = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.entries(params).filter(([, v]) => v !== '' && v != null)
+  ).toString();
+  return adminFetch(`/questions${qs ? `?${qs}` : ''}`);
+};
+export const createAdminQuestion = (q)      => adminFetch('/questions', { method: 'POST', body: JSON.stringify(q) });
+export const updateAdminQuestion = (id, q)  => adminFetch(`/questions/${id}`, { method: 'PUT', body: JSON.stringify(q) });
+export const deleteAdminQuestion = (id)     => adminFetch(`/questions/${id}`, { method: 'DELETE' });
+
+export const getQuestionTopics    = ()          => adminFetch('/question-topics');
+export const createQuestionTopic  = (name)      => adminFetch('/question-topics', { method: 'POST', body: JSON.stringify({ name }) });
+export const renameQuestionTopic  = (id, name)  => adminFetch(`/question-topics/${id}`, { method: 'PUT', body: JSON.stringify({ name }) });
+export const deleteQuestionTopic  = (id)        => adminFetch(`/question-topics/${id}`, { method: 'DELETE' });
+
+// Публичный пул вопросов для игры (без админ-токена)
+export const getPublicQuestions   = ()          => apiFetch('/questions');
+
 export const exportData = async (type, format = 'csv') => {
   const token = localStorage.getItem('auth_token');
   const res = await fetch(`${API_BASE}/admin/export/${type}?format=${format}`, {

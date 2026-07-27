@@ -9,7 +9,10 @@ import {
 } from './apiHelpers';
 import { MOBILIZATION_WORKS, normalizeResearchConfig } from './Research/researchData';
 import { DEFAULT_LU_CARDS } from './RegionMap/luCards';
+import { ROWS as FACIES_ROWS, rcToCellRef } from './RegionMap/faciesUtils';
+import { FACIES_PRESETS, getFaciesPresetById } from './RegionMap/faciesPresets';
 import { io as socketIO } from 'socket.io-client';
+import QuestionsTab from './Questions/QuestionsTab';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     Cell, ResponsiveContainer, PieChart, Pie,
@@ -1003,6 +1006,7 @@ const CreateSessionTab = ({ onGoToControl }) => {
         introContent: JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)),
         researchConfig: freshResearchConfig(),
         luCards: freshLUCards(),
+        faciesPresetId: null,
     });
     const sf = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -1025,6 +1029,7 @@ const CreateSessionTab = ({ onGoToControl }) => {
             timers: timersFromConfig(preset),
             introContent: preset.introContent ?? JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)),
             researchConfig: normalizeResearchConfig(preset.researchConfig),
+            faciesPresetId: preset.faciesPresetId ?? null,
         }));
     };
 
@@ -1035,7 +1040,7 @@ const CreateSessionTab = ({ onGoToControl }) => {
             const r = await fetch(`${API_URL}/api/admin/sessions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ gameMode: form.gameMode, playerType: form.playerType, maxLUsPerTeam: form.maxLUs, budget: form.budgets[form.playerType], budgets: form.budgets, regionMapTimers: form.timers.regionMap, timers: form.timers.years, introContent: form.introContent, researchConfig: form.researchConfig, luCards: form.luCards.map(c => { const cc = { ...c }; delete cc.defaultImage; return cc; }) }),
+                body: JSON.stringify({ gameMode: form.gameMode, playerType: form.playerType, maxLUsPerTeam: form.maxLUs, budget: form.budgets[form.playerType], budgets: form.budgets, regionMapTimers: form.timers.regionMap, timers: form.timers.years, introContent: form.introContent, researchConfig: form.researchConfig, faciesPresetId: form.faciesPresetId, luCards: form.luCards.map(c => { const cc = { ...c }; delete cc.defaultImage; return cc; }) }),
             });
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const res = await r.json();
@@ -1143,6 +1148,9 @@ const CreateSessionTab = ({ onGoToControl }) => {
                 >
                     <LUCardsEditor value={form.luCards} onChange={v => sf('luCards', v)} />
                 </CollapsibleSection>
+                <CollapsibleSection title="Фации карты региона">
+                    <FaciesPresetPicker value={form.faciesPresetId} onChange={v => sf('faciesPresetId', v)} />
+                </CollapsibleSection>
                 {error && <div className="form-error">{error}</div>}
                 <button className="create-btn" onClick={handleCreate} disabled={loading}>
                     {loading ? 'Создание…' : 'Создать сессию'}
@@ -1164,6 +1172,7 @@ const PresetForm = ({ initial, onSave, onCancel, saving, existingNames = [] }) =
         timers: timersFromConfig(initial),
         introContent: initial?.introContent ?? JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)),
         researchConfig: normalizeResearchConfig(initial?.researchConfig),
+        faciesPresetId: initial?.faciesPresetId ?? null,
         adminNotes: initial?.adminNotes ?? '',
     }));
     const [nameError, setNameError] = useState('');
@@ -1188,6 +1197,7 @@ const PresetForm = ({ initial, onSave, onCancel, saving, existingNames = [] }) =
             timers: form.timers.years,
             introContent: form.introContent,
             researchConfig: form.researchConfig,
+            faciesPresetId: form.faciesPresetId,
             adminNotes: form.adminNotes,
         });
     };
@@ -1264,6 +1274,9 @@ const PresetForm = ({ initial, onSave, onCancel, saving, existingNames = [] }) =
                     extra={<button className="ghost-btn" onClick={() => sf('researchConfig', freshResearchConfig())}>↺ Сброс</button>}
                 >
                     <ResearchConfigEditor value={form.researchConfig} onChange={v => sf('researchConfig', v)} />
+                </CollapsibleSection>
+                <CollapsibleSection title="Фации карты региона">
+                    <FaciesPresetPicker value={form.faciesPresetId} onChange={v => sf('faciesPresetId', v)} />
                 </CollapsibleSection>
                 <div style={{ display: 'flex', gap: 10 }}>
                     <button className="create-btn" onClick={handleSave} disabled={saving}>
@@ -1462,6 +1475,79 @@ const ResearchPresetsSection = () => {
                     onCancel={() => setConfirmDeleteId(null)}
                 />
             )}
+        </div>
+    );
+};
+
+// ── Выбор карты фаций: список готовых пресетов + предпросмотр ─────────────────
+const FaciesPresetPreview = ({ config }) => {
+    const nodeSet = new Set((config.nodes ?? []).map(n => n.at));
+
+    return (
+        <div className="facies-preview">
+            <div className="facies-preview-grid-wrap">
+                <table className="facies-preview-grid">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            {Array.from({ length: config.width }, (_, c) => <th key={c}>{c + 1}</th>)}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {config.grid.map((row, r) => (
+                            <tr key={r}>
+                                <th>{FACIES_ROWS[r]}</th>
+                                {row.map((code, c) => {
+                                    const meta = config.legend[code];
+                                    return (
+                                        <td
+                                            key={c}
+                                            style={{ background: meta?.color ?? '#f1f5f9' }}
+                                            title={`${FACIES_ROWS[r]}${c + 1} — ${meta?.name ?? code}`}
+                                        >
+                                            {code}
+                                            {nodeSet.has(rcToCellRef(r, c)) && <span className="facies-preview-node" />}
+                                        </td>
+                                    );
+                                })}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            <div className="facies-preview-legend">
+                {Object.entries(config.legend).map(([code, meta]) => (
+                    <div key={code} className="facies-preview-legend-item">
+                        <span className="facies-preview-swatch" style={{ background: meta.color }} />
+                        <span><strong>{code}</strong> — {meta.name}</span>
+                    </div>
+                ))}
+                {(config.nodes ?? []).map(n => (
+                    <div key={n.at} className="facies-preview-legend-item">
+                        <span className="facies-preview-swatch facies-preview-swatch-node" />
+                        <span>{n.label} — на стыке {n.at}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const FaciesPresetPicker = ({ value, onChange }) => {
+    const selected = getFaciesPresetById(value);
+
+    return (
+        <div>
+            <div className="tf-row">
+                <label>Карта фаций</label>
+                <select className="text-input" value={value ?? ''} onChange={e => onChange(e.target.value || null)}>
+                    <option value="">— без фаций —</option>
+                    {FACIES_PRESETS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+            </div>
+            {!selected && <p className="ap-empty">Пресет не выбран — карта останется без обстановок осадконакопления.</p>}
+            {selected && <FaciesPresetPreview config={selected.config} />}
         </div>
     );
 };
@@ -2281,18 +2367,18 @@ const TeamsMonitor = ({ sessionId }) => {
 
 // ── Dashboard: графики по командам ────────────────────────────────────────────
 const SPEND_CATS = [
-    { key: 'auction',   label: 'Аукционы',          color: '#f59e0b' },
-    { key: 'lu_card',   label: 'Карточки ЛУ',       color: '#6366f1' },
-    { key: 'research',  label: 'НИР',               color: '#8b5cf6' },
-    { key: 'fieldwork', label: 'Полевые работы',    color: '#0ea5e9' },
-    { key: 'events',    label: 'События',           color: '#ec4899' },
-    { key: 'pipeline',  label: 'Нефтепровод',       color: '#92400e' },
-    { key: 'other',     label: 'Инф. карточки',     color: '#94a3b8' },
+    { key: 'auction', label: 'Аукционы', color: '#f59e0b' },
+    { key: 'lu_card', label: 'Карточки ЛУ', color: '#6366f1' },
+    { key: 'research', label: 'НИР', color: '#8b5cf6' },
+    { key: 'fieldwork', label: 'Полевые работы', color: '#0ea5e9' },
+    { key: 'events', label: 'События', color: '#ec4899' },
+    { key: 'pipeline', label: 'Нефтепровод', color: '#92400e' },
+    { key: 'other', label: 'Инф. карточки', color: '#94a3b8' },
 ];
 
 const mlnFmt = v => `${Number(v || 0).toLocaleString('ru-RU', { maximumFractionDigits: 0 })} млн`;
 
-const PIE_COLORS = ['#6366f1','#f59e0b','#22c55e','#ef4444','#0ea5e9','#ec4899','#8b5cf6','#14b8a6'];
+const PIE_COLORS = ['#6366f1', '#f59e0b', '#22c55e', '#ef4444', '#0ea5e9', '#ec4899', '#8b5cf6', '#14b8a6'];
 
 const BudgetPieTooltip = ({ active, payload }) => {
     if (!active || !payload?.length) return null;
@@ -2341,9 +2427,9 @@ const LuTooltip = ({ active, payload, label }) => {
 const EventsTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
     const correct = payload.find(p => p.dataKey === 'correct')?.value || 0;
-    const wrong   = payload.find(p => p.dataKey === 'wrong')?.value || 0;
-    const total   = correct + wrong;
-    const pct     = total > 0 ? Math.round((correct / total) * 100) : 0;
+    const wrong = payload.find(p => p.dataKey === 'wrong')?.value || 0;
+    const total = correct + wrong;
+    const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
     return (
         <div className="dash-tooltip">
             <div className="dash-tooltip-name">{label}</div>
@@ -2358,7 +2444,7 @@ const EventsTooltip = ({ active, payload, label }) => {
 
 const CHART_MARGIN = { top: 8, right: 20, left: 10, bottom: 8 };
 const MEDAL = { 1: '🥇', 2: '🥈', 3: '🥉' };
-const RATING_LINE_COLORS = ['#6366f1','#f59e0b','#22c55e','#ef4444','#0ea5e9','#ec4899','#8b5cf6','#14b8a6'];
+const RATING_LINE_COLORS = ['#6366f1', '#f59e0b', '#22c55e', '#ef4444', '#0ea5e9', '#ec4899', '#8b5cf6', '#14b8a6'];
 
 const RatingTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
@@ -2376,12 +2462,12 @@ const RatingTooltip = ({ active, payload, label }) => {
 };
 
 const DashboardTab = ({ sessions, globalStats }) => {
-    const [sessId, setSessId]       = useState('');
+    const [sessId, setSessId] = useState('');
     const [teamsData, setTeamsData] = useState(null);
-    const [expMap, setExpMap]       = useState({});
+    const [expMap, setExpMap] = useState({});
     const [ratingData, setRatingData] = useState(null);
-    const [topicData, setTopicData]   = useState(null);
-    const [loading, setLoading]     = useState(false);
+    const [topicData, setTopicData] = useState(null);
+    const [loading, setLoading] = useState(false);
 
     const load = async (sid) => {
         if (!sid) return;
@@ -2421,13 +2507,13 @@ const DashboardTab = ({ sessions, globalStats }) => {
             setTeamsData({ teams, teamCells, code: sessJson.code });
             setExpMap(map);
             if (ratingJson?.ok) setRatingData(ratingJson);
-            if (topicJson?.ok)  setTopicData(topicJson);
+            if (topicJson?.ok) setTopicData(topicJson);
         } catch (e) { console.error(e); } finally { setLoading(false); }
     };
 
     const handleSessChange = (sid) => { setSessId(sid); load(sid); };
 
-    const teams  = teamsData?.teams ?? [];
+    const teams = teamsData?.teams ?? [];
     const sorted = [...teams].sort((a, b) => b.budget - a.budget);
 
     // ── Данные для графиков бюджета / расходов ──
@@ -2449,18 +2535,18 @@ const DashboardTab = ({ sessions, globalStats }) => {
         .map(t => ({
             name: t.name,
             correct: expMap[t.id].eventStats.correctAnswers || 0,
-            wrong:   expMap[t.id].eventStats.wrongAnswers   || 0,
+            wrong: expMap[t.id].eventStats.wrongAnswers || 0,
         }));
 
     const barH = Math.max(teams.length * 52 + 40, 200);
 
     // ── Данные для графика рейтинга по фазам ──
     const PHASES = [
-        { key: 'start',  label: 'Старт',                   components: [] },
-        { key: 'grr',    label: 'ГРР (1–5 год)',            components: ['grr'] },
+        { key: 'start', label: 'Старт', components: [] },
+        { key: 'grr', label: 'ГРР (1–5 год)', components: ['grr'] },
         { key: 'stage2', label: 'Проектирование (6–8 год)', components: ['grr', 'stage2'] },
-        { key: 'stage3', label: 'Управление (9–10 год)',    components: ['grr', 'stage2', 'stage3'] },
-        { key: 'final',  label: 'Итоговый рейтинг',        components: ['grr', 'stage2', 'stage3'] },
+        { key: 'stage3', label: 'Управление (9–10 год)', components: ['grr', 'stage2', 'stage3'] },
+        { key: 'final', label: 'Итоговый рейтинг', components: ['grr', 'stage2', 'stage3'] },
     ];
 
     const ratingTeams = ratingData?.teams ?? [];
@@ -2491,9 +2577,9 @@ const DashboardTab = ({ sessions, globalStats }) => {
             {globalStats && (
                 <div className="dash-global-stats">
                     {[
-                        ['Сессий',    globalStats.totalSessions  ?? 0],
-                        ['Команд',    globalStats.totalTeams     ?? 0],
-                        ['Активных',  globalStats.activeSessions ?? 0],
+                        ['Сессий', globalStats.totalSessions ?? 0],
+                        ['Команд', globalStats.totalTeams ?? 0],
+                        ['Активных', globalStats.activeSessions ?? 0],
                     ].map(([label, val]) => (
                         <div key={label} className="dash-stat-pill">
                             <span className="dash-stat-val">{val}</span>
@@ -2525,214 +2611,214 @@ const DashboardTab = ({ sessions, globalStats }) => {
 
                     {/* ══ ЛЕВАЯ КОЛОНКА: Графики ══ */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="dash-charts">
+                        <div className="dash-charts">
 
-                    {/* ── 0. Рейтинг по фазам — линейный график ── */}
-                    {ratingTeams.length > 0 && (
-                        <div className="dash-chart-card dash-chart-card--wide">
-                            <div className="dash-chart-title">Рейтинг команд по этапам</div>
-                            <div className="dash-chart-hint">Накопленные очки после каждой фазы — чем выше, тем лучше</div>
-                            <ResponsiveContainer width="100%" height={300}>
-                                <LineChart data={ratingLineData} margin={{ top: 12, right: 24, left: 0, bottom: 8 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                                    <XAxis dataKey="phase" tick={{ fontSize: 12, fill: '#475569', fontWeight: 600 }} />
-                                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                                    <Tooltip content={<RatingTooltip />} />
-                                    <Legend iconType="circle" wrapperStyle={{ fontSize: 13, paddingTop: 8 }} />
-                                    {ratingTeams.map((t, i) => (
-                                        <Line
-                                            key={t.teamId}
-                                            type="monotone"
-                                            dataKey={t.teamName}
-                                            stroke={RATING_LINE_COLORS[i % RATING_LINE_COLORS.length]}
-                                            strokeWidth={2.5}
-                                            dot={{ r: 5 }}
-                                            activeDot={{ r: 7 }}
+                            {/* ── 0. Рейтинг по фазам — линейный график ── */}
+                            {ratingTeams.length > 0 && (
+                                <div className="dash-chart-card dash-chart-card--wide">
+                                    <div className="dash-chart-title">Рейтинг команд по этапам</div>
+                                    <div className="dash-chart-hint">Накопленные очки после каждой фазы — чем выше, тем лучше</div>
+                                    <ResponsiveContainer width="100%" height={300}>
+                                        <LineChart data={ratingLineData} margin={{ top: 12, right: 24, left: 0, bottom: 8 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                            <XAxis dataKey="phase" tick={{ fontSize: 12, fill: '#475569', fontWeight: 600 }} />
+                                            <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                                            <Tooltip content={<RatingTooltip />} />
+                                            <Legend iconType="circle" wrapperStyle={{ fontSize: 13, paddingTop: 8 }} />
+                                            {ratingTeams.map((t, i) => (
+                                                <Line
+                                                    key={t.teamId}
+                                                    type="monotone"
+                                                    dataKey={t.teamName}
+                                                    stroke={RATING_LINE_COLORS[i % RATING_LINE_COLORS.length]}
+                                                    strokeWidth={2.5}
+                                                    dot={{ r: 5 }}
+                                                    activeDot={{ r: 7 }}
+                                                />
+                                            ))}
+                                        </LineChart>
+                                    </ResponsiveContainer>
+
+                                    {/* Итоговая таблица мест */}
+                                    <div style={{ marginTop: 16, borderTop: '1px solid #e2e8f0', paddingTop: 14 }}>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>Итоговые места</div>
+                                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                                            {finalStandings.map((t) => {
+                                                const rank = standingRanks[t.teamId];
+                                                const color = RATING_LINE_COLORS[ratingTeams.findIndex(r => r.teamId === t.teamId) % RATING_LINE_COLORS.length];
+                                                return (
+                                                    <div key={t.teamId} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc', border: `2px solid ${color}`, borderRadius: 10, padding: '8px 16px' }}>
+                                                        <span style={{ fontSize: 18 }}>{MEDAL[rank] || `#${rank}`}</span>
+                                                        <div>
+                                                            <div style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>{t.teamName}</div>
+                                                            <div style={{ fontSize: 12, color: '#64748b' }}>{t.totalPoints} очков</div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ── 1. Бюджет команд — круговая диаграмма ── */}
+                            <div className="dash-chart-card dash-chart-card--wide">
+                                <div className="dash-chart-title">Бюджет команд</div>
+                                <div className="dash-chart-hint">Доля текущего бюджета каждой команды от общей суммы</div>
+                                <ResponsiveContainer width="100%" height={320}>
+                                    <PieChart>
+                                        <Pie
+                                            data={budgetData}
+                                            dataKey="current"
+                                            nameKey="name"
+                                            cx="50%"
+                                            cy="50%"
+                                            outerRadius={120}
+                                            innerRadius={52}
+                                            paddingAngle={2}
+                                            label={({ name, sharePct }) => `${name} · ${sharePct}%`}
+                                            labelLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
+                                        >
+                                            {budgetData.map((d, i) => (
+                                                <Cell key={d.name} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip content={<BudgetPieTooltip />} />
+                                        <Legend
+                                            formatter={(value, entry) => (
+                                                <span style={{ fontSize: 12, color: '#1e293b', fontWeight: 600 }}>
+                                                    {value} — {mlnFmt(entry.payload.current)}
+                                                </span>
+                                            )}
                                         />
-                                    ))}
-                                </LineChart>
-                            </ResponsiveContainer>
-
-                            {/* Итоговая таблица мест */}
-                            <div style={{ marginTop: 16, borderTop: '1px solid #e2e8f0', paddingTop: 14 }}>
-                                <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>Итоговые места</div>
-                                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                                    {finalStandings.map((t) => {
-                                        const rank = standingRanks[t.teamId];
-                                        const color = RATING_LINE_COLORS[ratingTeams.findIndex(r => r.teamId === t.teamId) % RATING_LINE_COLORS.length];
-                                        return (
-                                            <div key={t.teamId} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc', border: `2px solid ${color}`, borderRadius: 10, padding: '8px 16px' }}>
-                                                <span style={{ fontSize: 18 }}>{MEDAL[rank] || `#${rank}`}</span>
-                                                <div>
-                                                    <div style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>{t.teamName}</div>
-                                                    <div style={{ fontSize: 12, color: '#64748b' }}>{t.totalPoints} очков</div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                                    </PieChart>
+                                </ResponsiveContainer>
                             </div>
-                        </div>
-                    )}
 
-                    {/* ── 1. Бюджет команд — круговая диаграмма ── */}
-                    <div className="dash-chart-card dash-chart-card--wide">
-                        <div className="dash-chart-title">Бюджет команд</div>
-                        <div className="dash-chart-hint">Доля текущего бюджета каждой команды от общей суммы</div>
-                        <ResponsiveContainer width="100%" height={320}>
-                            <PieChart>
-                                <Pie
-                                    data={budgetData}
-                                    dataKey="current"
-                                    nameKey="name"
-                                    cx="50%"
-                                    cy="50%"
-                                    outerRadius={120}
-                                    innerRadius={52}
-                                    paddingAngle={2}
-                                    label={({ name, sharePct }) => `${name} · ${sharePct}%`}
-                                    labelLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
-                                >
-                                    {budgetData.map((d, i) => (
-                                        <Cell key={d.name} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip content={<BudgetPieTooltip />} />
-                                <Legend
-                                    formatter={(value, entry) => (
-                                        <span style={{ fontSize: 12, color: '#1e293b', fontWeight: 600 }}>
-                                            {value} — {mlnFmt(entry.payload.current)}
-                                        </span>
-                                    )}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
-
-                    {/* ── 2. Структура расходов — stacked ── */}
-                    <div className="dash-chart-card dash-chart-card--wide">
-                        <div className="dash-chart-title">Структура расходов</div>
-                        <div className="dash-chart-hint">Сколько потрачено по каждой категории</div>
-                        <ResponsiveContainer width="100%" height={barH}>
-                            <BarChart data={spendData} layout="vertical" margin={CHART_MARGIN}>
-                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                                <XAxis type="number" tickFormatter={v => `${(v / 1e6).toFixed(0)} млн`} tick={{ fontSize: 11, fill: '#64748b' }} />
-                                <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12, fill: '#1e293b', fontWeight: 600 }} />
-                                <Tooltip content={<SpendTooltip />} />
-                                <Legend iconType="square" wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-                                {SPEND_CATS.map(c => (
-                                    <Bar key={c.key} dataKey={c.key} name={c.label} stackId="s" fill={c.color} maxBarSize={28}
-                                        radius={[0, 0, 0, 0]}
-                                    />
-                                ))}
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-
-                    {/* ── 4. Точность событий — нормированная диаграмма с накоплением ── */}
-                    {eventsData.length > 0 && (() => {
-                        const normData = eventsData.map(d => {
-                            const total = (d.correct || 0) + (d.wrong || 0);
-                            const correctPct = total > 0 ? Math.round((d.correct / total) * 100) : 0;
-                            const wrongPct   = total > 0 ? 100 - correctPct : 0;
-                            return { name: d.name, correctPct, wrongPct, correct: d.correct, wrong: d.wrong, total };
-                        });
-                        const NormTooltip = ({ active, payload, label }) => {
-                            if (!active || !payload?.length) return null;
-                            const d = normData.find(x => x.name === label) || {};
-                            return (
-                                <div className="dash-tooltip">
-                                    <div className="dash-tooltip-name">{label}</div>
-                                    <div style={{ color: '#16a34a' }}>Правильно: <strong>{d.correct}</strong> ({d.correctPct}%)</div>
-                                    <div style={{ color: '#dc2626' }}>Неправильно: <strong>{d.wrong}</strong> ({d.wrongPct}%)</div>
-                                    <div style={{ marginTop: 4, borderTop: '1px solid #e2e8f0', paddingTop: 4 }}>Всего: <strong>{d.total}</strong></div>
-                                </div>
-                            );
-                        };
-                        const CorrectLabel = ({ x, y, width, height, index }) => {
-                            const d = normData[index];
-                            if (!d || width < 55) return null;
-                            return <text x={x + width / 2} y={y + height / 2 + 4} textAnchor="middle" fill="#fff" fontSize={11} fontWeight={700}>{d.correct} ({d.correctPct}%)</text>;
-                        };
-                        const WrongLabel = ({ x, y, width, height, index }) => {
-                            const d = normData[index];
-                            if (!d || width < 55) return null;
-                            return <text x={x + width / 2} y={y + height / 2 + 4} textAnchor="middle" fill="#fff" fontSize={11} fontWeight={700}>{d.wrong} ({d.wrongPct}%)</text>;
-                        };
-                        return (
-                            <div className="dash-chart-card">
-                                <div className="dash-chart-title">Точность ответов на события</div>
-                                <div className="dash-chart-hint">100% диаграмма: зелёный — правильные, красный — неправильные</div>
-                                <ResponsiveContainer width="100%" height={Math.max(eventsData.length * 44 + 40, 180)}>
-                                    <BarChart data={normData} layout="vertical" margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
+                            {/* ── 2. Структура расходов — stacked ── */}
+                            <div className="dash-chart-card dash-chart-card--wide">
+                                <div className="dash-chart-title">Структура расходов</div>
+                                <div className="dash-chart-hint">Сколько потрачено по каждой категории</div>
+                                <ResponsiveContainer width="100%" height={barH}>
+                                    <BarChart data={spendData} layout="vertical" margin={CHART_MARGIN}>
                                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                                        <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 11, fill: '#64748b' }} />
-                                        <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12, fill: '#1e293b', fontWeight: 600 }} />
-                                        <Tooltip content={<NormTooltip />} />
-                                        <Legend iconType="square" wrapperStyle={{ fontSize: 12, paddingTop: 6 }} />
-                                        <Bar dataKey="correctPct" name="Правильно" stackId="s" fill="#22c55e" maxBarSize={28} isAnimationActive={false} label={<CorrectLabel />} />
-                                        <Bar dataKey="wrongPct"   name="Неправильно" stackId="s" fill="#ef4444" maxBarSize={28} isAnimationActive={false} label={<WrongLabel />} />
+                                        <XAxis type="number" tickFormatter={v => `${(v / 1e6).toFixed(0)} млн`} tick={{ fontSize: 11, fill: '#64748b' }} />
+                                        <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12, fill: '#1e293b', fontWeight: 600 }} />
+                                        <Tooltip content={<SpendTooltip />} />
+                                        <Legend iconType="square" wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                                        {SPEND_CATS.map(c => (
+                                            <Bar key={c.key} dataKey={c.key} name={c.label} stackId="s" fill={c.color} maxBarSize={28}
+                                                radius={[0, 0, 0, 0]}
+                                            />
+                                        ))}
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
-                        );
-                    })()}
 
-                    {/* ── 5. Тепловая карта «Команды × Тематики» ── */}
-                    {topicData?.teams?.length > 0 && (() => {
-                        const allTopics = [...new Set(topicData.teams.flatMap(t => Object.keys(t.topics)))].sort();
-                        if (!allTopics.length) return (
-                            <div className="dash-chart-card dash-chart-card--wide">
-                                <div className="dash-chart-title">Сильные и слабые тематики команд</div>
-                                <div style={{ color: '#94a3b8', padding: 16, fontSize: 13 }}>Данные появятся после того как команды ответят на карточки событий</div>
-                            </div>
-                        );
-                        return (
-                            <div className="dash-chart-card dash-chart-card--wide">
-                                <div className="dash-chart-title">Сильные и слабые тематики команд</div>
-                                <div className="dash-chart-hint">Правильных/всего (%) по теме. Зелёный — сильная, красный — слабая, серый — нет данных</div>
-                                <div style={{ overflowX: 'auto', marginTop: 12 }}>
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                                        <thead>
-                                            <tr>
-                                                <th style={{ padding: '6px 10px', textAlign: 'left', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '2px solid #e2e8f0' }}>Команда</th>
-                                                {allTopics.map(t => (
-                                                    <th key={t} style={{ padding: '6px 6px', textAlign: 'center', color: '#64748b', fontWeight: 600, fontSize: 11, borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }} title={t}>
-                                                        {t.length > 12 ? t.slice(0, 11) + '…' : t}
-                                                    </th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {topicData.teams.map((team, ri) => (
-                                                <tr key={team.teamId} style={{ background: ri % 2 === 0 ? '#fff' : '#f8fafc' }}>
-                                                    <td style={{ padding: '7px 10px', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap', borderBottom: '1px solid #e2e8f0' }}>{team.teamName}</td>
-                                                    {allTopics.map(topic => {
-                                                        const d = team.topics[topic];
-                                                        if (!d) return (
-                                                            <td key={topic} style={{ padding: '7px 6px', textAlign: 'center', background: '#f1f5f9', color: '#94a3b8', borderBottom: '1px solid #e2e8f0', fontSize: 11 }}>—</td>
-                                                        );
-                                                        const total = d.correct + d.wrong;
-                                                        const pct = total > 0 ? Math.round(d.correct / total * 100) : 0;
-                                                        const bg = pct >= 70 ? `rgba(34,197,94,${0.15 + pct / 200})` : pct >= 40 ? `rgba(251,191,36,${0.2 + pct / 300})` : `rgba(239,68,68,${0.15 + (100 - pct) / 200})`;
-                                                        const color = pct >= 70 ? '#15803d' : pct >= 40 ? '#92400e' : '#991b1b';
-                                                        return (
-                                                            <td key={topic} style={{ padding: '7px 6px', textAlign: 'center', background: bg, color, fontWeight: 700, borderBottom: '1px solid #e2e8f0', fontSize: 12, lineHeight: 1.3 }}>
-                                                                <div>{d.correct}/{total}</div>
-                                                                <div style={{ fontSize: 11, opacity: 0.85 }}>({pct}%)</div>
-                                                            </td>
-                                                        );
-                                                    })}
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        );
-                    })()}
+                            {/* ── 4. Точность событий — нормированная диаграмма с накоплением ── */}
+                            {eventsData.length > 0 && (() => {
+                                const normData = eventsData.map(d => {
+                                    const total = (d.correct || 0) + (d.wrong || 0);
+                                    const correctPct = total > 0 ? Math.round((d.correct / total) * 100) : 0;
+                                    const wrongPct = total > 0 ? 100 - correctPct : 0;
+                                    return { name: d.name, correctPct, wrongPct, correct: d.correct, wrong: d.wrong, total };
+                                });
+                                const NormTooltip = ({ active, payload, label }) => {
+                                    if (!active || !payload?.length) return null;
+                                    const d = normData.find(x => x.name === label) || {};
+                                    return (
+                                        <div className="dash-tooltip">
+                                            <div className="dash-tooltip-name">{label}</div>
+                                            <div style={{ color: '#16a34a' }}>Правильно: <strong>{d.correct}</strong> ({d.correctPct}%)</div>
+                                            <div style={{ color: '#dc2626' }}>Неправильно: <strong>{d.wrong}</strong> ({d.wrongPct}%)</div>
+                                            <div style={{ marginTop: 4, borderTop: '1px solid #e2e8f0', paddingTop: 4 }}>Всего: <strong>{d.total}</strong></div>
+                                        </div>
+                                    );
+                                };
+                                const CorrectLabel = ({ x, y, width, height, index }) => {
+                                    const d = normData[index];
+                                    if (!d || width < 55) return null;
+                                    return <text x={x + width / 2} y={y + height / 2 + 4} textAnchor="middle" fill="#fff" fontSize={11} fontWeight={700}>{d.correct} ({d.correctPct}%)</text>;
+                                };
+                                const WrongLabel = ({ x, y, width, height, index }) => {
+                                    const d = normData[index];
+                                    if (!d || width < 55) return null;
+                                    return <text x={x + width / 2} y={y + height / 2 + 4} textAnchor="middle" fill="#fff" fontSize={11} fontWeight={700}>{d.wrong} ({d.wrongPct}%)</text>;
+                                };
+                                return (
+                                    <div className="dash-chart-card">
+                                        <div className="dash-chart-title">Точность ответов на события</div>
+                                        <div className="dash-chart-hint">100% диаграмма: зелёный — правильные, красный — неправильные</div>
+                                        <ResponsiveContainer width="100%" height={Math.max(eventsData.length * 44 + 40, 180)}>
+                                            <BarChart data={normData} layout="vertical" margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
+                                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                                                <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 11, fill: '#64748b' }} />
+                                                <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12, fill: '#1e293b', fontWeight: 600 }} />
+                                                <Tooltip content={<NormTooltip />} />
+                                                <Legend iconType="square" wrapperStyle={{ fontSize: 12, paddingTop: 6 }} />
+                                                <Bar dataKey="correctPct" name="Правильно" stackId="s" fill="#22c55e" maxBarSize={28} isAnimationActive={false} label={<CorrectLabel />} />
+                                                <Bar dataKey="wrongPct" name="Неправильно" stackId="s" fill="#ef4444" maxBarSize={28} isAnimationActive={false} label={<WrongLabel />} />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                );
+                            })()}
 
-                </div>
+                            {/* ── 5. Тепловая карта «Команды × Тематики» ── */}
+                            {topicData?.teams?.length > 0 && (() => {
+                                const allTopics = [...new Set(topicData.teams.flatMap(t => Object.keys(t.topics)))].sort();
+                                if (!allTopics.length) return (
+                                    <div className="dash-chart-card dash-chart-card--wide">
+                                        <div className="dash-chart-title">Сильные и слабые тематики команд</div>
+                                        <div style={{ color: '#94a3b8', padding: 16, fontSize: 13 }}>Данные появятся после того как команды ответят на карточки событий</div>
+                                    </div>
+                                );
+                                return (
+                                    <div className="dash-chart-card dash-chart-card--wide">
+                                        <div className="dash-chart-title">Сильные и слабые тематики команд</div>
+                                        <div className="dash-chart-hint">Правильных/всего (%) по теме. Зелёный — сильная, красный — слабая, серый — нет данных</div>
+                                        <div style={{ overflowX: 'auto', marginTop: 12 }}>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                                <thead>
+                                                    <tr>
+                                                        <th style={{ padding: '6px 10px', textAlign: 'left', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '2px solid #e2e8f0' }}>Команда</th>
+                                                        {allTopics.map(t => (
+                                                            <th key={t} style={{ padding: '6px 6px', textAlign: 'center', color: '#64748b', fontWeight: 600, fontSize: 11, borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }} title={t}>
+                                                                {t.length > 12 ? t.slice(0, 11) + '…' : t}
+                                                            </th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {topicData.teams.map((team, ri) => (
+                                                        <tr key={team.teamId} style={{ background: ri % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                                                            <td style={{ padding: '7px 10px', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap', borderBottom: '1px solid #e2e8f0' }}>{team.teamName}</td>
+                                                            {allTopics.map(topic => {
+                                                                const d = team.topics[topic];
+                                                                if (!d) return (
+                                                                    <td key={topic} style={{ padding: '7px 6px', textAlign: 'center', background: '#f1f5f9', color: '#94a3b8', borderBottom: '1px solid #e2e8f0', fontSize: 11 }}>—</td>
+                                                                );
+                                                                const total = d.correct + d.wrong;
+                                                                const pct = total > 0 ? Math.round(d.correct / total * 100) : 0;
+                                                                const bg = pct >= 70 ? `rgba(34,197,94,${0.15 + pct / 200})` : pct >= 40 ? `rgba(251,191,36,${0.2 + pct / 300})` : `rgba(239,68,68,${0.15 + (100 - pct) / 200})`;
+                                                                const color = pct >= 70 ? '#15803d' : pct >= 40 ? '#92400e' : '#991b1b';
+                                                                return (
+                                                                    <td key={topic} style={{ padding: '7px 6px', textAlign: 'center', background: bg, color, fontWeight: 700, borderBottom: '1px solid #e2e8f0', fontSize: 12, lineHeight: 1.3 }}>
+                                                                        <div>{d.correct}/{total}</div>
+                                                                        <div style={{ fontSize: 11, opacity: 0.85 }}>({pct}%)</div>
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                        </div>
                     </div>{/* конец левой колонки */}
 
                     {/* ══ ПРАВАЯ КОЛОНКА: Таблицы рейтинга ══ */}
@@ -2765,18 +2851,18 @@ const RatingTable = ({ title, hint, teams, metricKey, valueLabel, costKey }) => 
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                     <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                        <th style={{ padding: '8px 12px', textAlign: 'left',   fontSize: 12, color: '#64748b', fontWeight: 600 }}>Место</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'left',   fontSize: 12, color: '#64748b', fontWeight: 600 }}>Команда</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right',  fontSize: 12, color: '#64748b', fontWeight: 600 }}>Значение</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 12, color: '#64748b', fontWeight: 600 }}>Место</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 12, color: '#64748b', fontWeight: 600 }}>Команда</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right', fontSize: 12, color: '#64748b', fontWeight: 600 }}>Значение</th>
                         {costKey && <th style={{ padding: '8px 12px', textAlign: 'right', fontSize: 12, color: '#64748b', fontWeight: 600 }}>Расходы, млн</th>}
                         <th style={{ padding: '8px 12px', textAlign: 'center', fontSize: 12, color: '#64748b', fontWeight: 600 }}>Очки</th>
                     </tr>
                 </thead>
                 <tbody>
                     {sorted.map((t, idx) => {
-                        const r    = t.ranking[metricKey];
+                        const r = t.ranking[metricKey];
                         const rank = r?.rank;
-                        const pts  = r?.points ?? 0;
+                        const pts = r?.points ?? 0;
                         const cost = costKey ? (t.stageCosts?.[costKey] ?? 0) : null;
                         const rowBg = rank === 1 ? '#fefce8' : idx % 2 === 0 ? '#fff' : '#f8fafc';
                         return (
@@ -2824,8 +2910,8 @@ const TotalRatingTable = ({ teams }) => {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                     <tr style={{ background: '#f0f9ff', borderBottom: '2px solid #bae6fd' }}>
-                        <th style={{ padding: '10px 14px', textAlign: 'left',  fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Место</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'left',  fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Команда</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Место</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Команда</th>
                         <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>ГРР (1–5)</th>
                         <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Проектирование (6–8)</th>
                         <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Управление (9–10)</th>
@@ -2834,15 +2920,15 @@ const TotalRatingTable = ({ teams }) => {
                 </thead>
                 <tbody>
                     {sorted.map((t, idx) => {
-                        const r      = ranks[t.teamId];
-                        const rowBg  = r === 1 ? '#fefce8' : idx % 2 === 0 ? '#fff' : '#f8fafc';
-                        const pt     = (key) => t.ranking[key]?.points ?? 0;
-                        const grr    = t.metrics.grr?.value;
-                        const s2     = t.metrics.stage2?.value;
-                        const s3     = t.metrics.stage3?.value;
-                        const c1     = t.stageCosts?.stage1_5  ?? 0;
-                        const c2     = t.stageCosts?.stage6_8  ?? 0;
-                        const c3     = t.stageCosts?.stage9_10 ?? 0;
+                        const r = ranks[t.teamId];
+                        const rowBg = r === 1 ? '#fefce8' : idx % 2 === 0 ? '#fff' : '#f8fafc';
+                        const pt = (key) => t.ranking[key]?.points ?? 0;
+                        const grr = t.metrics.grr?.value;
+                        const s2 = t.metrics.stage2?.value;
+                        const s3 = t.metrics.stage3?.value;
+                        const c1 = t.stageCosts?.stage1_5 ?? 0;
+                        const c2 = t.stageCosts?.stage6_8 ?? 0;
+                        const c3 = t.stageCosts?.stage9_10 ?? 0;
                         const costStyle = { display: 'block', fontSize: 11, color: '#c2410c', marginTop: 2 };
                         return (
                             <tr key={t.teamId} style={{ background: rowBg, borderBottom: '1px solid #e2e8f0' }}>
@@ -2879,9 +2965,9 @@ const TotalRatingTable = ({ teams }) => {
 const RatingTab = ({ sessions, sessId: externalSessId }) => {
     const isControlled = externalSessId !== undefined;
     const [ownSessId, setOwnSessId] = useState('');
-    const [data, setData]      = useState(null);
+    const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [error, setError]    = useState(null);
+    const [error, setError] = useState(null);
 
     const sessId = isControlled ? externalSessId : ownSessId;
 
@@ -2916,7 +3002,7 @@ const RatingTab = ({ sessions, sessId: externalSessId }) => {
             )}
 
             {loading && <div className="ap-loading">Загрузка рейтинга…</div>}
-            {error   && <div style={{ color: '#dc2626', padding: 12 }}>Ошибка: {error}</div>}
+            {error && <div style={{ color: '#dc2626', padding: 12 }}>Ошибка: {error}</div>}
             {!isControlled && !sessId && !loading && <div className="dash-empty">Выберите сессию для просмотра рейтинга</div>}
             {data && !loading && teams.length === 0 && <div className="dash-empty">В сессии нет команд</div>}
 
@@ -3139,12 +3225,13 @@ const AdminPanel = ({ onLogout }) => {
     };
 
     const TABS = [
-        { id: 'create',     label: '+ Создать' },
-        { id: 'presets',    label: 'Пресеты' },
-        { id: 'control',    label: 'Управление сессией' },
-        { id: 'sessions',   label: 'Сессии' },
+        { id: 'create', label: '+ Создать' },
+        { id: 'questions', label: 'Вопросы' },
+        { id: 'presets', label: 'Пресеты' },
+        { id: 'control', label: 'Управление сессией' },
+        { id: 'sessions', label: 'Сессии' },
         // { id: 'teams',   label: 'Команды' },
-        { id: 'dashboard',  label: 'Статистика' },
+        { id: 'dashboard', label: 'Статистика' },
         { id: 'bugreports', label: 'Баг репорт' },
     ];
 
@@ -3171,6 +3258,8 @@ const AdminPanel = ({ onLogout }) => {
                 {loading && <div className="ap-loading">Загрузка…</div>}
 
                 {tab === 'create' && <CreateSessionTab onGoToControl={goToControl} />}
+
+                {tab === 'questions' && <QuestionsTab />}
 
                 {tab === 'presets' && <PresetsTab />}
 
@@ -3248,7 +3337,7 @@ const AdminPanel = ({ onLogout }) => {
                                                     type="checkbox"
                                                     className="sc-checkbox"
                                                     checked={selectedSessions.has(s.id)}
-                                                    onChange={() => {}}
+                                                    onChange={() => { }}
                                                     onClick={e => e.stopPropagation()}
                                                 />
                                                 <span className="sc-code">{s.code}</span>

@@ -8,6 +8,8 @@ import RegionMapTour from './Regionmaptour';
 import { getSocket } from '../apiHelpers';
 import { getLastSuccessfulSceneImage, getSceneImageFromMeta, getScenario, resolveSceneImage, WORK_SCENE_MAP } from '../Research/sceneUtils';
 import { resolveLicenseUnits } from './luCards';
+import { getFacies, getFaciesNodes } from './faciesUtils';
+import { getFaciesConfigById } from './faciesPresets';
 import NeftImg from '../assets/cards/Neft.png';
 
 const DEFAULT_CASE_INTRO = {
@@ -266,6 +268,13 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
     () => resolveLicenseUnits(sessionConfig.luCards),
     [sessionConfig.luCards],
   );
+
+  // Фации карты региона — пресет, выбранный админом при создании сессии
+  const faciesConfig = useMemo(
+    () => getFaciesConfigById(sessionConfig.faciesPresetId),
+    [sessionConfig.faciesPresetId],
+  );
+  const faciesNodes = useMemo(() => getFaciesNodes(faciesConfig), [faciesConfig]);
 
   const globalTimer = useGameStore(s => s.globalTimer);
   const serverPhase = globalTimer.phase;
@@ -592,7 +601,11 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const getBlockedLabel = (type) => ({ reserve: 'Природный заказник', settlement: 'Населённый пункт', company: 'Занято нефтяной компанией' }[type] || 'Заблокировано');
 
   const getCellTooltipContent = (cellId) => {
-    if (cellId === '__neft_point__') return { title: 'Точка сдачи нефти', sub: 'Доступна с 9-го года' };
+    if (cellId.startsWith('__facies_node__')) {
+      const node = faciesNodes.find(n => n.at === cellId.slice('__facies_node__'.length));
+      return { title: node?.label ?? 'Точка', sub: `на стыке участков ${node?.at ?? ''}` };
+    }
+    const facies = getFacies(faciesConfig, cellId);
     const blockedType = getBlockedType(cellId);
     if (blockedType) return { title: getBlockedLabel(blockedType), sub: `${cellId} · недоступен` };
     const isContested = isMyContestedCell(cellId);
@@ -614,7 +627,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
       return { title: 'Аукцион LIVE', sub: `${cellId} · текущая ставка: ${bid != null ? `${bid} млн` : '—'}` };
     }
     if (isRegisteredForAuction(cellId)) return { title: 'Вы в очереди', sub: `${cellId} · ожидание аукциона` };
-    return { title: 'Свободный участок', sub: cellId };
+    return { title: 'Свободный участок', sub: facies ? `${cellId} · ${facies.name}` : cellId };
   };
 
   const isLUSelected = (luId) => selectedLU.some(lu => lu.id === luId);
@@ -1078,6 +1091,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                 <div key={row} className="grid-row">
                   {cols.map(col => {
                     const cellId = `${row}${col}`;
+                    const facies = getFacies(faciesConfig, cellId);
                     const lu = getLUPosition(cellId);
                     const ownedByMe = isOwnedByMe(cellId);
                     const ownedByOther = isOwnedByOther(cellId);
@@ -1152,6 +1166,11 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                           onMouseMove={(e) => setCellTooltip({ cellId, x: e.clientX, y: e.clientY })}
                           onMouseLeave={() => setCellTooltip(null)}
                         >
+                          {facies && (
+                            <div className="cell-facies" style={{ backgroundColor: facies.color }} title={facies.name}>
+                              <span className="cell-facies-code">{facies.code}</span>
+                            </div>
+                          )}
                           {sceneImg ? (
                             <div className="cell-scene-img-wrap">
                               <img src={sceneImg} alt={cellId} className="cell-scene-img" />
@@ -1229,25 +1248,17 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                 </div>
               ))}
               {globalYear >= 9 && <ZoneContours />}
-              {globalTimer.currentYear >= 9 && (
+              {faciesNodes.map(node => (
                 <img
+                  key={node.at}
                   src={NeftImg}
-                  alt="Точка сдачи нефти"
-                  className="neft-point-marker"
-                  style={{
-                    position: 'absolute',
-                    left: 401,
-                    top: 267,
-                    width: 48,
-                    height: 48,
-                    transform: 'translate(-50%, -50%)',
-                    zIndex: 10,
-                    cursor: 'default',
-                  }}
-                  onMouseMove={(e) => setCellTooltip({ cellId: '__neft_point__', x: e.clientX, y: e.clientY })}
+                  alt={node.label}
+                  className="facies-node-marker"
+                  style={{ left: node.x, top: node.y }}
+                  onMouseMove={(e) => setCellTooltip({ cellId: `__facies_node__${node.at}`, x: e.clientX, y: e.clientY })}
                   onMouseLeave={() => setCellTooltip(null)}
                 />
-              )}
+              ))}
             </div>
           </div>
         </div>
@@ -1262,6 +1273,18 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         <div className="legend-item"><div className="legend-color legend-color-blocked-reserve"></div><span>Природный заказник</span></div>
         <div className="legend-item"><div className="legend-color legend-color-blocked-settlement"></div><span>Населённый пункт</span></div>
         <div className="legend-item"><div className="legend-color legend-color-blocked-company"></div><span>Другие компании</span></div>
+
+        {faciesConfig && (
+          <>
+            <div className="legend-title legend-title-facies">Обстановки осадконакопления</div>
+            {Object.entries(faciesConfig.legend).map(([code, meta]) => (
+              <div key={code} className="legend-item">
+                <div className="legend-color" style={{ backgroundColor: meta.color }}></div>
+                <span><strong>{code}</strong> — {meta.name}</span>
+              </div>
+            ))}
+          </>
+        )}
       </div>
 
       {cellTooltip && (() => {

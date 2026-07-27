@@ -1,6 +1,6 @@
 // EventsZone.jsx — таймер читается из globalTimer store, локального setInterval нет
 import React, { useState, useEffect, useRef } from 'react';
-import { generateEventLine, CARD_TYPES, RISK_CARDS, OPPORTUNITY_QUESTIONS, RANDOM_CARDS } from './Eventsdata.js';
+import { generateEventLine, CARD_TYPES, RISK_CARDS, OPPORTUNITY_QUESTIONS, RANDOM_CARDS, loadCustomQuestions } from './Eventsdata.js';
 import useGameStore from '../../store/gameStore';
 import GlobalTimer from '../GlobalTimer';
 import styles from './EventsZone.module.css';
@@ -13,12 +13,14 @@ import EventsZoneTour from './Eventszonetour';
 // Нужны потому что card.data.image персистируется в localStorage и может
 // содержать устаревший URL от предыдущей сборки.
 const _riskImgById = Object.fromEntries(RISK_CARDS.map(c => [c.id, c.image]));
-const _oppImgById  = Object.fromEntries(OPPORTUNITY_QUESTIONS.map(c => [c.id, c.image]));
+// Пул возможностей пополняется кастомными вопросами из БД после
+// loadCustomQuestions() — ищем по живому массиву, а не по снапшоту.
+const _oppImgById  = (id) => OPPORTUNITY_QUESTIONS.find(c => c.id === id)?.image ?? null;
 const _randImgById = Object.fromEntries(RANDOM_CARDS.map(c => [c.id, c.image]));
 const resolveCardImage = (card) => {
   if (!card?.data?.id) return card?.data?.image ?? null;
   if (card.type === CARD_TYPES.RISK)        return _riskImgById[card.data.id] ?? card.data.image ?? null;
-  if (card.type === CARD_TYPES.OPPORTUNITY) return _oppImgById[card.data.id]  ?? card.data.image ?? null;
+  if (card.type === CARD_TYPES.OPPORTUNITY) return _oppImgById(card.data.id)  ?? card.data.image ?? null;
   if (card.type === CARD_TYPES.RANDOM)      return _randImgById[card.data.id] ?? card.data.image ?? null;
   return card.data.image ?? null;
 };
@@ -213,7 +215,16 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     return currentYearWorks.length > 0;
   };
 
+  // Кастомные вопросы приходят из БД — линии не генерируем, пока пул не готов
+  // (иначе сгенерируем только по базовым вопросам). При недоступном бэке
+  // loadCustomQuestions() тихо падает на снапшот question.json.
+  const [poolReady, setPoolReady] = useState(false);
   useEffect(() => {
+    loadCustomQuestions().finally(() => setPoolReady(true));
+  }, []);
+
+  useEffect(() => {
+    if (!poolReady) return;
     // sessionUsedCardIds — авторитетный список всех карточек, уже выданных команде за сессию.
     // Он накапливается и не сбрасывается при смене года.
     const excludeIds = new Set(sessionUsedCardIds || []);
@@ -316,7 +327,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     if (newSessionIds.length > 0) {
       addUsedEventCardIds(newSessionIds);
     }
-  }, [ownedLUs.length, research.progressByLU, events.linesByLU, globalYear]);
+  }, [ownedLUs.length, research.progressByLU, events.linesByLU, globalYear, poolReady]);
 
   const eventLines = ownedLUs.map(lu => {
     const lineData = events.linesByLU[lu.id] || {

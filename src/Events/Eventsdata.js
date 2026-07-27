@@ -1,4 +1,10 @@
-// Тут надо поправить
+// Вопросы, добавленные через админку (вкладка «Вопросы»), хранятся в БД на
+// бэкенде и подгружаются через loadCustomQuestions() — игра использует
+// объединённый пул. question.json — локальный снапшот на случай недоступности
+// бэка (только чтение).
+import customQuestionsFile from '../question.json';
+import { getPublicQuestions } from '../apiHelpers.js';
+
 export const CARD_TYPES = {
   OPPORTUNITY: 'opportunity',
   RISK: 'risk',
@@ -27,7 +33,7 @@ const randomImages = import.meta.glob(
 const randomImg = (n) => randomImages[`/src/assets/cards/random/CardRandom (${n}).png`] ?? null;
 
 
-export const OPPORTUNITY_QUESTIONS = [
+export const BASE_OPPORTUNITY_QUESTIONS = [
   {
     id: 'oq1',
     image: opportunityImg(1),
@@ -830,6 +836,43 @@ export const OPPORTUNITY_QUESTIONS = [
     points: 3,
   },
 ];
+
+// Добавленные через админку вопросы (game-схема: id, question, options,
+// correctAnswer, points, topic, image). Поле title игра игнорирует.
+// До loadCustomQuestions() здесь лежит снапшот из question.json.
+export const CUSTOM_OPPORTUNITY_QUESTIONS =
+  Array.isArray(customQuestionsFile?.custom) ? [...customQuestionsFile.custom] : [];
+
+// Единый игровой пул: база (с картинками) + добавленные через админку.
+// Массив мутируется на месте, чтобы модули, уже импортировавшие его,
+// увидели подгруженные с бэка вопросы.
+export const OPPORTUNITY_QUESTIONS = [
+  ...BASE_OPPORTUNITY_QUESTIONS,
+  ...CUSTOM_OPPORTUNITY_QUESTIONS,
+];
+
+let _customLoaded = false;
+
+// Подтягивает кастомные вопросы из БД (GET /api/questions) и обновляет пул.
+// При недоступном бэке остаёмся на снапшоте question.json.
+export async function loadCustomQuestions() {
+  if (_customLoaded) return OPPORTUNITY_QUESTIONS;
+  try {
+    const custom = await getPublicQuestions();
+    if (Array.isArray(custom)) {
+      CUSTOM_OPPORTUNITY_QUESTIONS.splice(0, CUSTOM_OPPORTUNITY_QUESTIONS.length, ...custom);
+      OPPORTUNITY_QUESTIONS.splice(
+        BASE_OPPORTUNITY_QUESTIONS.length,
+        OPPORTUNITY_QUESTIONS.length,
+        ...custom,
+      );
+      _customLoaded = true;
+    }
+  } catch {
+    // бэкенд недоступен
+  }
+  return OPPORTUNITY_QUESTIONS;
+}
 
 export const RISK_CARDS = [
   { id: 'r1', image: riskImg(1), effect: { type: 'points', value: -2 }, description: 'Смещение сроков: подрядчик мобилизовал некомплект и старое оборудование.' },

@@ -154,7 +154,7 @@ body,
   background: var(--surface);
   border-bottom: 2px solid var(--border);
   display: flex;
-  padding: 0 2rem;
+  padding: 2px 2rem;
   gap: 0;
   overflow-x: auto;
 }
@@ -3214,4 +3214,80 @@ body,
 .lu-card-img-preview .lu-card-img-default-tag {
   position: relative;
   z-index: 1;
+}
+
+/* ── Предпросмотр карты фаций ─────────────────────────────────────────────── */
+
+.facies-preview {
+  margin-top: .6rem;
+}
+
+.facies-preview-grid-wrap {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.facies-preview-grid {
+  border-collapse: collapse;
+  font-size: .68rem;
+  table-layout: fixed;
+}
+
+.facies-preview-grid th {
+  color: #94a3b8;
+  font-weight: 600;
+  padding: 2px 4px;
+  text-align: center;
+}
+
+.facies-preview-grid td {
+  position: relative;
+  width: 44px;
+  height: 30px;
+  text-align: center;
+  vertical-align: middle;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  color: rgba(15, 30, 45, 0.8);
+  font-weight: 700;
+}
+
+.facies-preview-node {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #0f172a;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  z-index: 2;
+}
+
+.facies-preview-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: .6rem;
+  font-size: .78rem;
+  color: var(--text3, #64748b);
+}
+
+.facies-preview-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.facies-preview-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.facies-preview-swatch-node {
+  border-radius: 50%;
+  background: #0f172a;
 }

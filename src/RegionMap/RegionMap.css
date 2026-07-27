@@ -2756,3 +2756,47 @@
   text-shadow: 0 1px 3px rgba(0,0,0,0.4);
   white-space: nowrap;
 }
+
+/* ── Фации карты региона ──────────────────────────────────────────────────── */
+
+.cell-facies {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  opacity: 0.45;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.cell-facies-code {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: rgba(15, 30, 45, 0.75);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.grid-cell .cell-label,
+.grid-cell .cell-mark {
+  position: relative;
+  z-index: 1;
+}
+
+.facies-node-marker {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  cursor: default;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+}
+
+.legend-title-facies {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #e2e8f0;
+}
