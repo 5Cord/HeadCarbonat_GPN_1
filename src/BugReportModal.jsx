@@ -18,7 +18,7 @@ export default function BugReportModal({ onClose, sessionId, teamName }) {
     if (!location || description.trim().length < 5) return;
     setStatus('sending');
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
       const res = await fetch(`${API_BASE}/bug-reports`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

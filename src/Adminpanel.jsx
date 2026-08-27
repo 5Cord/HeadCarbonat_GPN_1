@@ -80,14 +80,16 @@ const GROUP_COLOR_STYLES = {
 const RANK_COLORS = { 1: '#16a34a', 2: '#d97706', 3: '#64748b' };
 const RANK_LABELS = { 1: 'Лучший', 2: 'Средний', 3: 'Базовый' };
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3001';
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const WS_URL = import.meta.env.VITE_WS_URL || window.location.origin;
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 const fmt = (sec) => { const s = Math.max(0, Math.floor(sec ?? 0)); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
 const fmtMln = (n) => Number(n || 0).toLocaleString('ru-RU', { maximumFractionDigits: 0 });
 
+// admin_token отдельно от auth_token команды: иначе вход в игру и в админку
+// из одного браузера затирают друг друга и админские запросы падают в 401
 const getSavedToken = () => {
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem('admin_token');
     return token && token.length > 0 ? token : null;
 };
 
@@ -99,7 +101,7 @@ const apiAction = async (path, method = 'POST', body) => {
         body: body ? JSON.stringify(body) : undefined,
     });
     if (res.status === 401) {
-        localStorage.removeItem('auth_token');
+        localStorage.removeItem('admin_token');
         window.dispatchEvent(new Event('admin:unauthorized'));
         throw new Error('Unauthorized');
     }
@@ -188,7 +190,7 @@ const LoginScreen = ({ onLogin }) => {
         setLoad(true); setError('');
         try {
             const res = await adminLogin('admin', pw);
-            localStorage.setItem('auth_token', res.token);
+            localStorage.setItem('admin_token', res.token);
             onLogin(res.token);
         } catch { setError('Неверный пароль'); } finally { setLoad(false); }
     };
@@ -3202,7 +3204,7 @@ const AdminPanel = ({ onLogout }) => {
 
     const logout = () => {
         adminSocketRef.current?.disconnect(); adminSocketRef.current = null;
-        localStorage.removeItem('auth_token'); sessionStorage.removeItem('admin_tab');
+        localStorage.removeItem('admin_token'); sessionStorage.removeItem('admin_tab');
         setLoggedIn(false);
         onLogout?.();
     };

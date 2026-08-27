@@ -1,7 +1,8 @@
 import { io as socketIO } from 'socket.io-client';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
-const WS_URL   = import.meta.env.VITE_WS_URL       || 'http://localhost:3001';
+// Пустой VITE_* (прод) → относительный путь к текущему домену, бандл не привязан к хосту
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+const WS_URL   = import.meta.env.VITE_WS_URL       || window.location.origin;
 
 // ── Socket singleton ──────────────────────────────────────────────────────────
 let _socket = null;
@@ -88,7 +89,7 @@ async function apiFetch(endpoint, options = {}) {
   if (!res.ok) {
     if (res.status === 401) {
       // Диспатчим admin:unauthorized ТОЛЬКО для admin-эндпоинтов (не для game-сайд запросов).
-      // auth_token не трогаем — его чистит только явный logout в AdminPanel.
+      // auth_token команды не трогаем: у админки свой ключ admin_token.
       if (endpoint.startsWith('/admin/') && !endpoint.endsWith('/admin/login')) {
         window.dispatchEvent(new CustomEvent('admin:unauthorized'));
       }
@@ -157,7 +158,7 @@ export const placeBidOnAuction = (sessionId, cellRef, bidData) =>
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 const adminFetch = (endpoint, options = {}) => {
-  const token = localStorage.getItem('auth_token');
+  const token = localStorage.getItem('admin_token');
   return apiFetch(`/admin${endpoint}`, {
     ...options,
     headers: { Authorization: `Bearer ${token}`, ...options.headers },
@@ -218,7 +219,7 @@ export const deleteQuestionTopic  = (id)        => adminFetch(`/question-topics/
 export const getPublicQuestions   = ()          => apiFetch('/questions');
 
 export const exportData = async (type, format = 'csv') => {
-  const token = localStorage.getItem('auth_token');
+  const token = localStorage.getItem('admin_token');
   const res = await fetch(`${API_BASE}/admin/export/${type}?format=${format}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
