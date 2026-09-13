@@ -115,6 +115,16 @@ export const getSessionStatus = (sessionId) =>
 
 export const leaveSession = async () => ({ success: true });
 
+// Возврат в сессию по сохранённому токену команды — код и имя вводить не нужно.
+export const resumeSession = () => {
+  const token = localStorage.getItem('auth_token');
+  if (!token) return Promise.reject(new Error('No token'));
+  return apiFetch('/sessions/resume', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
+
 // ── Игровые данные (через WebSocket) ─────────────────────────────────────────
 export const saveResearchProgress = (teamId, luId, data) =>
   new Promise((resolve) => {
@@ -237,7 +247,7 @@ export const submitBugReport = ({ location, description, sessionId, teamName }) 
 
 export default {
   getSocket, connectSocket, disconnectSocket,
-  getSessionByCode, joinSession, getSessionStatus, leaveSession,
+  getSessionByCode, joinSession, getSessionStatus, leaveSession, resumeSession,
   saveResearchProgress, saveEventsResults, saveFieldWorkSelection,
   saveResults, saveTeamProgress, getTeamProgress,
   placeBidOnAuction, finalizeTeamSelection,

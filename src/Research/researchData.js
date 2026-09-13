@@ -377,19 +377,19 @@ export const RESEARCH_WORKS = [
 ];
 
 export const MOBILIZATION_WORKS = [
-  { id: 'srr_2d', name: 'Успешность СРР 2D', cost: 300, round: 1, years: [1, 2, 3, 4], dependency: null },
-  { id: 'srr_3d', name: 'Успешность СРР 3D', cost: 300, round: 1, years: [1, 2, 3, 4], dependency: null },
-  { id: '1pr', name: 'Успешность бурения скв. 1ПО (поисковая)', cost: 800, round: 1, years: [1, 2, 3, 4], dependency: null },
-  { id: '3r', name: 'Успешность бурения скв. 3P (разведочная)', cost: 800, round: 1, years: [4, 5], dependency: null },
-  { id: 'drilling_5gs', name: 'Успешность бурения скв. 5ГС (горизонт)', cost: 200, round: 2, years: [6, 7, 8], dependency: null },
-  { id: 'drilling_6gs', name: 'Успешность бурения скв. 6ГС с МГРП', cost: 200, round: 2, years: [6, 7, 8], dependency: null },
-  { id: 'drilling_7mzs', name: 'Успешность бурения скв. 7МЗС (многозабойная)', cost: 200, round: 2, years: [6, 7, 8], dependency: null },
-  { id: 'testing', name: 'Успешность тестирования закачки и ППД', cost: 200, round: 2, years: [6, 7, 8], dependency: null },
-  { id: 'mun', name: 'Успешность тестирования МУН', cost: 200, round: 2, years: [6, 7, 8], dependency: null },
-  { id: 'depression', name: 'Успешность бурения на депрессии', cost: 100, round: 3, years: [9, 10], dependency: null },
-  { id: 'bsko', name: 'Успешность БСКО с отклонителями', cost: 100, round: 3, years: [9, 10], dependency: null },
-  { id: 'ppd', name: 'Успешность перевода в ППД', cost: 100, round: 3, years: [9, 10], dependency: null },
-  { id: '3bs', name: 'Успешность ЗБС', cost: 100, round: 3, years: [9, 10], dependency: null }
+  { id: 'srr_2d', name: 'СРР 2D', cost: 300, round: 1, years: [1, 2, 3, 4], dependency: null },
+  { id: 'srr_3d', name: 'СРР 3D', cost: 500, round: 1, years: [1, 2, 3, 4], dependency: null },
+  { id: '1pr', name: 'Бурение скв. 1ПО (поисковая)', cost: 800, round: 1, years: [1, 2, 3, 4], dependency: null },
+  { id: '3r', name: 'Бурение скв. 3P (разведочная)', cost: 800, round: 1, years: [4, 5], dependency: null },
+  { id: 'drilling_5gs', name: 'Бурение скв. 5ГС (горизонт)', cost: 200, round: 2, years: [6, 7, 8], dependency: null },
+  { id: 'drilling_6gs', name: 'Бурение скв. 6ГС с МГРП', cost: 200, round: 2, years: [6, 7, 8], dependency: null },
+  { id: 'drilling_7mzs', name: 'Бурение скв. 7МЗС (многозабойная)', cost: 200, round: 2, years: [6, 7, 8], dependency: null },
+  { id: 'testing', name: 'Тестирование закачки и ППД', cost: 200, round: 2, years: [6, 7, 8], dependency: null },
+  { id: 'mun', name: 'Тестирование МУН', cost: 200, round: 2, years: [6, 7, 8], dependency: null },
+  { id: 'depression', name: 'Бурение на депрессии', cost: 100, round: 3, years: [9, 10], dependency: null },
+  { id: 'bsko', name: 'БСКО с отклонителями', cost: 100, round: 3, years: [9, 10], dependency: null },
+  { id: 'ppd', name: 'Перевод в ППД', cost: 100, round: 3, years: [9, 10], dependency: null },
+  { id: '3bs', name: 'ЗБС', cost: 100, round: 3, years: [9, 10], dependency: null }
 ];
 
 // Дефолтная конфигурация видов работ (используется, если у сессии нет своей).

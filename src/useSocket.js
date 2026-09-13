@@ -12,6 +12,17 @@
 import { useEffect, useRef } from 'react';
 import useGameStore from '../store/gameStore';
 import { connectSocket, disconnectSocket, getSocket } from './apiHelpers';
+import { normalizeResearchConfig } from './Research/researchData';
+
+// Пустой прогресс ЛУ для восстановления из БД.
+const emptyLUProgress = () => ({
+  purchasedWorks: [], purchasedWorksByYear: {},
+  purchasedCells: {}, purchasedCellsByYear: {},
+  mobilizedColumns: [], mobilizedColumnsByYear: {}, columnsByYear: {},
+  totalSpent: 0, spentByYear: {},
+  successRates: {}, successRatesByYear: {},
+  skippedYears: [], completedColumns: [],
+});
 
 export default function useSocket() {
   const player       = useGameStore(s => s.player);
@@ -174,7 +185,7 @@ export default function useSocket() {
         useGameStore.setState({ cellScenarios: scenarios ?? {} });
       },
 
-      onFullState: ({ timer, cells, auctions, budget, researchRows, eventsRows, fieldWorkRows, scenarios }) => {
+      onFullState: ({ timer, cells, auctions, budget, researchRows, eventsRows, fieldWorkRows, resultRows, purchaseRows, scenarios }) => {
         if (scenarios) useGameStore.setState({ cellScenarios: scenarios });
         useGameStore.setState(st => {
           const newTimer = timer ? {
@@ -232,6 +243,51 @@ export default function useSocket() {
               if (row.skipped) prog.skippedYears.push(row.year);
             }
             restoredResearch = { ...st.research, progressByLU };
+          } else if ((purchaseRows || []).length > 0 && Object.keys(st.research.progressByLU || {}).length === 0) {
+            // Покупки НИР пишутся в research_purchases — собираем прогресс из них.
+            // Ключ ячейки таблицы тот же, что при покупке: `${workId}-${mobId}`.
+            const works  = normalizeResearchConfig(st.player.sessionConfig?.researchConfig);
+            const byId   = Object.fromEntries(works.map(w => [w.id, w]));
+            const progressByLU = {};
+
+            for (const row of purchaseRows) {
+              const luId = row.lu_id;
+              if (!progressByLU[luId]) progressByLU[luId] = emptyLUProgress();
+              const prog    = progressByLU[luId];
+              const cellKey = `${row.work_id}-${row.mob_id}`;
+              const rate    = byId[row.work_id]?.successRates?.[row.mob_id] ?? 0;
+              const year    = row.year;
+              const cost    = row.cost || 0;
+
+              const rw = {
+                id: cellKey,
+                name: `${row.work_name} | ${row.mob_name}`,
+                baseCost: cost,
+                successRates: { [row.mob_id]: rate },
+                workType: row.work_id,
+                mobilizationType: row.mob_id,
+                metadata: { cellKey, workCost: byId[row.work_id]?.cost ?? 0, mobilizationCost: 0, successRate: rate, year },
+              };
+              const cell = { ...rw, successRate: rate };
+
+              prog.purchasedWorks.push(rw);
+              prog.purchasedWorksByYear[year] = [...(prog.purchasedWorksByYear[year] || []), rw];
+              prog.purchasedCells[cellKey] = cell;
+              prog.purchasedCellsByYear[year] = { ...(prog.purchasedCellsByYear[year] || {}), [cellKey]: cell };
+              prog.totalSpent += cost;
+              prog.spentByYear[year] = (prog.spentByYear[year] || 0) + cost;
+
+              const acc = Math.min((prog.successRates[row.mob_id] || 0) + rate, 95);
+              prog.successRates[row.mob_id] = acc;
+              prog.successRatesByYear[year] = { ...(prog.successRatesByYear[year] || {}), [row.mob_id]: acc };
+
+              if (!prog.mobilizedColumns.includes(row.mob_id)) prog.mobilizedColumns.push(row.mob_id);
+              if (!(prog.mobilizedColumnsByYear[year] || []).includes(row.mob_id)) {
+                prog.mobilizedColumnsByYear[year] = [...(prog.mobilizedColumnsByYear[year] || []), row.mob_id];
+              }
+              prog.columnsByYear[year] = row.mob_id;
+            }
+            restoredResearch = { ...st.research, progressByLU };
           }
 
           // Восстановление событий из БД (только если localStorage пуст)
@@ -239,12 +295,21 @@ export default function useSocket() {
           if ((eventsRows || []).length > 0 && Object.keys(st.events.lineScores || {}).length === 0) {
             const lineScores = {};
             const historyByYear = {};
+            const linesByLU = {};
+            const lineYear = {};   // линия по ЛУ берётся за самый поздний год
             for (const row of eventsRows) {
               if (row.score != null) lineScores[row.lu_id] = (lineScores[row.lu_id] || 0) + row.score;
               if (!historyByYear[row.year]) historyByYear[row.year] = { lineScores: {} };
               historyByYear[row.year].lineScores[row.lu_id] = row.score || 0;
+
+              const line = row.line_json;
+              if (line && typeof line === 'object' && Object.keys(line).length > 0
+                  && row.year >= (lineYear[row.lu_id] ?? -Infinity)) {
+                linesByLU[row.lu_id] = line;
+                lineYear[row.lu_id]  = row.year;
+              }
             }
-            restoredEvents = { ...st.events, lineScores, historyByYear };
+            restoredEvents = { ...st.events, lineScores, historyByYear, linesByLU };
           }
 
           // Восстановление полевых работ из БД (только если localStorage пуст)
@@ -271,6 +336,20 @@ export default function useSocket() {
             restoredFieldWork = { ...st.fieldWork, selectionsByLU };
           }
 
+          // Восстановление карточек итогов из БД (только если localStorage пуст)
+          let restoredResults = st.results;
+          if ((resultRows || []).length > 0 && Object.keys(st.results.cardsByLU || {}).length === 0) {
+            const cardsByLU = {};
+            for (const row of resultRows) {
+              if (row.card_json && typeof row.card_json === 'object') cardsByLU[row.lu_id] = row.card_json;
+            }
+            restoredResults = {
+              ...st.results,
+              cardsByLU,
+              finalScore: Object.values(cardsByLU).reduce((s, c) => s + (c.roi || 0), 0),
+            };
+          }
+
           return {
             globalTimer: newTimer,
             game:        { ...st.game, currentYear: newTimer.currentYear },
@@ -280,6 +359,7 @@ export default function useSocket() {
             research:    restoredResearch,
             events:      restoredEvents,
             fieldWork:   restoredFieldWork,
+            results:     restoredResults,
             otherTeamsScene: _mergeSceneFromCells(allTeams, myId, st.otherTeamsScene),
           };
         });

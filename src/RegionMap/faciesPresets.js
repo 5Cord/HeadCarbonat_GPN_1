@@ -1,5 +1,5 @@
 // faciesPresets.js
-// Готовые карты фаций региона. Админ выбирает пресет по id — редактировать содержимое нельзя.
+// Готовые карты фаций региона. Админ выбирает шаблон по id — редактировать содержимое нельзя.
 // Чтобы добавить новую карту: дописать объект в FACIES_PRESETS_RAW.
 
 import { parseFaciesPreset } from './faciesUtils.js';
@@ -7,7 +7,7 @@ import { parseFaciesPreset } from './faciesUtils.js';
 const FACIES_PRESETS_RAW = [
     {
         id: 'facies_1',
-        name: 'Пресет №1',
+        name: 'Шаблон №1',
         matrix: {
             width: 10,
             height: 10,

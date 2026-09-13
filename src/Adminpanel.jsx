@@ -41,7 +41,7 @@ const DEFAULT_CASE_INTRO = {
     buttonText: 'Начать работу →',
 };
 
-// ── Преобразование таймеров пресета/сессии в форму TimersForm ────────────────
+// ── Преобразование таймеров шаблона/сессии в форму TimersForm ────────────────
 const timersFromConfig = (cfg) => {
     const years = { ...DEFAULT_TIMERS.years };
     Object.entries(cfg?.timers || {}).forEach(([y, v]) => {
@@ -81,7 +81,7 @@ const RANK_COLORS = { 1: '#16a34a', 2: '#d97706', 3: '#64748b' };
 const RANK_LABELS = { 1: 'Лучший', 2: 'Средний', 3: 'Базовый' };
 
 const WS_URL = import.meta.env.VITE_WS_URL || window.location.origin;
-const API_URL = import.meta.env.VITE_API_URL || '';
+const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
 
 const fmt = (sec) => { const s = Math.max(0, Math.floor(sec ?? 0)); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
 const fmtMln = (n) => Number(n || 0).toLocaleString('ru-RU', { maximumFractionDigits: 0 });
@@ -256,8 +256,8 @@ const TimersForm = ({ timers, onChange }) => {
 const normalizeName = (s) => s.trim().toLowerCase();
 
 // ── Конфигурация НИР (виды работ) ────────────────────────────────────────────
-// Временно отключённый функционал пресетов сессии целиком (создание/выбор).
-// Код сохранён — для возврата достаточно поставить true. Пресеты стартового
+// Временно отключённый функционал шаблонов сессии целиком (создание/выбор).
+// Код сохранён — для возврата достаточно поставить true. Шаблоны стартового
 // окна, НИР и (в будущем) карточек ЛУ остаются доступны независимо от флага.
 const ENABLE_SESSION_PRESETS = false;
 
@@ -268,8 +268,6 @@ const RESEARCH_NAME_COL_W = 240;   // колонка «Вид работ»
 const RESEARCH_COST_COL_W = 78;    // колонка «Стоимость»
 // Свежая копия дефолтной конфигурации видов работ (безопасна для мутаций).
 const freshResearchConfig = () => normalizeResearchConfig(null);
-// Короткое имя мобилизационной колонки для заголовка таблицы редактора.
-const shortMobName = (name) => String(name || '').replace(/^Успешность\s+/i, '');
 
 // ── Карточки ЛУ (название, цена, описание, картинка) ─────────────────────────
 // Картинка едет base64 в конфиге сессии, поэтому исходник уменьшаем в браузере
@@ -334,7 +332,7 @@ const LUCardsEditor = ({ value, onChange }) => {
                                 onChange={e => setField(i, 'cost', Number(e.target.value))} />
                             <span>млн</span>
                         </div>
-                        <button className="ghost-btn" type="button" title="Сбросить карточку" onClick={() => resetCard(i)}>↺</button>
+                        <button className="ghost-btn" type="button" title="Вернуть карточку к исходному виду (название, описание, цена, изображение)" onClick={() => resetCard(i)}>↺</button>
                     </div>
                     <textarea className="lu-card-desc" rows={3} value={c.description}
                         onChange={e => setField(i, 'description', e.target.value)} placeholder="Описание" />
@@ -359,10 +357,13 @@ const LUCardsEditor = ({ value, onChange }) => {
     );
 };
 
-const IntroContentEditor = ({ value, onChange, hidePresetPicker }) => {
+const IntroContentEditor = ({ value, onChange, hidePresetPicker, presetId: presetIdProp, onPresetIdChange, onBaselineChange }) => {
     const intro = value ?? DEFAULT_CASE_INTRO;
     const [presets, setPresets] = useState([]);
-    const [presetId, setPresetId] = useState('');
+    // Выбор шаблона может быть поднят в родителя — тогда он переживает сворачивание раздела.
+    const [localPresetId, setLocalPresetId] = useState('');
+    const presetId = presetIdProp !== undefined ? presetIdProp : localPresetId;
+    const setPresetId = (id) => { if (onPresetIdChange) onPresetIdChange(id); else setLocalPresetId(id); };
     const [busy, setBusy] = useState(false);
     const [prompt, setPrompt] = useState(null); // null | { mode: 'create' | 'rename' }
     const [promptError, setPromptError] = useState('');
@@ -378,6 +379,17 @@ const IntroContentEditor = ({ value, onChange, hidePresetPicker }) => {
     }, [hidePresetPicker]);
 
     const selectedPreset = presets.find(p => p.id === presetId) || null;
+
+    // Эталон для кнопки отката: сохранённое содержимое выбранного шаблона,
+    // а без шаблона — дефолт.
+    useEffect(() => {
+        if (!onBaselineChange) return;
+        if (presetId && !selectedPreset) return;   // список шаблонов ещё не загрузился
+        onBaselineChange({
+            content: JSON.parse(JSON.stringify(selectedPreset?.introContent ?? DEFAULT_CASE_INTRO)),
+            presetName: selectedPreset?.name ?? null,
+        });
+    }, [presetId, selectedPreset, onBaselineChange]);
 
     const applyPreset = (id) => {
         setPresetId(id);
@@ -397,13 +409,13 @@ const IntroContentEditor = ({ value, onChange, hidePresetPicker }) => {
 
     const handlePromptConfirm = async (rawName) => {
         const name = (rawName || '').trim();
-        if (!name) { setPromptError('Укажите название пресета'); return; }
+        if (!name) { setPromptError('Укажите название шаблона'); return; }
         if (prompt.mode === 'create' && isDuplicateName(name)) {
-            setPromptError('Пресет с таким названием уже существует');
+            setPromptError('Шаблон с таким названием уже существует');
             return;
         }
         if (prompt.mode === 'rename' && isDuplicateName(name, selectedPreset.id)) {
-            setPromptError('Пресет с таким названием уже существует');
+            setPromptError('Шаблон с таким названием уже существует');
             return;
         }
         setBusy(true);
@@ -456,7 +468,7 @@ const IntroContentEditor = ({ value, onChange, hidePresetPicker }) => {
         <div className="intro-editor-form">
             {!hidePresetPicker && (
                 <>
-                    <div className="intro-section-label">Пресет</div>
+                    <div className="intro-section-label">Шаблон</div>
                     <div className="tf-row">
                         <select className="preset-select" style={{ flex: 1 }} value={presetId} onChange={e => applyPreset(e.target.value)}>
                             <option value="">По умолчанию</option>
@@ -464,10 +476,10 @@ const IntroContentEditor = ({ value, onChange, hidePresetPicker }) => {
                         </select>
                     </div>
                     <div className="intro-preset-actions">
-                        <button className="preset-action-btn paction-create" onClick={handleCreate} disabled={busy}>Сохранить как новый пресет</button>
-                        <button className="preset-action-btn paction-save" onClick={handleSave} disabled={busy || !selectedPreset}>Обновить пресет</button>
-                        <button className="preset-action-btn paction-rename" onClick={handleRename} disabled={busy || !selectedPreset}>Переименовать пресет</button>
-                        <button className="preset-action-btn paction-delete" onClick={() => setConfirmDelete(true)} disabled={busy || !selectedPreset}>Удалить пресет</button>
+                        <button className="preset-action-btn paction-create" onClick={handleCreate} disabled={busy}>Сохранить как новый шаблон</button>
+                        <button className="preset-action-btn paction-save" onClick={handleSave} disabled={busy || !selectedPreset}>Обновить шаблон</button>
+                        <button className="preset-action-btn paction-rename" onClick={handleRename} disabled={busy || !selectedPreset}>Переименовать шаблон</button>
+                        <button className="preset-action-btn paction-delete" onClick={() => setConfirmDelete(true)} disabled={busy || !selectedPreset}>Удалить шаблон</button>
                     </div>
                 </>
             )}
@@ -493,7 +505,7 @@ const IntroContentEditor = ({ value, onChange, hidePresetPicker }) => {
 
             {prompt && (
                 <PromptModal
-                    title={prompt.mode === 'create' ? 'Название нового пресета стартового окна:' : 'Новое название пресета:'}
+                    title={prompt.mode === 'create' ? 'Название нового шаблона стартового окна:' : 'Новое название шаблона:'}
                     initialValue={prompt.mode === 'rename' ? (selectedPreset?.name ?? '') : ''}
                     confirmLabel={prompt.mode === 'create' ? 'Создать' : 'Сохранить'}
                     error={promptError}
@@ -503,7 +515,7 @@ const IntroContentEditor = ({ value, onChange, hidePresetPicker }) => {
             )}
             {confirmDelete && (
                 <ConfirmModal
-                    message={`Удалить пресет «${selectedPreset?.name}»?`}
+                    message={`Удалить шаблон «${selectedPreset?.name}»?`}
                     onConfirm={handleDelete}
                     onCancel={() => setConfirmDelete(false)}
                 />
@@ -513,15 +525,18 @@ const IntroContentEditor = ({ value, onChange, hidePresetPicker }) => {
 };
 
 // ── Редактор конфигурации НИР (виды работ, стоимость, % успеха) ───────────────
-const ResearchConfigEditor = ({ value, onChange, hidePresetPicker }) => {
+const ResearchConfigEditor = ({ value, onChange, hidePresetPicker, presetId: presetIdProp, onPresetIdChange, onBaselineChange }) => {
     const works = (Array.isArray(value) && value.length > 0) ? value : freshResearchConfig();
     const [presets, setPresets] = useState([]);
-    const [presetId, setPresetId] = useState('');
+    // Выбор шаблона может быть поднят в родителя — тогда он переживает сворачивание раздела.
+    const [localPresetId, setLocalPresetId] = useState('');
+    const presetId = presetIdProp !== undefined ? presetIdProp : localPresetId;
+    const setPresetId = (id) => { if (onPresetIdChange) onPresetIdChange(id); else setLocalPresetId(id); };
     const [busy, setBusy] = useState(false);
     const [prompt, setPrompt] = useState(null); // null | { mode: 'create' | 'rename' }
     const [promptError, setPromptError] = useState('');
     const [confirmDelete, setConfirmDelete] = useState(false);
-    const [pendingPresetId, setPendingPresetId] = useState(null); // null | { id } — отложенная смена пресета
+    const [pendingPresetId, setPendingPresetId] = useState(null); // null | { id } — отложенная смена шаблона
 
     useEffect(() => {
         if (hidePresetPicker) return;
@@ -530,10 +545,20 @@ const ResearchConfigEditor = ({ value, onChange, hidePresetPicker }) => {
 
     const selectedPreset = presets.find(p => p.id === presetId) || null;
 
-    // ── Несохранённые изменения: текущая таблица vs эталон выбранного пресета ──
+    // ── Несохранённые изменения: текущая таблица vs эталон выбранного шаблона ──
     const baselineConfig = selectedPreset ? normalizeResearchConfig(selectedPreset.researchConfig) : freshResearchConfig();
     const sameConfig = (a, b) => JSON.stringify(normalizeResearchConfig(a)) === JSON.stringify(normalizeResearchConfig(b));
     const hasUnsavedChanges = !sameConfig(works, baselineConfig);
+
+    // Эталон для кнопки отката в заголовке раздела.
+    useEffect(() => {
+        if (!onBaselineChange) return;
+        if (presetId && !selectedPreset) return;   // список шаблонов ещё не загрузился
+        onBaselineChange({
+            content: normalizeResearchConfig(selectedPreset?.researchConfig),
+            presetName: selectedPreset?.name ?? null,
+        });
+    }, [presetId, selectedPreset, onBaselineChange]);
 
     // ── Дубли названий видов работ (trim + регистронезависимо, пустые игнорируем) ──
     const duplicateWorkNames = (() => {
@@ -577,7 +602,7 @@ const ResearchConfigEditor = ({ value, onChange, hidePresetPicker }) => {
     ]);
     const removeRow = (i) => onChange(works.filter((_, j) => j !== i));
 
-    // ── CRUD пресетов НИР ─────────────────────────────────────────────────────
+    // ── CRUD шаблонов НИР ─────────────────────────────────────────────────────
     const isDuplicateName = (name, excludeId) =>
         presets.some(p => p.id !== excludeId && normalizeName(p.name) === normalizeName(name));
 
@@ -586,12 +611,12 @@ const ResearchConfigEditor = ({ value, onChange, hidePresetPicker }) => {
 
     const handlePromptConfirm = async (rawName) => {
         const name = (rawName || '').trim();
-        if (!name) { setPromptError('Укажите название пресета'); return; }
+        if (!name) { setPromptError('Укажите название шаблона'); return; }
         if (prompt.mode === 'create' && isDuplicateName(name)) {
-            setPromptError('Пресет с таким названием уже существует'); return;
+            setPromptError('Шаблон с таким названием уже существует'); return;
         }
         if (prompt.mode === 'rename' && isDuplicateName(name, selectedPreset.id)) {
-            setPromptError('Пресет с таким названием уже существует'); return;
+            setPromptError('Шаблон с таким названием уже существует'); return;
         }
         setBusy(true);
         try {
@@ -645,7 +670,7 @@ const ResearchConfigEditor = ({ value, onChange, hidePresetPicker }) => {
         <div className="research-editor-form">
             {!hidePresetPicker && (
                 <>
-                    <div className="intro-section-label">Пресет НИР</div>
+                    <div className="intro-section-label">Шаблон НИР</div>
                     <div className="tf-row">
                         <select className="preset-select" style={{ flex: 1 }} value={presetId} onChange={e => requestApplyPreset(e.target.value)}>
                             <option value="">По умолчанию</option>
@@ -653,10 +678,10 @@ const ResearchConfigEditor = ({ value, onChange, hidePresetPicker }) => {
                         </select>
                     </div>
                     <div className="intro-preset-actions">
-                        <button className="preset-action-btn paction-create" onClick={handleCreate} disabled={busy || hasDuplicateNames}>Сохранить как новый пресет</button>
-                        <button className="preset-action-btn paction-save" onClick={handleSave} disabled={busy || !selectedPreset || hasDuplicateNames}>Обновить пресет</button>
-                        <button className="preset-action-btn paction-rename" onClick={handleRename} disabled={busy || !selectedPreset}>Переименовать пресет</button>
-                        <button className="preset-action-btn paction-delete" onClick={() => setConfirmDelete(true)} disabled={busy || !selectedPreset}>Удалить пресет</button>
+                        <button className="preset-action-btn paction-create" onClick={handleCreate} disabled={busy || hasDuplicateNames}>Сохранить как новый шаблон</button>
+                        <button className="preset-action-btn paction-save" onClick={handleSave} disabled={busy || !selectedPreset || hasDuplicateNames}>Обновить шаблон</button>
+                        <button className="preset-action-btn paction-rename" onClick={handleRename} disabled={busy || !selectedPreset}>Переименовать шаблон</button>
+                        <button className="preset-action-btn paction-delete" onClick={() => setConfirmDelete(true)} disabled={busy || !selectedPreset}>Удалить шаблон</button>
                     </div>
                 </>
             )}
@@ -671,7 +696,7 @@ const ResearchConfigEditor = ({ value, onChange, hidePresetPicker }) => {
                             <th style={{ position: 'sticky', left: RESEARCH_NAME_COL_W, background: '#f8fafc', padding: '6px 6px', width: RESEARCH_COST_COL_W, minWidth: RESEARCH_COST_COL_W, maxWidth: RESEARCH_COST_COL_W, borderBottom: '2px solid #e2e8f0', borderRight: '1px solid #e2e8f0', zIndex: 3 }}>Стоимость</th>
                             {MOBILIZATION_WORKS.map(m => (
                                 <th key={m.id} title={m.name} style={{ padding: '6px 4px', minWidth: 52, borderBottom: '2px solid #e2e8f0', color: '#475569', fontWeight: 600, lineHeight: 1.15 }}>
-                                    {shortMobName(m.name)}
+                                    {m.name}
                                 </th>
                             ))}
                             <th style={{ padding: '6px 4px', borderBottom: '2px solid #e2e8f0' }}></th>
@@ -717,19 +742,19 @@ const ResearchConfigEditor = ({ value, onChange, hidePresetPicker }) => {
             </div>
             <p className="apply-hint" style={{ marginTop: 6 }}>Стоимость — в млн ₽. Процент успеха в ячейке — 0…{RESEARCH_RATE_MAX}.</p>
             {hasDuplicateNames && (
-                <p className="form-error" style={{ marginTop: 6 }}>Есть виды работ с одинаковыми названиями — переименуйте, чтобы сохранить пресет.</p>
+                <p className="form-error" style={{ marginTop: 6 }}>Есть виды работ с одинаковыми названиями — переименуйте, чтобы сохранить шаблон.</p>
             )}
 
             {pendingPresetId !== null && (
                 <ConfirmModal
-                    message="Есть несохранённые изменения в таблице видов работ. Применить выбранный пресет и потерять их?"
+                    message="Есть несохранённые изменения в таблице видов работ. Применить выбранный шаблон и потерять их?"
                     onConfirm={() => { doApplyPreset(pendingPresetId.id); setPendingPresetId(null); }}
                     onCancel={() => setPendingPresetId(null)}
                 />
             )}
             {prompt && (
                 <PromptModal
-                    title={prompt.mode === 'create' ? 'Название нового пресета НИР:' : 'Новое название пресета:'}
+                    title={prompt.mode === 'create' ? 'Название нового шаблона НИР:' : 'Новое название шаблона:'}
                     initialValue={prompt.mode === 'rename' ? (selectedPreset?.name ?? '') : ''}
                     confirmLabel={prompt.mode === 'create' ? 'Создать' : 'Сохранить'}
                     error={promptError}
@@ -739,7 +764,7 @@ const ResearchConfigEditor = ({ value, onChange, hidePresetPicker }) => {
             )}
             {confirmDelete && (
                 <ConfirmModal
-                    message={`Удалить пресет «${selectedPreset?.name}»?`}
+                    message={`Удалить шаблон «${selectedPreset?.name}»?`}
                     onConfirm={handleDelete}
                     onCancel={() => setConfirmDelete(false)}
                 />
@@ -787,7 +812,7 @@ const LiveTimersEditor = ({ sessionId, adminSocket }) => {
         <div className="live-editor">
             <div className="live-editor-head">
                 <span>Изменить таймеры</span>
-                <button className="ghost-btn" onClick={() => setTimers(JSON.parse(JSON.stringify(DEFAULT_TIMERS)))}>↺ сброс</button>
+                <button className="ghost-btn" title="Вернуть поля к значениям по умолчанию. Сохранённые данные не изменятся — нужно нажать «Применить к сессии»" onClick={() => setTimers(JSON.parse(JSON.stringify(DEFAULT_TIMERS)))}>↺ По умолчанию</button>
             </div>
             {loading ? <div className="live-editor-loading">Загрузка…</div> : <TimersForm timers={timers} onChange={setTimers} />}
             <button className={`apply-btn ${saved ? 'apply-btn-saved' : ''}`} onClick={handleApply} disabled={saving || loading || !sessionId}>
@@ -798,10 +823,11 @@ const LiveTimersEditor = ({ sessionId, adminSocket }) => {
     );
 };
 
-const ConfirmModal = ({ message, onConfirm, onCancel }) => (
+const ConfirmModal = ({ message, hint, onConfirm, onCancel }) => (
     <div className="cm-overlay" onClick={onCancel}>
         <div className="cm-box" onClick={e => e.stopPropagation()}>
             <p className="cm-message">{message}</p>
+            {hint && <p className="cm-hint">{hint}</p>}
             <div className="cm-actions">
                 <button className="cm-btn cm-btn-cancel" onClick={onCancel}>Отмена</button>
                 <button className="cm-btn cm-btn-confirm" onClick={onConfirm}>Подтвердить</button>
@@ -953,7 +979,16 @@ const TimerControl = ({ sessionId, sessions, adminSocket, onRefresh, openConfirm
                     <span className="tc-ctrl-label">Год</span>
                     <div className="tc-ctrl-btns">
                         <button className="tb tb-gray" onClick={() => emit('admin:advanceYear')} disabled={!connected}>→ Следующий год</button>
-                        <button className="tb tb-gray tb-danger" onClick={() => openConfirm('Сбросить к году 1?', () => emit('admin:resetTimer'))} disabled={!connected}>↺ Сброс</button>
+                        <button
+                            className="tb tb-gray tb-danger"
+                            title="Вернуть сессию к началу: год 1, фаза «Лобби», таймер остановлен"
+                            onClick={() => openConfirm(
+                                'Вернуть сессию к началу?',
+                                () => emit('admin:resetTimer'),
+                                'Год → 1, фаза → «Лобби», таймер будет остановлен. Бюджеты и выбранные ЛУ команд не удаляются.'
+                            )}
+                            disabled={!connected}
+                        >↺ Сброс к году 1</button>
                     </div>
                 </div>
 
@@ -992,6 +1027,22 @@ const CollapsibleSection = ({ title, extra, defaultOpen = false, children }) => 
     );
 };
 
+// Откат раздела к эталону: сохранённый вид выбранного шаблона, а без шаблона — дефолт.
+const ResetBaselineButton = ({ baseline, fallback, onReset }) => {
+    const presetName = baseline?.presetName;
+    return (
+        <button
+            className="ghost-btn"
+            title={presetName
+                ? `Вернуть содержимое к сохранённому виду шаблона «${presetName}»`
+                : 'Вернуть поля этого раздела к значениям по умолчанию'}
+            onClick={() => onReset(JSON.parse(JSON.stringify(baseline?.content ?? fallback())))}
+        >
+            {presetName ? '↺ К шаблону' : '↺ По умолчанию'}
+        </button>
+    );
+};
+
 const CreateSessionTab = ({ onGoToControl }) => {
     const [step, setStep] = useState('form');
     const [loading, setLoad] = useState(false);
@@ -1011,6 +1062,12 @@ const CreateSessionTab = ({ onGoToControl }) => {
         faciesPresetId: null,
     });
     const sf = (k, v) => setForm(f => ({ ...f, [k]: v }));
+    // Выбор шаблона и его эталон держим здесь: разделы сворачиваемые, редакторы
+    // размонтируются при сворачивании, а выбор должен сохраняться.
+    const [introPresetId, setIntroPresetId] = useState('');
+    const [introBaseline, setIntroBaseline] = useState(null);
+    const [researchPresetId, setResearchPresetId] = useState('');
+    const [researchBaseline, setResearchBaseline] = useState(null);
 
     useEffect(() => {
         if (!ENABLE_SESSION_PRESETS) return;
@@ -1076,7 +1133,7 @@ const CreateSessionTab = ({ onGoToControl }) => {
             <div className="create-form-left">
                 {ENABLE_SESSION_PRESETS && presets.length > 0 && (
                     <div className="fs">
-                        <div className="fs-title">Пресет</div>
+                        <div className="fs-title">Шаблон</div>
                         <select className="text-input" value={presetId} onChange={e => applyPreset(e.target.value)}>
                             <option value="">— не выбран —</option>
                             {presets.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -1128,25 +1185,37 @@ const CreateSessionTab = ({ onGoToControl }) => {
                 <div className="fs">
                     <div className="fs-title-row">
                         <span className="fs-title">Таймеры</span>
-                        <button className="ghost-btn" onClick={() => sf('timers', JSON.parse(JSON.stringify(DEFAULT_TIMERS)))}>↺ Сброс</button>
+                        <button className="ghost-btn" title="Вернуть поля этого раздела к значениям по умолчанию" onClick={() => sf('timers', JSON.parse(JSON.stringify(DEFAULT_TIMERS)))}>↺ По умолчанию</button>
                     </div>
                     <TimersForm timers={form.timers} onChange={v => sf('timers', v)} />
                 </div>
                 <CollapsibleSection
                     title="Стартовое окно"
-                    extra={<button className="ghost-btn" onClick={() => sf('introContent', JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)))}>↺ Сброс</button>}
+                    extra={<ResetBaselineButton baseline={introBaseline} fallback={() => DEFAULT_CASE_INTRO} onReset={v => sf('introContent', v)} />}
                 >
-                    <IntroContentEditor value={form.introContent} onChange={v => sf('introContent', v)} />
+                    <IntroContentEditor
+                        value={form.introContent}
+                        onChange={v => sf('introContent', v)}
+                        presetId={introPresetId}
+                        onPresetIdChange={setIntroPresetId}
+                        onBaselineChange={setIntroBaseline}
+                    />
                 </CollapsibleSection>
                 <CollapsibleSection
                     title="Научные исследования (виды работ)"
-                    extra={<button className="ghost-btn" onClick={() => sf('researchConfig', freshResearchConfig())}>↺ Сброс</button>}
+                    extra={<ResetBaselineButton baseline={researchBaseline} fallback={freshResearchConfig} onReset={v => sf('researchConfig', v)} />}
                 >
-                    <ResearchConfigEditor value={form.researchConfig} onChange={v => sf('researchConfig', v)} />
+                    <ResearchConfigEditor
+                        value={form.researchConfig}
+                        onChange={v => sf('researchConfig', v)}
+                        presetId={researchPresetId}
+                        onPresetIdChange={setResearchPresetId}
+                        onBaselineChange={setResearchBaseline}
+                    />
                 </CollapsibleSection>
                 <CollapsibleSection
                     title="Карточки информации (карта региона)"
-                    extra={<button className="ghost-btn" onClick={() => sf('luCards', freshLUCards())}>↺ Сброс</button>}
+                    extra={<button className="ghost-btn" title="Вернуть все карточки к исходному виду" onClick={() => sf('luCards', freshLUCards())}>↺ По умолчанию</button>}
                 >
                     <LUCardsEditor value={form.luCards} onChange={v => sf('luCards', v)} />
                 </CollapsibleSection>
@@ -1162,7 +1231,7 @@ const CreateSessionTab = ({ onGoToControl }) => {
     );
 };
 
-// ── Пресеты ────────────────────────────────────────────────────────────────
+// ── Шаблоны ────────────────────────────────────────────────────────────────
 
 const PresetForm = ({ initial, onSave, onCancel, saving, existingNames = [] }) => {
     const [form, setForm] = useState(() => ({
@@ -1179,12 +1248,16 @@ const PresetForm = ({ initial, onSave, onCancel, saving, existingNames = [] }) =
     }));
     const [nameError, setNameError] = useState('');
     const sf = (k, v) => setForm(f => ({ ...f, [k]: v }));
+    const [introPresetId, setIntroPresetId] = useState('');
+    const [introBaseline, setIntroBaseline] = useState(null);
+    const [researchPresetId, setResearchPresetId] = useState('');
+    const [researchBaseline, setResearchBaseline] = useState(null);
 
     const handleSave = () => {
         const trimmed = form.name.trim();
-        if (!trimmed) { setNameError('Укажите название пресета'); return; }
+        if (!trimmed) { setNameError('Укажите название шаблона'); return; }
         if (existingNames.some(n => normalizeName(n) === normalizeName(trimmed))) {
-            setNameError('Пресет с таким названием уже существует');
+            setNameError('Шаблон с таким названием уже существует');
             return;
         }
         setNameError('');
@@ -1208,7 +1281,7 @@ const PresetForm = ({ initial, onSave, onCancel, saving, existingNames = [] }) =
         <div className="create-form">
             <div className="create-form-left">
                 <div className="fs">
-                    <div className="fs-title">Название пресета</div>
+                    <div className="fs-title">Название шаблона</div>
                     <input className="text-input" type="text" value={form.name} onChange={e => { sf('name', e.target.value); setNameError(''); }} placeholder="Например: Демо для студентов" />
                     {nameError && <p className="cm-error" style={{ textAlign: 'left' }}>{nameError}</p>}
                 </div>
@@ -1261,28 +1334,40 @@ const PresetForm = ({ initial, onSave, onCancel, saving, existingNames = [] }) =
                 <div className="fs">
                     <div className="fs-title-row">
                         <span className="fs-title">Таймеры</span>
-                        <button className="ghost-btn" onClick={() => sf('timers', JSON.parse(JSON.stringify(DEFAULT_TIMERS)))}>↺ Сброс</button>
+                        <button className="ghost-btn" title="Вернуть поля этого раздела к значениям по умолчанию" onClick={() => sf('timers', JSON.parse(JSON.stringify(DEFAULT_TIMERS)))}>↺ По умолчанию</button>
                     </div>
                     <TimersForm timers={form.timers} onChange={v => sf('timers', v)} />
                 </div>
                 <CollapsibleSection
                     title="Стартовое окно (кейс)"
-                    extra={<button className="ghost-btn" onClick={() => sf('introContent', JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)))}>↺ Сброс</button>}
+                    extra={<ResetBaselineButton baseline={introBaseline} fallback={() => DEFAULT_CASE_INTRO} onReset={v => sf('introContent', v)} />}
                 >
-                    <IntroContentEditor value={form.introContent} onChange={v => sf('introContent', v)} />
+                    <IntroContentEditor
+                        value={form.introContent}
+                        onChange={v => sf('introContent', v)}
+                        presetId={introPresetId}
+                        onPresetIdChange={setIntroPresetId}
+                        onBaselineChange={setIntroBaseline}
+                    />
                 </CollapsibleSection>
                 <CollapsibleSection
                     title="НИРы (виды работ, проценты)"
-                    extra={<button className="ghost-btn" onClick={() => sf('researchConfig', freshResearchConfig())}>↺ Сброс</button>}
+                    extra={<ResetBaselineButton baseline={researchBaseline} fallback={freshResearchConfig} onReset={v => sf('researchConfig', v)} />}
                 >
-                    <ResearchConfigEditor value={form.researchConfig} onChange={v => sf('researchConfig', v)} />
+                    <ResearchConfigEditor
+                        value={form.researchConfig}
+                        onChange={v => sf('researchConfig', v)}
+                        presetId={researchPresetId}
+                        onPresetIdChange={setResearchPresetId}
+                        onBaselineChange={setResearchBaseline}
+                    />
                 </CollapsibleSection>
                 <CollapsibleSection title="Фации карты региона">
                     <FaciesPresetPicker value={form.faciesPresetId} onChange={v => sf('faciesPresetId', v)} />
                 </CollapsibleSection>
                 <div style={{ display: 'flex', gap: 10 }}>
                     <button className="create-btn" onClick={handleSave} disabled={saving}>
-                        {saving ? 'Сохранение…' : 'Сохранить пресет'}
+                        {saving ? 'Сохранение…' : 'Сохранить шаблон'}
                     </button>
                     <button className="secondary-btn" onClick={onCancel}>Отмена</button>
                 </div>
@@ -1291,7 +1376,7 @@ const PresetForm = ({ initial, onSave, onCancel, saving, existingNames = [] }) =
     );
 };
 
-// ── Редактор отдельного пресета стартового окна ──────────────────────────────
+// ── Редактор отдельного шаблона стартового окна ──────────────────────────────
 const IntroPresetEditor = ({ initial, onSave, onCancel, saving, existingNames = [] }) => {
     const [name, setName] = useState(initial?.name ?? '');
     const [intro, setIntro] = useState(initial?.introContent ?? JSON.parse(JSON.stringify(DEFAULT_CASE_INTRO)));
@@ -1299,9 +1384,9 @@ const IntroPresetEditor = ({ initial, onSave, onCancel, saving, existingNames = 
 
     const handleSave = () => {
         const trimmed = name.trim();
-        if (!trimmed) { setNameError('Укажите название пресета'); return; }
+        if (!trimmed) { setNameError('Укажите название шаблона'); return; }
         if (existingNames.some(n => normalizeName(n) === normalizeName(trimmed))) {
-            setNameError('Пресет с таким названием уже существует');
+            setNameError('Шаблон с таким названием уже существует');
             return;
         }
         setNameError('');
@@ -1310,7 +1395,7 @@ const IntroPresetEditor = ({ initial, onSave, onCancel, saving, existingNames = 
 
     return (
         <div className="fs">
-            <div className="fs-title">Название пресета</div>
+            <div className="fs-title">Название шаблона</div>
             <input className="text-input" type="text" value={name} onChange={e => { setName(e.target.value); setNameError(''); }} placeholder="Например: Альтернативный кейс" />
             {nameError && <p className="cm-error" style={{ textAlign: 'left' }}>{nameError}</p>}
             <div className="fs-title" style={{ marginTop: '.75rem' }}>Содержимое</div>
@@ -1325,7 +1410,7 @@ const IntroPresetEditor = ({ initial, onSave, onCancel, saving, existingNames = 
     );
 };
 
-// ── Пресеты стартового окна (список) ─────────────────────────────────────────
+// ── Шаблоны стартового окна (список) ─────────────────────────────────────────
 const IntroPresetsSection = () => {
     const [presets, setPresets] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -1361,11 +1446,11 @@ const IntroPresetsSection = () => {
     return (
         <div className="fs">
             <div className="fs-title-row">
-                <span className="fs-title">Пресеты стартового окна</span>
+                <span className="fs-title">Шаблоны стартового окна</span>
                 <button className="ghost-btn" onClick={() => setEditing('new')}>+ Создать</button>
             </div>
             {loading && <div className="live-editor-loading">Загрузка…</div>}
-            {!loading && presets.length === 0 && <p className="ap-empty">Нет сохранённых пресетов.</p>}
+            {!loading && presets.length === 0 && <p className="ap-empty">Нет сохранённых шаблонов.</p>}
             {presets.map(p => (
                 <div key={p.id} className="tf-row">
                     <label>{p.name}</label>
@@ -1377,7 +1462,7 @@ const IntroPresetsSection = () => {
             ))}
             {confirmDeleteId && (
                 <ConfirmModal
-                    message={`Удалить пресет «${presets.find(p => p.id === confirmDeleteId)?.name}»?`}
+                    message={`Удалить шаблон «${presets.find(p => p.id === confirmDeleteId)?.name}»?`}
                     onConfirm={() => handleDelete(confirmDeleteId)}
                     onCancel={() => setConfirmDeleteId(null)}
                 />
@@ -1386,7 +1471,7 @@ const IntroPresetsSection = () => {
     );
 };
 
-// ── Редактор отдельного пресета НИР ───────────────────────────────────────────
+// ── Редактор отдельного шаблона НИР ───────────────────────────────────────────
 const ResearchPresetEditor = ({ initial, onSave, onCancel, saving, existingNames = [] }) => {
     const [name, setName] = useState(initial?.name ?? '');
     const [config, setConfig] = useState(() => normalizeResearchConfig(initial?.researchConfig));
@@ -1394,9 +1479,9 @@ const ResearchPresetEditor = ({ initial, onSave, onCancel, saving, existingNames
 
     const handleSave = () => {
         const trimmed = name.trim();
-        if (!trimmed) { setNameError('Укажите название пресета'); return; }
+        if (!trimmed) { setNameError('Укажите название шаблона'); return; }
         if (existingNames.some(n => normalizeName(n) === normalizeName(trimmed))) {
-            setNameError('Пресет с таким названием уже существует');
+            setNameError('Шаблон с таким названием уже существует');
             return;
         }
         setNameError('');
@@ -1405,7 +1490,7 @@ const ResearchPresetEditor = ({ initial, onSave, onCancel, saving, existingNames
 
     return (
         <div className="fs">
-            <div className="fs-title">Название пресета</div>
+            <div className="fs-title">Название шаблона</div>
             <input className="text-input" type="text" value={name} onChange={e => { setName(e.target.value); setNameError(''); }} placeholder="Например: Усложнённый НИР" />
             {nameError && <p className="cm-error" style={{ textAlign: 'left' }}>{nameError}</p>}
             <div className="fs-title" style={{ marginTop: '.75rem' }}>Конфигурация</div>
@@ -1420,7 +1505,7 @@ const ResearchPresetEditor = ({ initial, onSave, onCancel, saving, existingNames
     );
 };
 
-// ── Пресеты НИР (список) ──────────────────────────────────────────────────────
+// ── Шаблоны НИР (список) ──────────────────────────────────────────────────────
 const ResearchPresetsSection = () => {
     const [presets, setPresets] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -1456,11 +1541,11 @@ const ResearchPresetsSection = () => {
     return (
         <div className="fs">
             <div className="fs-title-row">
-                <span className="fs-title">Пресеты НИР (виды работ, стоимость, % успеха)</span>
+                <span className="fs-title">Шаблоны НИР (виды работ, стоимость, % успеха)</span>
                 <button className="ghost-btn" onClick={() => setEditing('new')}>+ Создать</button>
             </div>
             {loading && <div className="live-editor-loading">Загрузка…</div>}
-            {!loading && presets.length === 0 && <p className="ap-empty">Нет сохранённых пресетов.</p>}
+            {!loading && presets.length === 0 && <p className="ap-empty">Нет сохранённых шаблонов.</p>}
             {presets.map(p => (
                 <div key={p.id} className="tf-row">
                     <label>{p.name} <span style={{ color: '#94a3b8', fontWeight: 400 }}>· {(p.researchConfig?.length ?? 0)} видов</span></label>
@@ -1472,7 +1557,7 @@ const ResearchPresetsSection = () => {
             ))}
             {confirmDeleteId && (
                 <ConfirmModal
-                    message={`Удалить пресет «${presets.find(p => p.id === confirmDeleteId)?.name}»?`}
+                    message={`Удалить шаблон «${presets.find(p => p.id === confirmDeleteId)?.name}»?`}
                     onConfirm={() => handleDelete(confirmDeleteId)}
                     onCancel={() => setConfirmDeleteId(null)}
                 />
@@ -1481,7 +1566,7 @@ const ResearchPresetsSection = () => {
     );
 };
 
-// ── Выбор карты фаций: список готовых пресетов + предпросмотр ─────────────────
+// ── Выбор карты фаций: список готовых шаблонов + предпросмотр ─────────────────
 const FaciesPresetPreview = ({ config }) => {
     const nodeSet = new Set((config.nodes ?? []).map(n => n.at));
 
@@ -1548,7 +1633,7 @@ const FaciesPresetPicker = ({ value, onChange }) => {
                     {FACIES_PRESETS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
             </div>
-            {!selected && <p className="ap-empty">Пресет не выбран — карта останется без обстановок осадконакопления.</p>}
+            {!selected && <p className="ap-empty">Шаблон не выбран — карта останется без обстановок осадконакопления.</p>}
             {selected && <FaciesPresetPreview config={selected.config} />}
         </div>
     );
@@ -1587,14 +1672,14 @@ const PresetsTab = () => {
 
     return (
         <div>
-            <h2 style={{ margin: '0 0 0.85rem' }}>Пресеты</h2>
+            <h2 style={{ margin: '0 0 0.85rem' }}>Шаблоны</h2>
             {ENABLE_SESSION_PRESETS && (
                 <>
                     <div className="fs-title-row" style={{ justifyContent: 'flex-start' }}>
-                        <button className="create-btn" onClick={() => setEditing('new')}>+ Создать пресет</button>
+                        <button className="create-btn" onClick={() => setEditing('new')}>+ Создать шаблон</button>
                     </div>
                     {loading && <div className="ap-loading">Загрузка…</div>}
-                    {!loading && presets.length === 0 && <p className="ap-empty">Нет сохранённых пресетов.</p>}
+                    {!loading && presets.length === 0 && <p className="ap-empty">Нет сохранённых шаблонов.</p>}
                     <div className="sessions-grid">
                         {presets.map(p => (
                             <div key={p.id} className="session-card">
@@ -1622,7 +1707,7 @@ const PresetsTab = () => {
             </div>
             {ENABLE_SESSION_PRESETS && confirmDeleteId && (
                 <ConfirmModal
-                    message={`Удалить пресет «${presets.find(p => p.id === confirmDeleteId)?.name}»?`}
+                    message={`Удалить шаблон «${presets.find(p => p.id === confirmDeleteId)?.name}»?`}
                     onConfirm={() => handleDelete(confirmDeleteId)}
                     onCancel={() => setConfirmDeleteId(null)}
                 />
@@ -3171,7 +3256,7 @@ const AdminPanel = ({ onLogout }) => {
     const [confirmState, setConfirmState] = useState(null);
     const adminSocketRef = useRef(null);
 
-    const openConfirm = (message, onConfirm) => setConfirmState({ message, onConfirm });
+    const openConfirm = (message, onConfirm, hint) => setConfirmState({ message, onConfirm, hint });
     const closeConfirm = () => setConfirmState(null);
 
     useEffect(() => {
@@ -3229,7 +3314,7 @@ const AdminPanel = ({ onLogout }) => {
     const TABS = [
         { id: 'create', label: '+ Создать' },
         { id: 'questions', label: 'Вопросы' },
-        { id: 'presets', label: 'Пресеты' },
+        { id: 'presets', label: 'Шаблоны' },
         { id: 'control', label: 'Управление сессией' },
         { id: 'sessions', label: 'Сессии' },
         // { id: 'teams',   label: 'Команды' },
@@ -3379,7 +3464,17 @@ const AdminPanel = ({ onLogout }) => {
                                                 <td>{t.experience === 'students' ? 'Студенты' : 'Профессионалы'}</td>
                                                 <td>{t.members_json?.length || 0}</td>
                                                 <td>{t.session_code || '—'}</td>
-                                                <td><button className="ab" onClick={() => openConfirm('Сбросить команду?', async () => { try { await resetTeam(t.id); loadTeams(); } catch (e) { alert(e.message); } })}>Сброс</button></td>
+                                                <td>
+                                                    <button
+                                                        className="ab ab-warn"
+                                                        title="Вернуть команду к начальному состоянию: стартовый бюджет, все выбранные ЛУ удаляются"
+                                                        onClick={() => openConfirm(
+                                                            `Вернуть команду «${t.name}» к начальному состоянию?`,
+                                                            async () => { try { await resetTeam(t.id); loadTeams(); } catch (e) { alert(e.message); } },
+                                                            'Бюджет вернётся к стартовому, все выбранные командой ЛУ будут удалены. Действие необратимо.'
+                                                        )}
+                                                    >Сброс прогресса</button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -3402,6 +3497,7 @@ const AdminPanel = ({ onLogout }) => {
             {confirmState && (
                 <ConfirmModal
                     message={confirmState.message}
+                    hint={confirmState.hint}
                     onConfirm={() => { closeConfirm(); confirmState.onConfirm(); }}
                     onCancel={closeConfirm}
                 />

@@ -1,5 +1,5 @@
 // faciesUtils.js
-// Фации карты региона: разбор пресета, нормализация и геометрия узловых точек.
+// Фации карты региона: разбор шаблона, нормализация и геометрия узловых точек.
 //
 // Формат нормализованного конфига:
 //   { width, height, legend: { код: { name, color } }, grid: [[код]], nodes: [{ at, type, label }] }
@@ -46,7 +46,7 @@ export function rcToCellRef(r, c) {
   return `${ROWS[r]}${c + 1}`;
 }
 
-// ── Разбор сырого пресета ────────────────────────────────────────────────────
+// ── Разбор сырого шаблона ────────────────────────────────────────────────────
 
 // Отрезает пометку вида "П(в центре скважина)" → "П"
 function splitCellToken(token) {
@@ -115,7 +115,7 @@ function buildLegend(rawLegend, codesInGrid) {
   return legend;
 }
 
-// Принимает как сырой пресет ({ matrix: {...} } с пометками в скобках), так и уже нормализованный
+// Принимает как сырой шаблон ({ matrix: {...} } с пометками в скобках), так и уже нормализованный
 export function parseFaciesPreset(input) {
   const src = input?.matrix ?? input;
   if (!src || !Array.isArray(src.grid)) return null;

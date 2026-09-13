@@ -269,7 +269,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
     [sessionConfig.luCards],
   );
 
-  // Фации карты региона — пресет, выбранный админом при создании сессии
+  // Фации карты региона — шаблон, выбранный админом при создании сессии
   const faciesConfig = useMemo(
     () => getFaciesConfigById(sessionConfig.faciesPresetId),
     [sessionConfig.faciesPresetId],

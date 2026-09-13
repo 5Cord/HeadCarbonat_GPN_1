@@ -16,6 +16,8 @@ const _riskImgById = Object.fromEntries(RISK_CARDS.map(c => [c.id, c.image]));
 // Пул возможностей пополняется кастомными вопросами из БД после
 // loadCustomQuestions() — ищем по живому массиву, а не по снапшоту.
 const _oppImgById  = (id) => OPPORTUNITY_QUESTIONS.find(c => c.id === id)?.image ?? null;
+// Вопросы, где варианты ответа — картинки. Ищем в живом пуле по той же причине.
+const _oppOptionImgsById = (id) => OPPORTUNITY_QUESTIONS.find(c => c.id === id)?.optionImages ?? null;
 const _randImgById = Object.fromEntries(RANDOM_CARDS.map(c => [c.id, c.image]));
 const resolveCardImage = (card) => {
   if (!card?.data?.id) return card?.data?.image ?? null;
@@ -37,8 +39,8 @@ const CardImage = ({ src, alt = '123', className = '' }) => {
 
 const fmtEffect = (effect) => {
   if (!effect) return '';
-  if (effect.type === 'points') return (effect.value >= 0 ? '+' : '') + effect.value + ' очков';
-  if (effect.type === 'money') return (effect.value >= 0 ? '+' : '') + effect.value + ' млн';
+  if (effect.type === 'points') return (effect.value > 0 ? '+' : '') + effect.value + ' очков';
+  if (effect.type === 'money') return (effect.value > 0 ? '+' : '') + effect.value + ' млн';
   if (effect.type === 'cancel') return '✦ Отмена риска';
   return '';
 };
@@ -758,8 +760,8 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
       const desc = parts.slice(1).join(':').trim();
       const effect = normalizeEffect(card.data);
       const badgeTxt = effect.type === 'money'
-        ? (effect.value >= 0 ? '+' : '') + effect.value + '₽'
-        : (effect.value >= 0 ? '+' : '') + String(effect.value);
+        ? (effect.value > 0 ? '+' : '') + effect.value + '₽'
+        : (effect.value > 0 ? '+' : '') + String(effect.value);
       const isPickable = cancelPickMode && cancelSource?.luId === luId && !cancelled;
       return (
         <div key={cardIndex}
@@ -1001,6 +1003,9 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
                 Array.isArray(selectedCard.card.data.correctAnswer);
               const maxSelections = isMultipleChoice ? selectedCard.card.data.correctAnswer.length : 1;
               const canConfirm = selectedAnswers.length === maxSelections;
+              const optionImages = _oppOptionImgsById(selectedCard.card.data.id)
+                ?? selectedCard.card.data.optionImages
+                ?? null;
 
               return (
                 <div className={styles.opportunityModal}>
@@ -1017,14 +1022,19 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
                       </div>
                     )}
                     <p className={styles.question}>{selectedCard.card.data.question}</p>
-                    <div className={styles.options}>
+                    <div className={`${styles.options} ${optionImages ? styles.optionsImages : ''}`}>
                       {selectedCard.card.data.options.map((opt, i) => (
                         <button
                           key={i}
-                          className={`${styles.optionBtn} ${selectedAnswers.includes(i) ? styles.optionBtnSelected : ''}`}
+                          className={`${styles.optionBtn} ${optionImages ? styles.optionImageBtn : ''} ${selectedAnswers.includes(i) ? styles.optionBtnSelected : ''}`}
                           onClick={() => handleSelectAnswer(i)}
                         >
-                          {opt}
+                          {optionImages?.[i]
+                            ? <>
+                                <img src={optionImages[i]} alt={opt} className={styles.optionImage} />
+                                <span className={styles.optionImageLabel}>{opt}</span>
+                              </>
+                            : opt}
                           {selectedAnswers.includes(i) && <span className={styles.checkmark}></span>}
                         </button>
                       ))}

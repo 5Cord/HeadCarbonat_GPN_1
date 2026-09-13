@@ -486,6 +486,39 @@
 
 .lobby-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 
+/* ── Возврат в сессию, из которой вышли ── */
+
+.lobby-resume {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.lobby-resume .step-hint {
+  margin: 0.65rem 0 0;
+  font-size: 0.85rem;
+}
+
+.lobby-btn-resume {
+  width: 100%;
+  padding: 0.95rem;
+  background: #f9fefe;
+  color: #1a7a6e;
+  border: 2px solid #d0ece9;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.lobby-btn-resume:hover:not(:disabled) {
+  border-color: #1a7a6e;
+  background: #eefbfa;
+}
+
+.lobby-btn-resume:disabled { opacity: 0.45; cursor: not-allowed; }
+
 /* ── Responsive ── */
 
 @media (max-width: 700px) {

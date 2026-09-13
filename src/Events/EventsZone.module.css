@@ -1144,6 +1144,51 @@
   transform: translateX(6px);
 }
 
+/* ── Варианты-картинки: сетка 2×2 вместо колонки ── */
+.optionsImages {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.optionImageBtn {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 10px;
+  margin: 0;
+  text-align: center;
+}
+
+.optionImageBtn:hover:not(.optionBtnSelected),
+.optionImageBtn.optionBtnSelected:hover {
+  transform: translateY(-2px);
+}
+
+.optionImageBtn.optionBtnSelected {
+  transform: none;
+}
+
+.optionImage {
+  width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.optionImageLabel {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+@media (max-width: 560px) {
+  .optionsImages {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Галочка для выделенного ответа */
 .optionBtnSelected::before {
   position: absolute;

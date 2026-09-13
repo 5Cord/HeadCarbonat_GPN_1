@@ -988,8 +988,6 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
           const hasPurchases = items.some(i => i.rate > 0);
           if (!hasPurchases) return null;
 
-          const shortColName = mob.name.replace(/^Успешность\s+/i, '');
-
           return (
             <div style={{
               marginTop: 10, padding: '8px 14px', background: '#e8f5e9',
@@ -997,7 +995,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
               display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
             }}>
               <span style={{ fontSize: '0.78rem', color: '#888', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                {shortColName}
+                {mob.name}
               </span>
               <span style={{ fontSize: '0.85rem', color: '#555' }}>
                 {items.map(i => i.luName).join(', ')}
@@ -1434,21 +1432,21 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
 
       {showRefusalModal && (
         <div className={styles.cellModalOverlay}>
-          <div className={styles.cellModal} onClick={e => e.stopPropagation()} style={{ maxWidth: 700, width: '95%' }}>
+          <div className={`${styles.cellModal} ${styles.mapModal}`} onClick={e => e.stopPropagation()} style={{ maxWidth: 700, width: '95%' }}>
             <h3 style={{ textAlign: 'center', color: '#e65100' }}>Отказ от лицензионных участков</h3>
             <div className={styles.modalInfo}>
-              <div style={{ textAlign: 'center', padding: '6px 14px', background: '#fff3e0', borderRadius: 8, border: '2px solid #ff9800', margin: '0 0 8px 0' }}>
+              <div style={{ textAlign: 'center', padding: '4px 12px', background: '#fff3e0', borderRadius: 8, border: '2px solid #ff9800', margin: 0 }}>
                 <span style={{ fontWeight: 700, fontSize: '1.1rem', color: '#e65100' }}>Время: {fmt(refusalLeft)}</span>
               </div>
               {globalYear === 5 ? (
-                <p style={{ textAlign: 'center', lineHeight: 1.5, margin: '0 0 8px 0' }}>
+                <p style={{ textAlign: 'center', lineHeight: 1.4, margin: 0 }}>
                   После 5-го года ваша команда продолжает разработку только на <strong>одном участке</strong>.
                   У вас <strong>{ownedLUs.length}</strong> {ownedLUs.length === 1 ? 'участок' : 'участка(-ов)'} — необходимо отказаться
                   от <strong>{requiredRefusalCount}</strong> {requiredRefusalCount === 1 ? 'участка' : 'участков'}.
                   Выберите {requiredRefusalCount === 1 ? 'его' : 'их'} на карте.
                 </p>
               ) : (
-                <p style={{ textAlign: 'center', lineHeight: 1.5, margin: '0 0 8px 0' }}>
+                <p style={{ textAlign: 'center', lineHeight: 1.4, margin: 0 }}>
                   У вас <strong>{ownedLUs.length} участка(-ов)</strong>. Необходимо отказаться
                   от <strong>{requiredRefusalCount}</strong> {requiredRefusalCount === 1 ? 'участка' : 'участков'}.
                   Выберите {requiredRefusalCount === 1 ? 'его' : 'их'} на карте.
@@ -1514,10 +1512,10 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
 
       {showCompanyExchangeModal && (
         <div className={styles.cellModalOverlay}>
-          <div className={styles.cellModal} onClick={e => e.stopPropagation()} style={{ maxWidth: 820, width: '97%' }}>
+          <div className={`${styles.cellModal} ${styles.mapModal}`} onClick={e => e.stopPropagation()} style={{ maxWidth: 820, width: '97%' }}>
             <h3 style={{ textAlign: 'center', color: '#1565c0' }}>Обмен участками с компанией</h3>
             <div className={styles.modalInfo}>
-              <p style={{ textAlign: 'center', color: '#555', marginBottom: 12, fontSize: '0.95rem' }}>
+              <p style={{ textAlign: 'center', color: '#555', margin: 0, fontSize: '0.95rem' }}>
                 Нажмите на <strong style={{ color: '#0d47a1' }}>свой участок</strong> (синий) чтобы отдать,
                 затем на <strong style={{ color: '#bf360c' }}>участок компании</strong> (оранжевый) чтобы получить.
               </p>

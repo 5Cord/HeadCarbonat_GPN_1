@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import useGameStore from '../store/gameStore';
-import { getSessionByCode, joinSession } from './apiHelpers';
+import { getSessionByCode, joinSession, resumeSession } from './apiHelpers';
 import './GameLobby.css';
 
 const ROLES = [
@@ -18,10 +18,47 @@ const ROLES = [
 
 // ── Шаг 1: ввод кода сессии ───────────────────────────────────────────────────
 
-const StepCode = ({ onNext }) => {
+// Команда, которой заходили с этого браузера в прошлый раз.
+const readSavedTeam = () => {
+    try {
+        const saved = JSON.parse(localStorage.getItem('last_team') || 'null');
+        return saved?.name ? saved : null;
+    } catch { return null; }
+};
+
+// То же, но для кнопки возврата — без токена вернуться в сессию нельзя.
+const readLastTeam = () => (localStorage.getItem('auth_token') ? readSavedTeam() : null);
+
+const normalizeMembers = (list) => {
+    const arr = (Array.isArray(list) ? list : []).filter(m => m?.name);
+    if (arr.length === 0) return [{ name: '', role: 'Геолог' }];
+    return arr.slice(0, 5).map(m => ({
+        name: m.name,
+        role: ROLES.some(r => r.value === m.role) ? m.role : 'Геолог',
+    }));
+};
+
+const StepCode = ({ onNext, onResume }) => {
     const [code, setCode]       = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError]     = useState('');
+    const [lastTeam, setLastTeam] = useState(readLastTeam);
+    const [resuming, setResuming] = useState(false);
+
+    const handleResume = async () => {
+        setResuming(true);
+        setError('');
+        try {
+            onResume(await resumeSession());
+        } catch {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('last_team');
+            setLastTeam(null);
+            setError('Не удалось вернуться в сессию — войдите по коду.');
+        } finally {
+            setResuming(false);
+        }
+    };
 
     const handleSubmit = async () => {
         const trimmed = code.trim().toUpperCase();
@@ -65,6 +102,14 @@ const StepCode = ({ onNext }) => {
             >
                 {loading ? 'Проверка...' : 'Войти →'}
             </button>
+            {lastTeam && (
+                <div className="lobby-resume">
+                    <button className="lobby-btn-resume" onClick={handleResume} disabled={resuming}>
+                        {resuming ? 'Восстановление...' : `Продолжить за команду «${lastTeam.name}»`}
+                    </button>
+                    <p className="step-hint">Прогресс сохранён — вернётесь к тому же состоянию игры</p>
+                </div>
+            )}
         </div>
     );
 };
@@ -72,9 +117,19 @@ const StepCode = ({ onNext }) => {
 // ── Шаг 2: данные команды ─────────────────────────────────────────────────────
 
 const StepTeam = ({ sessionCode, sessionConfig, onJoin }) => {
-    const [teamName, setTeamName] = useState('');
-    const [teamSize, setTeamSize] = useState(1);
-    const [members, setMembers]   = useState([{ name: '', role: 'Геолог' }]);
+    // Подстановка прошлого состава: сначала этот браузер, затем — команда,
+    // которую сервер опознал по IP (только если с адреса тут играет одна команда).
+    const knownTeam = sessionConfig?.knownTeam;
+    const prefill = useMemo(() => {
+        const saved = readSavedTeam();
+        const src = (saved && saved.code === sessionCode) ? saved
+            : (knownTeam?.name ? knownTeam : null);
+        return src ? { name: src.name, members: normalizeMembers(src.members) } : null;
+    }, [sessionCode, knownTeam]);
+
+    const [teamName, setTeamName] = useState(prefill?.name ?? '');
+    const [teamSize, setTeamSize] = useState(prefill?.members.length ?? 1);
+    const [members, setMembers]   = useState(prefill?.members ?? [{ name: '', role: 'Геолог' }]);
     const [loading, setLoading]   = useState(false);
     const [error, setError]       = useState('');
 
@@ -149,7 +204,11 @@ const StepTeam = ({ sessionCode, sessionConfig, onJoin }) => {
             {/* ── Заголовок ── */}
             <div className="team-setup-header">
                 <h2>Данные команды</h2>
-                <p>Заполните название и состав — это будет видно всем участникам игры</p>
+                <p>
+                    {prefill
+                        ? 'Название и состав подставлены из прошлого входа — проверьте и при необходимости измените'
+                        : 'Заполните название и состав — это будет видно всем участникам игры'}
+                </p>
             </div>
 
             {/* ── Название команды ── */}
@@ -266,7 +325,8 @@ const GameLobby = () => {
             useGameStore.setState(s => ({
                 fieldWork: { ...s.fieldWork, selectionsByLU: {} },
                 research:  { ...s.research,  progressByLU:   {} },
-                events:    { ...s.events,    lineScores: {}, historyByYear: {} },
+                events:    { ...s.events,    lineScores: {}, historyByYear: {}, linesByLU: {} },
+                results:   { ...s.results,   cardsByLU: {} },
             }));
         } else if (prevSessionId !== newSessionId) {
             // Вход в новую сессию — полный сброс состояния и туторов
@@ -274,13 +334,15 @@ const GameLobby = () => {
             TOUR_KEYS.forEach(k => localStorage.removeItem(k));
         }
 
-        // 1. Сохраняем данные команды
+        // 1. Сохраняем данные команды.
+        // При возврате по токену код сессии приходит с сервера — локального ещё нет.
+        const code = result.sessionCode ?? sessionCode;
         setTeam({
             name:             result.teamName,
             teamId:           result.teamId,
             members:          result.members,
             experienceLevel:  result.sessionConfig?.playerType ?? 'students',
-            sessionCode,
+            sessionCode:      code,
             isMultiplayer:    result.sessionConfig?.gameMode === 'online',
             token:            result.token,
             sessionId:        result.sessionConfig?.sessionId,
@@ -293,8 +355,13 @@ const GameLobby = () => {
             setSessionConfig(result.sessionConfig);
         }
 
-        // 3. Сохраняем токен для REST-запросов
+        // 3. Токен для REST-запросов + метка команды для кнопки «Продолжить» в лобби
         localStorage.setItem('auth_token', result.token);
+        localStorage.setItem('last_team', JSON.stringify({
+            name: result.teamName,
+            members: result.members || [],
+            code,
+        }));
     };
 
     return (
@@ -309,7 +376,7 @@ const GameLobby = () => {
             </header>
 
             <main className="lobby-content">
-                {step === 'code' && <StepCode onNext={handleCodeSuccess} />}
+                {step === 'code' && <StepCode onNext={handleCodeSuccess} onResume={handleJoin} />}
                 {step === 'team' && (
                     <StepTeam
                         sessionCode={sessionCode}

@@ -205,11 +205,11 @@ function App() {
     </>
   );
 
+  // Выход без потери прогресса: auth_token и persist-стор остаются, поэтому
+  // в лобби доступно «Продолжить за команду», а данные догрузятся из БД.
   const handleLeave = () => {
     import('./apiHelpers').then(({ disconnectSocket }) => disconnectSocket());
-    resetGame();
-    localStorage.clear();
-    sessionStorage.clear();
+    leaveSession();
   };
 
   const btnBase = {
