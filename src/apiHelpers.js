@@ -225,8 +225,13 @@ export const createQuestionTopic  = (name)      => adminFetch('/question-topics'
 export const renameQuestionTopic  = (id, name)  => adminFetch(`/question-topics/${id}`, { method: 'PUT', body: JSON.stringify({ name }) });
 export const deleteQuestionTopic  = (id)        => adminFetch(`/question-topics/${id}`, { method: 'DELETE' });
 
-// Публичный пул вопросов для игры (без админ-токена)
+// Публичный пул вопросов для игры (без правильных ответов)
 export const getPublicQuestions   = ()          => apiFetch('/questions');
+export const getEventCards        = ()          => apiFetch('/event-cards');
+
+// Ссылки бэка /api/... приводим к API_BASE (в dev бэк на другом порту).
+export const resolveApiUrl = (path) =>
+  typeof path === 'string' && path.startsWith('/api/') ? `${API_BASE}${path.slice(4)}` : path;
 
 export const exportData = async (type, format = 'csv') => {
   const token = localStorage.getItem('admin_token');

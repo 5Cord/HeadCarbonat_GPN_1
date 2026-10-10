@@ -23,6 +23,11 @@
 }
 
 /* ── Reset / Base ── */
+/* Базовый размер шрифта админки: от него считаются все rem */
+html:has(.ap) { font-size: 18px; }
+@media (max-width: 768px) { html:has(.ap) { font-size: 16px; } }
+@media (max-width: 480px) { html:has(.ap) { font-size: 15px; } }
+
 html,
 body,
 #root {
@@ -42,7 +47,7 @@ body,
   flex-direction: column;
   font-family: 'GPN_DIN', 'Segoe UI', sans-serif;
   color: var(--text);
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 /* ── Шапка ── */
@@ -3152,6 +3157,11 @@ body,
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   font-size: .9rem;
+}
+.lu-card-name-count {
+  flex: 0 0 auto;
+  font-size: .75rem;
+  color: #94a3b8;
 }
 .lu-card-cost {
   flex: 0 0 auto;

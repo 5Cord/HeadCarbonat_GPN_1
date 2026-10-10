@@ -47,15 +47,19 @@ const SCENARIO_WORK_LABELS = {
 };
 
 
-const getLUNamePosition = (position) => {
-  switch (position) {
-    case 'top-left': return 'translate(60%, 0)';
-    case 'right': return 'translate(60%, 0)';
-    case 'left': return 'translate(-120%, 0%)';
-    case 'corner-bottom-left': return 'translate(60%, 0)';
-    case 'corner-top-right': return 'translate(70%, 20%)';
-    default: return 'translate(50%, -150%)';
+// Подпись ставится от края маркера, чтобы положение не зависело от длины названия.
+const LU_LABEL_GAP = 8;
+const getLULabelStyle = (lu) => {
+  const markerLeft = parseFloat(lu.customStyle?.left) || 0;
+  const style = { position: 'absolute', top: lu.customStyle?.top || '0' };
+  if (lu.position === 'left') {
+    style.left = `${markerLeft - LU_LABEL_GAP}px`;
+    style.transform = 'translateX(-100%)';
+  } else {
+    style.left = `calc(${markerLeft}px + var(--lu-size, 65px) + ${LU_LABEL_GAP}px)`;
+    if (lu.position === 'corner-top-right') style.transform = 'translateY(20%)';
   }
+  return style;
 };
 
 const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
@@ -1236,7 +1240,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                               <span className="lu-marker-number">{lu.shortName}</span>
                               {isLUSelected(lu.id) && <span className="lu-marker-check"></span>}
                             </div>
-                            <div className="lu-name-label" style={{ position: 'absolute', top: lu.customStyle?.top || '0', left: lu.labelLeft ?? lu.customStyle?.left ?? '0', transform: getLUNamePosition(lu.position), whiteSpace: 'nowrap' }}>
+                            <div className={`lu-name-label${lu.position === 'left' ? ' lu-name-label-left' : ''}`} style={getLULabelStyle(lu)}>
                               <div className="lu-name-text">{lu.name}</div>
                               <div className="lu-cost-text">{lu.cost} млн руб.</div>
                             </div>

@@ -6,8 +6,7 @@ import {
 } from './questionsApi';
 import './QuestionsTab.css';
 
-// Картинка сжимается в браузере до миниатюры и хранится base64 — по образцу
-// LUCardsEditor в Adminpanel.jsx. При подключении бэка можно будет слать файл.
+// Картинка сжимается в браузере и уходит на бэк data-URL.
 const MAX_IMAGE_DIM = 900;
 const MAX_SOURCE_BYTES = 20 * 1024 * 1024;
 
@@ -251,15 +250,9 @@ const TopicsPanel = ({ onChanged }) => {
                             ) : (
                                 <>
                                     <span className="qtp-name">{t.name}</span>
-                                    <span className="qt-badge qt-badge-topic" title="Вопросов с этой темой (добавленных через админку)">
+                                    <span className="qt-badge qt-badge-topic" title="Вопросов с этой темой">
                                         {t.questionsCount}
                                     </span>
-                                    {t.baseCount > 0 && (
-                                        <span className="qt-badge qt-badge-src-base"
-                                            title="Тему используют и базовые вопросы из кода — переименование их не затронет">
-                                            +{t.baseCount} базовых
-                                        </span>
-                                    )}
                                     <span className="qtp-spacer" />
                                     <button className="ghost-btn" disabled={busy}
                                         onClick={() => { setEditId(t.id); setEditName(t.name); }}>✎ Переименовать</button>
@@ -405,22 +398,17 @@ const QuestionsTab = () => {
                                     {item.title && <div className="qt-card-title">{item.title}</div>}
                                     <div className="qt-card-text">{item.text}</div>
                                     <div className="qt-card-answers">
-                                        {item.answers.map(a => (
+                                        {item.answers.map((a, i) => (
                                             <span key={a.id} className={`qt-answer ${a.correct ? 'qt-answer-correct' : ''}`}>
                                                 {a.correct ? '*' : ''}{a.text}
+                                                {item.optionImages?.[i] && <img className="qt-answer-img" src={item.optionImages[i]} alt="" />}
                                             </span>
                                         ))}
                                     </div>
                                 </div>
                                 <div className="qt-card-actions">
-                                    {item.source === 'base' ? (
-                                        <span className="qt-readonly" title="Базовые вопросы правятся в коде (Eventsdata.js)">только чтение</span>
-                                    ) : (
-                                        <>
-                                            <button className="ghost-btn" onClick={() => setEditing({ question: item })}>✎ Изменить</button>
-                                            <button className="ghost-btn qt-del" onClick={() => setConfirmDelete(item)}>🗑 Удалить</button>
-                                        </>
-                                    )}
+                                    <button className="ghost-btn" onClick={() => setEditing({ question: item })}>✎ Изменить</button>
+                                    <button className="ghost-btn qt-del" onClick={() => setConfirmDelete(item)}>🗑 Удалить</button>
                                 </div>
                             </div>
                     ))}

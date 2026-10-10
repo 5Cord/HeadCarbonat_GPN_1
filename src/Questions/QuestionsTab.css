@@ -1,15 +1,15 @@
 /* ── Вкладка «Вопросы» ─────────────────────────────────────────────────────── */
-.qt { display: flex; flex-direction: column; gap: 1rem; }
+.qt { --qt-scale: 1.25; font-size: calc(0.9375rem * var(--qt-scale)); display: flex; flex-direction: column; gap: 1rem; }
 
 .qt-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.qt-h2 { margin: 0; font-size: 20px; color: #1e293b; }
+.qt-h2 { margin: 0; font-size: calc(1.25rem * var(--qt-scale)); color: #1e293b; }
 .qt-count {
     display: inline-block; margin-left: 6px; padding: 1px 9px; border-radius: 999px;
-    background: #e2e8f0; color: #475569; font-size: 13px; font-weight: 600; vertical-align: middle;
+    background: #e2e8f0; color: #475569; font-size: calc(0.8125rem * var(--qt-scale)); font-weight: 600; vertical-align: middle;
 }
 .qt-add-btn {
     border: none; background: #1e40af; color: #fff; padding: 10px 18px; border-radius: 8px;
-    font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s;
+    font-size: calc(0.8125rem * var(--qt-scale)); font-weight: 600; cursor: pointer; transition: background .15s;
 }
 .qt-add-btn:hover { background: #1d3a9e; }
 
@@ -19,7 +19,7 @@
 .qt-loading, .qt-empty { color: #94a3b8; padding: 1.5rem 0; }
 .qt-loading-more { text-align: center; padding: 0.9rem 0; }
 .qt-sentinel { height: 1px; }
-.qt-end { text-align: center; color: #cbd5e1; font-size: 12.5px; padding: 0.9rem 0; }
+.qt-end { text-align: center; color: #cbd5e1; font-size: calc(0.7813rem * var(--qt-scale)); padding: 0.9rem 0; }
 
 .qt-list { display: flex; flex-direction: column; gap: 12px; }
 .qt-card {
@@ -29,18 +29,18 @@
 .qt-card-img { width: 96px; height: 96px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
 .qt-card-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .qt-card-meta { display: flex; gap: 8px; flex-wrap: wrap; }
-.qt-badge { font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 999px; }
+.qt-badge { font-size: calc(0.6875rem * var(--qt-scale)); font-weight: 600; padding: 2px 9px; border-radius: 999px; }
 .qt-badge-topic { background: #eff6ff; color: #1d4ed8; }
 .qt-badge-d1 { background: #ecfdf5; color: #047857; }
 .qt-badge-d2 { background: #fffbeb; color: #b45309; }
 .qt-badge-d3 { background: #fef2f2; color: #b91c1c; }
 .qt-badge-src-base { background: #f1f5f9; color: #64748b; }
 .qt-badge-src-custom { background: #ecfccb; color: #4d7c0f; }
-.qt-readonly { font-size: 12px; color: #94a3b8; font-style: italic; }
-.qt-card-title { font-weight: 700; color: #0f172a; font-size: 14px; }
-.qt-card-text { color: #334155; font-size: 14px; line-height: 1.4; }
+.qt-answer-img { display: block; width: 72px; height: 48px; object-fit: contain; margin-top: 4px; }
+.qt-card-title { font-weight: 700; color: #0f172a; font-size: calc(0.875rem * var(--qt-scale)); }
+.qt-card-text { color: #334155; font-size: calc(0.875rem * var(--qt-scale)); line-height: 1.4; }
 .qt-card-answers { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
-.qt-answer { font-size: 12.5px; color: #64748b; }
+.qt-answer { font-size: calc(0.7813rem * var(--qt-scale)); color: #64748b; }
 .qt-answer-correct { color: #047857; font-weight: 600; }
 .qt-card-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
 .qt-del { color: #dc2626; }
@@ -49,7 +49,7 @@
 .qt-toolbar-btns { display: flex; gap: 10px; align-items: center; }
 .qt-topics-btn {
     border: 1px solid #cbd5e1; background: #fff; color: #475569; padding: 9px 16px;
-    border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s;
+    border-radius: 8px; font-size: calc(0.8125rem * var(--qt-scale)); font-weight: 600; cursor: pointer; transition: all .15s;
 }
 .qt-topics-btn:hover { border-color: #1e40af; color: #1e40af; }
 .qt-topics-btn-on { border-color: #1e40af; color: #1e40af; background: #eff6ff; }
@@ -65,7 +65,7 @@
     display: flex; align-items: center; gap: 8px; padding: 7px 10px;
     background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
 }
-.qtp-name { font-size: 14px; color: #0f172a; font-weight: 600; }
+.qtp-name { font-size: calc(0.875rem * var(--qt-scale)); color: #0f172a; font-weight: 600; }
 .qtp-spacer { flex: 1; }
 .qtp-rename-input { max-width: 320px; }
 
@@ -75,11 +75,11 @@
     max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(15, 23, 42, .35);
     display: flex; flex-direction: column; gap: 6px;
 }
-.qf-title { margin: 0 0 8px; font-size: 18px; color: #1e293b; }
-.qf-label { font-size: 12.5px; font-weight: 600; color: #475569; margin-top: 8px; }
+.qf-title { margin: 0 0 8px; font-size: calc(1.125rem * var(--qt-scale)); color: #1e293b; }
+.qf-label { font-size: calc(0.7813rem * var(--qt-scale)); font-weight: 600; color: #475569; margin-top: 8px; }
 .qf-req { color: #dc2626; }
 .qf-input {
-    width: 100%; box-sizing: border-box; padding: 9px 11px; font-size: 14px;
+    width: 100%; box-sizing: border-box; padding: 9px 11px; font-size: calc(0.875rem * var(--qt-scale));
     border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #0f172a;
 }
 .qf-input:focus { outline: none; border-color: #1e40af; box-shadow: 0 0 0 3px rgba(30, 64, 175, .12); }
@@ -92,7 +92,7 @@
 .qf-img-preview img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0; }
 .qf-img-upload {
     display: inline-flex; align-items: center; padding: 8px 14px; border: 1px dashed #94a3b8;
-    border-radius: 8px; font-size: 13px; color: #475569; cursor: pointer; background: #f8fafc;
+    border-radius: 8px; font-size: calc(0.8125rem * var(--qt-scale)); color: #475569; cursor: pointer; background: #f8fafc;
 }
 .qf-img-upload:hover { border-color: #1e40af; color: #1e40af; }
 
@@ -101,10 +101,15 @@
 .qf-correct { display: inline-flex; align-items: center; }
 .qf-answer-input { flex: 1; }
 .qf-answer-del { color: #dc2626; }
-.qf-hint { font-size: 12px; color: #94a3b8; margin: 4px 0 0; }
+.qf-hint { font-size: calc(0.75rem * var(--qt-scale)); color: #94a3b8; margin: 4px 0 0; }
 
 .qf-error {
     margin-top: 8px; padding: 8px 11px; background: #fef2f2; border: 1px solid #fecaca;
-    border-radius: 8px; color: #b91c1c; font-size: 13px;
+    border-radius: 8px; color: #b91c1c; font-size: calc(0.8125rem * var(--qt-scale));
 }
 .qf-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+
+/* ── Общие классы админки внутри вкладки ─────────────────────────────────── */
+.qt .ghost-btn { font-size: calc(.85rem * var(--qt-scale)); }
+.qt .cm-message { font-size: calc(1.05rem * var(--qt-scale)); }
+.qt .cm-btn { font-size: calc(.95rem * var(--qt-scale)); }

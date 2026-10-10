@@ -187,6 +187,7 @@
 }
 
 .compact-card-title {
+  overflow-wrap: anywhere;
   font-size: 13px;
   font-weight: 700;
   color: #29A694;
@@ -531,6 +532,14 @@
   color: #ffffff;
   font-weight: 600;
   pointer-events: none;
+  z-index: 11;
+  width: max-content;
+  max-width: 200px;
+  overflow-wrap: anywhere;
+}
+
+.lu-name-label-left {
+  text-align: right;
 }
 
 .lu-name-text {
@@ -841,6 +850,7 @@
 }
 
 .info-card-title-block h3 {
+  overflow-wrap: anywhere;
   margin: 0 0 5px;
   font-size: 16px;
   color: #333;
@@ -1048,6 +1058,10 @@
     height: 60px;
   }
 
+  .cell-with-lu-wrapper {
+    --lu-size: 60px;
+  }
+
   .grid-column-headers {
     grid-template-columns: 40px repeat(10, 60px);
   }
@@ -1087,6 +1101,10 @@
   .lu-marker {
     width: 56px;
     height: 56px;
+  }
+
+  .cell-with-lu-wrapper {
+    --lu-size: 56px;
   }
 
   .grid-column-headers {
@@ -1142,6 +1160,10 @@
   .lu-marker {
     width: 50px;
     height: 50px;
+  }
+
+  .cell-with-lu-wrapper {
+    --lu-size: 50px;
   }
 
   .grid-column-headers {
@@ -1224,6 +1246,10 @@
   .lu-marker {
     width: 44px;
     height: 44px;
+  }
+
+  .cell-with-lu-wrapper {
+    --lu-size: 44px;
   }
 
   .grid-column-headers {
@@ -1365,6 +1391,7 @@
 }
 
 .info-panel-card-title {
+  overflow-wrap: anywhere;
   font-size: 12px;
   font-weight: 700;
   color: #29A694;
@@ -1985,6 +2012,7 @@
 }
 
 .confirm-card-name {
+  overflow-wrap: anywhere;
   font-size: 16px;
   font-weight: 700;
   color: #29A694;

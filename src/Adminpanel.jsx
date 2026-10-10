@@ -272,6 +272,7 @@ const freshResearchConfig = () => normalizeResearchConfig(null);
 // ── Карточки ЛУ (название, цена, описание, картинка) ─────────────────────────
 // Картинка едет base64 в конфиге сессии, поэтому исходник уменьшаем в браузере
 // до миниатюры — грузится файл любого размера, а в конфиге остаётся лёгкий JPEG.
+const LU_NAME_MAX = 40;
 const MAX_LU_IMAGE_DIM = 900;                  // макс. сторона миниатюры, px
 const MAX_LU_SOURCE_BYTES = 20 * 1024 * 1024;  // защита от гигантских исходников
 // Свежая копия дефолтных карточек (безопасна для мутаций).
@@ -325,8 +326,9 @@ const LUCardsEditor = ({ value, onChange }) => {
                 <div key={c.id} className="lu-card-row">
                     <div className="lu-card-row-head">
                         <span className="lu-card-badge">{c.shortName}</span>
-                        <input className="lu-card-name" value={c.name}
+                        <input className="lu-card-name" value={c.name} maxLength={LU_NAME_MAX}
                             onChange={e => setField(i, 'name', e.target.value)} placeholder="Название" />
+                        <span className="lu-card-name-count">{(c.name || '').length}/{LU_NAME_MAX}</span>
                         <div className="lu-card-cost">
                             <input className="num-input" type="number" min={0} value={c.cost}
                                 onChange={e => setField(i, 'cost', Number(e.target.value))} />
@@ -689,7 +691,7 @@ const ResearchConfigEditor = ({ value, onChange, hidePresetPicker, presetId: pre
             <div className="intro-section-label">Виды работ ({works.length})</div>
 
             <div className="research-editor-scroll" style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: 8 }}>
-                <table className="research-editor-table" style={{ borderCollapse: 'collapse', fontSize: 12, width: '100%' }}>
+                <table className="research-editor-table" style={{ borderCollapse: 'collapse', fontSize: '0.75rem', width: '100%' }}>
                     <thead>
                         <tr style={{ background: '#f8fafc' }}>
                             <th style={{ position: 'sticky', left: 0, background: '#f8fafc', textAlign: 'left', padding: '6px 8px', width: RESEARCH_NAME_COL_W, minWidth: RESEARCH_NAME_COL_W, maxWidth: RESEARCH_NAME_COL_W, borderBottom: '2px solid #e2e8f0', zIndex: 3 }}>Вид работ</th>
@@ -713,17 +715,17 @@ const ResearchConfigEditor = ({ value, onChange, hidePresetPicker, presetId: pre
                                         onChange={e => setName(i, e.target.value)}
                                         placeholder="Название вида работ"
                                         title={isDuplicateRow(w) ? 'Такое название уже есть у другого вида работ' : undefined}
-                                        style={{ width: '100%', resize: 'vertical', fontSize: 12, padding: '4px 6px', border: `1px solid ${isDuplicateRow(w) ? '#dc2626' : '#e2e8f0'}`, borderRadius: 6, boxSizing: 'border-box', background: isDuplicateRow(w) ? '#fef2f2' : '#fff' }}
+                                        style={{ width: '100%', resize: 'vertical', fontSize: '0.75rem', padding: '4px 6px', border: `1px solid ${isDuplicateRow(w) ? '#dc2626' : '#e2e8f0'}`, borderRadius: 6, boxSizing: 'border-box', background: isDuplicateRow(w) ? '#fef2f2' : '#fff' }}
                                     />
                                 </td>
                                 <td style={{ position: 'sticky', left: RESEARCH_NAME_COL_W, background: '#fff', padding: '4px 6px', width: RESEARCH_COST_COL_W, minWidth: RESEARCH_COST_COL_W, maxWidth: RESEARCH_COST_COL_W, textAlign: 'center', borderRight: '1px solid #eef2f7', zIndex: 1 }}>
                                     <IntInput value={w.cost} min={0} max={100000} onChange={v => setCost(i, v)}
-                                        style={{ width: 64, padding: '4px 6px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, textAlign: 'right' }} />
+                                        style={{ width: 64, padding: '4px 6px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: '0.75rem', textAlign: 'right' }} />
                                 </td>
                                 {MOBILIZATION_WORKS.map(m => (
                                     <td key={m.id} style={{ padding: '3px 3px', textAlign: 'center' }}>
                                         <IntInput value={w.successRates?.[m.id] ?? 0} min={0} max={RESEARCH_RATE_MAX} onChange={v => setRate(i, m.id, v)}
-                                            style={{ width: 44, padding: '4px 2px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, textAlign: 'center', color: rateColor(w.successRates?.[m.id] ?? 0), fontWeight: (w.successRates?.[m.id] ?? 0) > 0 ? 600 : 400 }} />
+                                            style={{ width: 44, padding: '4px 2px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: '0.75rem', textAlign: 'center', color: rateColor(w.successRates?.[m.id] ?? 0), fontWeight: (w.successRates?.[m.id] ?? 0) > 0 ? 600 : 400 }} />
                                     </td>
                                 ))}
                                 <td style={{ padding: '3px 4px', textAlign: 'center' }}>
@@ -1727,21 +1729,21 @@ const MetricCard = ({ label, value, sub, color = '#334155', accent = false }) =>
         border: `1.5px solid ${accent ? '#3b82f6' : '#e2e8f0'}`,
         borderRadius: 10, padding: '14px 18px', minWidth: 140,
     }}>
-        <div style={{ fontSize: 11, color: accent ? '#93c5fd' : '#64748b', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: accent ? '#fff' : color }}>{value}</div>
-        {sub && <div style={{ fontSize: 11, color: accent ? '#93c5fd' : '#94a3b8', marginTop: 2 }}>{sub}</div>}
+        <div style={{ fontSize: '0.6875rem', color: accent ? '#93c5fd' : '#64748b', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+        <div style={{ fontSize: '1.375rem', fontWeight: 700, color: accent ? '#fff' : color }}>{value}</div>
+        {sub && <div style={{ fontSize: '0.6875rem', color: accent ? '#93c5fd' : '#94a3b8', marginTop: 2 }}>{sub}</div>}
     </div>
 );
 
 const AccuracyBadge = ({ correct, wrong }) => {
     const total = correct + wrong;
-    if (!total) return <span style={{ color: '#94a3b8', fontSize: 12 }}>нет данных</span>;
+    if (!total) return <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>нет данных</span>;
     const pct = Math.round(100 * correct / total);
     const color = pct >= 70 ? '#16a34a' : pct >= 40 ? '#d97706' : '#dc2626';
     return (
         <span style={{ fontWeight: 600, color }}>
             {correct}✓ / {wrong}✗ &nbsp;
-            <span style={{ fontSize: 12, color, background: color + '18', padding: '1px 6px', borderRadius: 4 }}>{pct}%</span>
+            <span style={{ fontSize: '0.75rem', color, background: color + '18', padding: '1px 6px', borderRadius: 4 }}>{pct}%</span>
         </span>
     );
 };
@@ -1758,14 +1760,14 @@ const CardAnswerModal = ({ card, onClose }) => {
             <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: 28, maxWidth: 560, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', maxHeight: '85vh', overflowY: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                     <div>
-                        <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#2563eb', background: '#dbeafe', padding: '2px 8px', borderRadius: 4 }}>
+                        <span style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#2563eb', background: '#dbeafe', padding: '2px 8px', borderRadius: 4 }}>
                             {cardType === 'opportunity' ? 'Возможность' : cardType === 'random' ? 'Случайность' : 'Риск'}
                         </span>
-                        {skipped && <span style={{ marginLeft: 8, fontSize: 11, color: '#64748b', background: '#f1f5f9', padding: '2px 8px', borderRadius: 4 }}>пропущено</span>}
+                        {skipped && <span style={{ marginLeft: 8, fontSize: '0.6875rem', color: '#64748b', background: '#f1f5f9', padding: '2px 8px', borderRadius: 4 }}>пропущено</span>}
                     </div>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#64748b', lineHeight: 1 }}>✕</button>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: '#64748b', lineHeight: 1 }}>✕</button>
                 </div>
-                {question && <div style={{ fontSize: 15, fontWeight: 600, color: '#1e293b', marginBottom: 18, lineHeight: 1.5 }}>{question}</div>}
+                {question && <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#1e293b', marginBottom: 18, lineHeight: 1.5 }}>{question}</div>}
                 {options && options.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
                         {options.map((opt, i) => {
@@ -1776,22 +1778,22 @@ const CardAnswerModal = ({ card, onClose }) => {
                             else if (isSel && !isCorr) { bg = '#fee2e2'; border = '#dc2626'; textColor = '#b91c1c'; }
                             else if (!isSel && isCorr) { bg = '#f0fdf4'; border = '#86efac'; textColor = '#166534'; }
                             return (
-                                <div key={i} style={{ padding: '10px 14px', borderRadius: 8, border: `1.5px solid ${border}`, background: bg, color: textColor, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div key={i} style={{ padding: '10px 14px', borderRadius: 8, border: `1.5px solid ${border}`, background: bg, color: textColor, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <span style={{ fontWeight: 700, minWidth: 20 }}>{i + 1}.</span>
                                     <span style={{ flex: 1 }}>{opt}</span>
-                                    {isSel && isCorr && <span style={{ fontSize: 13, fontWeight: 700, color: '#16a34a' }}>✓</span>}
-                                    {isSel && !isCorr && <span style={{ fontSize: 13, fontWeight: 700, color: '#dc2626' }}>✗</span>}
-                                    {!isSel && isCorr && <span style={{ fontSize: 13, color: '#15803d', fontWeight: 600 }}>← правильный</span>}
+                                    {isSel && isCorr && <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#16a34a' }}>✓</span>}
+                                    {isSel && !isCorr && <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#dc2626' }}>✗</span>}
+                                    {!isSel && isCorr && <span style={{ fontSize: '0.8125rem', color: '#15803d', fontWeight: 600 }}>← правильный</span>}
                                 </div>
                             );
                         })}
                     </div>
                 )}
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center', paddingTop: 12, borderTop: '1px solid #e2e8f0' }}>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: isCorrect ? '#16a34a' : skipped ? '#64748b' : '#dc2626' }}>
+                    <span style={{ fontSize: '0.875rem', fontWeight: 600, color: isCorrect ? '#16a34a' : skipped ? '#64748b' : '#dc2626' }}>
                         {skipped ? 'Пропущено' : isCorrect ? '✓ Правильно' : '✗ Неправильно'}
                     </span>
-                    <span style={{ fontSize: 13, color: '#64748b' }}>Очков: <strong>{points > 0 ? '+' + points : points}</strong></span>
+                    <span style={{ fontSize: '0.8125rem', color: '#64748b' }}>Очков: <strong>{points > 0 ? '+' + points : points}</strong></span>
                 </div>
             </div>
         </div>
@@ -1804,12 +1806,12 @@ const EventLineDetail = ({ line }) => {
     return (
         <div style={{ marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, padding: '8px 12px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                <span style={{ fontWeight: 700, color: '#1e293b', fontSize: 14 }}>Участок {line.luId}</span>
+                <span style={{ fontWeight: 700, color: '#1e293b', fontSize: '0.875rem' }}>Участок {line.luId}</span>
                 <AccuracyBadge correct={line.correctAnswers} wrong={line.wrongAnswers} />
-                <span style={{ fontSize: 13, color: '#64748b' }}>Счёт: <strong style={{ color: line.score >= 0 ? '#16a34a' : '#dc2626' }}>{fmtSigned(line.score)}</strong></span>
-                {line.moneyDelta !== 0 && <span style={{ fontSize: 13, color: '#64748b' }}>Деньги: <strong style={{ color: line.moneyDelta >= 0 ? '#16a34a' : '#dc2626' }}>{fmtSigned(line.moneyDelta)} млн</strong></span>}
-                {line.skipped && <span style={{ fontSize: 12, background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 4 }}>Пропущено</span>}
-                {line.completed && !line.skipped && <span style={{ fontSize: 12, background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 4 }}>Завершено</span>}
+                <span style={{ fontSize: '0.8125rem', color: '#64748b' }}>Счёт: <strong style={{ color: line.score >= 0 ? '#16a34a' : '#dc2626' }}>{fmtSigned(line.score)}</strong></span>
+                {line.moneyDelta !== 0 && <span style={{ fontSize: '0.8125rem', color: '#64748b' }}>Деньги: <strong style={{ color: line.moneyDelta >= 0 ? '#16a34a' : '#dc2626' }}>{fmtSigned(line.moneyDelta)} млн</strong></span>}
+                {line.skipped && <span style={{ fontSize: '0.75rem', background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 4 }}>Пропущено</span>}
+                {line.completed && !line.skipped && <span style={{ fontSize: '0.75rem', background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 4 }}>Завершено</span>}
             </div>
             {line.cards && line.cards.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingLeft: 8 }}>
@@ -1818,7 +1820,7 @@ const EventLineDetail = ({ line }) => {
                         const border = card.skipped ? '#cbd5e1' : card.isCorrect ? '#86efac' : '#fca5a5';
                         const icon = card.skipped ? '–' : card.isCorrect ? '✓' : '✗';
                         return (
-                            <button key={i} onClick={() => setOpenCard(card)} title="Нажмите для просмотра" style={{ background: bg, border: `1.5px solid ${border}`, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <button key={i} onClick={() => setOpenCard(card)} title="Нажмите для просмотра" style={{ background: bg, border: `1.5px solid ${border}`, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 5 }}>
                                 <span>{icon}</span>
                                 <span>Карт. {card.cardIndex + 1}</span>
                                 {card.points > 0 && <span style={{ color: '#16a34a' }}>+{card.points}</span>}
@@ -1826,7 +1828,7 @@ const EventLineDetail = ({ line }) => {
                         );
                     })}
                     {line.cards.filter(c => c.cardType === 'opportunity').length === 0 && (
-                        <span style={{ fontSize: 12, color: '#94a3b8', paddingLeft: 4 }}>Нет карточек-вопросов</span>
+                        <span style={{ fontSize: '0.75rem', color: '#94a3b8', paddingLeft: 4 }}>Нет карточек-вопросов</span>
                     )}
                 </div>
             )}
@@ -1856,25 +1858,25 @@ const FieldworkLUDetail = ({ lu }) => {
                 onClick={() => setExpanded(e => !e)}
                 style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: '#f8fafc', cursor: 'pointer', userSelect: 'none' }}
             >
-                <span style={{ fontWeight: 700, color: '#1e293b', fontSize: 14 }}>Участок {lu.luId}</span>
-                <span style={{ fontSize: 12, color: '#64748b' }}>{fmtNumber(lu.totalCost)} млн</span>
+                <span style={{ fontWeight: 700, color: '#1e293b', fontSize: '0.875rem' }}>Участок {lu.luId}</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{fmtNumber(lu.totalCost)} млн</span>
                 {lu.qualityScore > 0 && (
-                    <span style={{ fontSize: 12, background: '#dcfce7', color: '#15803d', padding: '1px 8px', borderRadius: 4, fontWeight: 600 }}>
+                    <span style={{ fontSize: '0.75rem', background: '#dcfce7', color: '#15803d', padding: '1px 8px', borderRadius: 4, fontWeight: 600 }}>
                         ★ Качество {lu.qualityScore}
                     </span>
                 )}
                 {lu.avgRank && (
-                    <span style={{ fontSize: 12, color: rankColor(Math.round(lu.avgRank)), background: rankColor(Math.round(lu.avgRank)) + '18', padding: '1px 8px', borderRadius: 4 }}>
+                    <span style={{ fontSize: '0.75rem', color: rankColor(Math.round(lu.avgRank)), background: rankColor(Math.round(lu.avgRank)) + '18', padding: '1px 8px', borderRadius: 4 }}>
                         Ср. ранг {lu.avgRank?.toFixed(1)}
                     </span>
                 )}
                 {totalCards > 0 && (
-                    <span style={{ fontSize: 12, color: '#64748b' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
                         {totalSelected}/{totalCards} карточек
                     </span>
                 )}
-                {lu.completed && <span style={{ fontSize: 12, background: '#dcfce7', color: '#15803d', padding: '1px 8px', borderRadius: 4 }}>✓ Подтверждено</span>}
-                <span style={{ marginLeft: 'auto', color: '#94a3b8', fontSize: 14 }}>{expanded ? '▲' : '▼'}</span>
+                {lu.completed && <span style={{ fontSize: '0.75rem', background: '#dcfce7', color: '#15803d', padding: '1px 8px', borderRadius: 4 }}>✓ Подтверждено</span>}
+                <span style={{ marginLeft: 'auto', color: '#94a3b8', fontSize: '0.875rem' }}>{expanded ? '▲' : '▼'}</span>
             </div>
 
             {/* Детальные блоки карточек */}
@@ -1886,11 +1888,11 @@ const FieldworkLUDetail = ({ lu }) => {
                             <div key={block.blockId} style={{ border: `1px solid ${style.border}`, borderRadius: 8, overflow: 'hidden' }}>
                                 {/* Заголовок блока */}
                                 <div style={{ padding: '6px 12px', background: style.bg, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <span style={{ fontSize: 11, fontWeight: 700, color: style.text, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                    <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: style.text, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                                         {style.label}
                                     </span>
-                                    <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>{block.blockTitle}</span>
-                                    <span style={{ fontSize: 11, color: '#94a3b8' }}>{block.groupLabel}</span>
+                                    <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#1e293b' }}>{block.blockTitle}</span>
+                                    <span style={{ fontSize: '0.6875rem', color: '#94a3b8' }}>{block.groupLabel}</span>
                                 </div>
                                 {/* Карточки блока */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -1902,25 +1904,25 @@ const FieldworkLUDetail = ({ lu }) => {
                                             background: card.skipped ? '#fafafa' : '#fff',
                                         }}>
                                             {/* Название карточки */}
-                                            <div style={{ minWidth: 140, fontSize: 12, color: '#64748b', paddingTop: 2 }}>
+                                            <div style={{ minWidth: 140, fontSize: '0.75rem', color: '#64748b', paddingTop: 2 }}>
                                                 {card.cardTitle}
                                             </div>
                                             {/* Выбранный вариант */}
                                             <div style={{ flex: 1 }}>
                                                 {card.skipped || card.chosenRank == null ? (
-                                                    <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>Не выбрано</span>
+                                                    <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic' }}>Не выбрано</span>
                                                 ) : (
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                         <span style={{
-                                                            fontSize: 11, fontWeight: 700,
+                                                            fontSize: '0.6875rem', fontWeight: 700,
                                                             color: rankColor(card.chosenRank),
                                                             background: rankColor(card.chosenRank) + '18',
                                                             padding: '1px 7px', borderRadius: 4,
                                                         }}>
                                                             {rankLabel(card.chosenRank)}
                                                         </span>
-                                                        <span style={{ fontSize: 13, color: '#1e293b' }}>{card.chosenParam}</span>
-                                                        <span style={{ fontSize: 12, color: card.cost > 0 ? '#dc2626' : '#16a34a', marginLeft: 4 }}>
+                                                        <span style={{ fontSize: '0.8125rem', color: '#1e293b' }}>{card.chosenParam}</span>
+                                                        <span style={{ fontSize: '0.75rem', color: card.cost > 0 ? '#dc2626' : '#16a34a', marginLeft: 4 }}>
                                                             {card.cost > 0 ? `${fmtNumber(card.cost)} млн` : 'Бесплатно'}
                                                         </span>
                                                     </div>
@@ -1931,7 +1933,7 @@ const FieldworkLUDetail = ({ lu }) => {
                                                         {card.allOptions
                                                             .filter(o => o.rank !== card.chosenRank)
                                                             .map(o => (
-                                                                <span key={o.rank} style={{ fontSize: 11, color: '#94a3b8', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '1px 6px', borderRadius: 4 }}>
+                                                                <span key={o.rank} style={{ fontSize: '0.6875rem', color: '#94a3b8', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '1px 6px', borderRadius: 4 }}>
                                                                     {rankLabel(o.rank)}: {o.param} {o.cost > 0 ? `(${o.cost} млн)` : '(бесплатно)'}
                                                                 </span>
                                                             ))}
@@ -1947,7 +1949,7 @@ const FieldworkLUDetail = ({ lu }) => {
                 </div>
             )}
             {expanded && (!lu.blocks || lu.blocks.length === 0) && (
-                <div style={{ padding: '12px 14px', fontSize: 13, color: '#94a3b8' }}>Детальные данные карточек не сохранены</div>
+                <div style={{ padding: '12px 14px', fontSize: '0.8125rem', color: '#94a3b8' }}>Детальные данные карточек не сохранены</div>
             )}
         </div>
     );
@@ -1959,23 +1961,23 @@ const ResearchYearSection = ({ research }) => {
     return (
         <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-                <h4 style={{ margin: 0, fontSize: 14, color: '#1e293b' }}>Научные исследования (НИР)</h4>
-                <span style={{ fontSize: 13, color: '#64748b' }}>Итого: <strong style={{ color: '#dc2626' }}>{fmtNumber(research.totalSpent)} млн</strong></span>
+                <h4 style={{ margin: 0, fontSize: '0.875rem', color: '#1e293b' }}>Научные исследования (НИР)</h4>
+                <span style={{ fontSize: '0.8125rem', color: '#64748b' }}>Итого: <strong style={{ color: '#dc2626' }}>{fmtNumber(research.totalSpent)} млн</strong></span>
             </div>
             {research.lus && research.lus.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {research.lus.map(lu => (
                         <div key={lu.luId} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 14px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: lu.purchases?.length ? 8 : 0 }}>
-                                <span style={{ fontWeight: 700, color: '#1e293b', fontSize: 13 }}>Участок {lu.luId}</span>
-                                <span style={{ fontSize: 12, color: '#64748b' }}>{fmtNumber(lu.totalSpent)} млн</span>
-                                {lu.skipped && <span style={{ fontSize: 11, background: '#fef3c7', color: '#92400e', padding: '1px 6px', borderRadius: 4 }}>Пропущено</span>}
-                                {lu.columnId && <span style={{ fontSize: 11, color: '#7c3aed', background: '#ede9fe', padding: '1px 6px', borderRadius: 4 }}>Колонна: {lu.columnId}</span>}
+                                <span style={{ fontWeight: 700, color: '#1e293b', fontSize: '0.8125rem' }}>Участок {lu.luId}</span>
+                                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{fmtNumber(lu.totalSpent)} млн</span>
+                                {lu.skipped && <span style={{ fontSize: '0.6875rem', background: '#fef3c7', color: '#92400e', padding: '1px 6px', borderRadius: 4 }}>Пропущено</span>}
+                                {lu.columnId && <span style={{ fontSize: '0.6875rem', color: '#7c3aed', background: '#ede9fe', padding: '1px 6px', borderRadius: 4 }}>Колонна: {lu.columnId}</span>}
                             </div>
                             {lu.purchases && lu.purchases.length > 0 && (
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                                     {lu.purchases.map((p, i) => (
-                                        <span key={i} style={{ fontSize: 11, background: '#ede9fe', color: '#5b21b6', padding: '2px 8px', borderRadius: 4 }}>
+                                        <span key={i} style={{ fontSize: '0.6875rem', background: '#ede9fe', color: '#5b21b6', padding: '2px 8px', borderRadius: 4 }}>
                                             {p.work_name || p.workName} — {fmtNumber(p.cost)} млн
                                         </span>
                                     ))}
@@ -1985,13 +1987,13 @@ const ResearchYearSection = ({ research }) => {
                     ))}
                 </div>
             ) : (
-                <div style={{ fontSize: 13, color: '#94a3b8' }}>НИРы за этот год не проводились</div>
+                <div style={{ fontSize: '0.8125rem', color: '#94a3b8' }}>НИРы за этот год не проводились</div>
             )}
         </div>
     );
 };
 
-const sectionTitleStyle = { margin: '0 0 12px 0', fontSize: 15, fontWeight: 700, color: '#1e293b', paddingBottom: 6, borderBottom: '2px solid #e2e8f0' };
+const sectionTitleStyle = { margin: '0 0 12px 0', fontSize: '0.9375rem', fontWeight: 700, color: '#1e293b', paddingBottom: 6, borderBottom: '2px solid #e2e8f0' };
 
 // ── Вкладка: Сводка за сессию ─────────────────────────────────────────────────
 const SummaryTab = ({ summary }) => {
@@ -2035,7 +2037,7 @@ const SummaryTab = ({ summary }) => {
                     <h3 style={sectionTitleStyle}> Купленные карточки информации</h3>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                         {luCards.map((c, i) => (
-                            <div key={i} style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '6px 12px', fontSize: 12 }}>
+                            <div key={i} style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '6px 12px', fontSize: '0.75rem' }}>
                                 <span style={{ color: '#0369a1', fontWeight: 600 }}>{c.description?.replace('Карточка ЛУ: ', '') || `Карточка ${i + 1}`}</span>
                             </div>
                         ))}
@@ -2048,7 +2050,7 @@ const SummaryTab = ({ summary }) => {
                     <h3 style={sectionTitleStyle}> Лицензионные участки ({cells.length})</h3>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                         {cells.map(c => (
-                            <div key={c.cellRef} style={{ background: c.isAutoAssigned ? '#fef3c7' : '#dcfce7', border: `1px solid ${c.isAutoAssigned ? '#fcd34d' : '#86efac'}`, borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, color: c.isAutoAssigned ? '#92400e' : '#15803d' }}>
+                            <div key={c.cellRef} style={{ background: c.isAutoAssigned ? '#fef3c7' : '#dcfce7', border: `1px solid ${c.isAutoAssigned ? '#fcd34d' : '#86efac'}`, borderRadius: 8, padding: '6px 12px', fontSize: '0.75rem', fontWeight: 600, color: c.isAutoAssigned ? '#92400e' : '#15803d' }}>
                                 {c.cellRef}
                                 {c.auctionPrice > 0 && <span style={{ fontWeight: 400, marginLeft: 4 }}>({fmtNumber(c.auctionPrice)} млн)</span>}
                                 {c.isAutoAssigned && <span style={{ marginLeft: 4 }}>🎲</span>}
@@ -2078,10 +2080,10 @@ const SummaryTab = ({ summary }) => {
                     {research.byYear && research.byYear.length > 0 && (
                         <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                             {research.byYear.map(y => (
-                                <div key={y.year} style={{ background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: 8, padding: '8px 14px', fontSize: 13 }}>
+                                <div key={y.year} style={{ background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: 8, padding: '8px 14px', fontSize: '0.8125rem' }}>
                                     <span style={{ fontWeight: 700, color: '#6b21a8' }}>Год {y.year}</span>
                                     <span style={{ color: '#7c3aed', marginLeft: 8 }}>{fmtNumber(y.totalSpent)} млн</span>
-                                    <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: 11 }}>({y.lus?.length || 0} ЛУ)</span>
+                                    <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: '0.6875rem' }}>({y.lus?.length || 0} ЛУ)</span>
                                 </div>
                             ))}
                         </div>
@@ -2096,10 +2098,10 @@ const SummaryTab = ({ summary }) => {
                     {fieldwork.byYear && fieldwork.byYear.length > 0 && (
                         <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                             {fieldwork.byYear.map(y => (
-                                <div key={y.year} style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '8px 14px', fontSize: 13 }}>
+                                <div key={y.year} style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '8px 14px', fontSize: '0.8125rem' }}>
                                     <span style={{ fontWeight: 700, color: '#0369a1' }}>Год {y.year}</span>
                                     <span style={{ color: '#0284c7', marginLeft: 8 }}>{fmtNumber(y.totalCost)} млн</span>
-                                    <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: 11 }}>({y.lus?.length || 0} ЛУ)</span>
+                                    <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: '0.6875rem' }}>({y.lus?.length || 0} ЛУ)</span>
                                 </div>
                             ))}
                         </div>
@@ -2125,7 +2127,7 @@ const YearTab = ({ sessionId, teamId, availableYears }) => {
                 {availableYears.map(y => (
                     <button key={y} onClick={() => setSelectedYear(y)} style={{
                         padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                        fontSize: 13, fontWeight: 600,
+                        fontSize: '0.8125rem', fontWeight: 600,
                         background: y === selectedYear ? '#1e40af' : '#e2e8f0',
                         color: y === selectedYear ? '#fff' : '#374151',
                         transition: 'background 0.15s',
@@ -2175,7 +2177,7 @@ const YearTab = ({ sessionId, teamId, availableYears }) => {
                                 </div>
                             </>
                         ) : (
-                            <div style={{ fontSize: 13, color: '#94a3b8' }}>Событий за этот год нет</div>
+                            <div style={{ fontSize: '0.8125rem', color: '#94a3b8' }}>Событий за этот год нет</div>
                         )}
                     </section>
 
@@ -2198,7 +2200,7 @@ const YearTab = ({ sessionId, teamId, availableYears }) => {
                                 </div>
                             </>
                         ) : (
-                            <div style={{ fontSize: 13, color: '#94a3b8' }}>Полевые работы за этот год не проводились</div>
+                            <div style={{ fontSize: '0.8125rem', color: '#94a3b8' }}>Полевые работы за этот год не проводились</div>
                         )}
                     </section>
                 </div>
@@ -2234,17 +2236,17 @@ const AdminMonitoring = ({ sessionId, teamId, teamName, onClose }) => {
                 {/* Шапка */}
                 <div style={{ padding: '20px 28px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#1e3a5f', borderRadius: '16px 16px 0 0' }}>
                     <div>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: '#fff' }}>Мониторинг: {teamName}</div>
-                        <div style={{ fontSize: 12, color: '#93c5fd', marginTop: 2 }}>ID сессии: {sessionId}</div>
+                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff' }}>Мониторинг: {teamName}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#93c5fd', marginTop: 2 }}>ID сессии: {sessionId}</div>
                     </div>
-                    <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, padding: '6px 14px', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>
+                    <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, padding: '6px 14px', color: '#fff', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600 }}>
                         Закрыть ✕
                     </button>
                 </div>
                 {/* Вкладки */}
                 <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
                     {tabs.map(t => (
-                        <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ padding: '12px 22px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: activeTab === t.id ? '#1e40af' : '#64748b', borderBottom: activeTab === t.id ? '2.5px solid #1e40af' : '2.5px solid transparent', transition: 'all 0.15s' }}>
+                        <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ padding: '12px 22px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.8125rem', fontWeight: 600, color: activeTab === t.id ? '#1e40af' : '#64748b', borderBottom: activeTab === t.id ? '2.5px solid #1e40af' : '2.5px solid transparent', transition: 'all 0.15s' }}>
                             {t.label}
                         </button>
                     ))}
@@ -2276,25 +2278,25 @@ const BudgetBreakdown = ({ initial, current, lu = [], members = [], isOnline = f
         <div style={{ padding: '10px 14px', borderTop: '1px solid #f1f5f9', background: '#fff' }}>
             <div style={{ display: 'flex', gap: 0, border: '1px solid #e9ecef', borderRadius: 8, overflow: 'hidden', marginBottom: 8 }}>
                 <div style={{ flex: 1, padding: '8px 12px', borderRight: '1px solid #e9ecef' }}>
-                    <div style={{ fontSize: 11, color: '#6c757d', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Остаток</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: isLow ? '#dc2626' : '#16a34a' }}>{fmtV(current)} млн</div>
+                    <div style={{ fontSize: '0.6875rem', color: '#6c757d', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Остаток</div>
+                    <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: isLow ? '#dc2626' : '#16a34a' }}>{fmtV(current)} млн</div>
                 </div>
                 <div style={{ flex: 1, padding: '8px 12px', borderRight: '1px solid #e9ecef' }}>
-                    <div style={{ fontSize: 11, color: '#6c757d', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Суммарный расход</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#334155' }}>{fmtV(spent)} млн</div>
+                    <div style={{ fontSize: '0.6875rem', color: '#6c757d', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Суммарный расход</div>
+                    <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: '#334155' }}>{fmtV(spent)} млн</div>
                 </div>
             </div>
             <div style={{ height: 4, background: '#e9ecef', borderRadius: 4, overflow: 'hidden', marginBottom: 10 }}>
                 <div style={{ height: '100%', borderRadius: 4, background: isLow ? '#dc2626' : '#16a34a', width: `${pct}%`, transition: 'width 0.4s' }} />
             </div>
-            <div style={{ display: 'flex', gap: 16, fontSize: 13, color: '#374151' }}>
+            <div style={{ display: 'flex', gap: 16, fontSize: '0.8125rem', color: '#374151' }}>
                 <div><span style={{ color: '#6c757d', fontWeight: 600 }}>Участки: </span>{lu.length > 0 ? lu.join(', ') : '—'}</div>
             </div>
-            <div style={{ marginTop: 6, fontSize: 13, color: '#374151' }}>
+            <div style={{ marginTop: 6, fontSize: '0.8125rem', color: '#374151' }}>
                 <span style={{ color: '#6c757d', fontWeight: 600 }}>Состав: </span>
                 {members.length > 0 ? members.map(m => typeof m === 'string' ? m : (m.name || m.fullName || '')).filter(Boolean).join(', ') : '—'}
             </div>
-            <div style={{ marginTop: 6, fontSize: 13 }}>
+            <div style={{ marginTop: 6, fontSize: '0.8125rem' }}>
                 <span style={{ color: '#6c757d', fontWeight: 600 }}>Статус: </span>
                 <span style={{ color: isOnline ? '#16a34a' : '#6b7280', fontWeight: 600 }}>{isOnline ? 'Онлайн' : 'Офлайн'}</span>
             </div>
@@ -2416,7 +2418,7 @@ const TeamsMonitor = ({ sessionId }) => {
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
                                             {Object.entries({ 'Карточки ЛУ': teamData.spentByType?.lu_card, 'Аукционы': teamData.spentByType?.auction, 'НИР': teamData.spentByType?.research, 'Полевые': teamData.spentByType?.fieldwork, 'События': teamData.spentByType?.events }).map(([label, val]) =>
                                                 val > 0 ? (
-                                                    <div key={label} style={{ fontSize: 12, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 10px' }}>
+                                                    <div key={label} style={{ fontSize: '0.75rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 10px' }}>
                                                         <span style={{ color: '#64748b' }}>{label}: </span>
                                                         <span style={{ fontWeight: 700 }}>{Number(val || 0).toLocaleString('ru-RU')} млн</span>
                                                     </div>
@@ -2424,7 +2426,7 @@ const TeamsMonitor = ({ sessionId }) => {
                                             )}
                                         </div>
                                         {teamData.eventStats && (
-                                            <div style={{ fontSize: 12, color: '#374151', marginBottom: 10 }}>
+                                            <div style={{ fontSize: '0.75rem', color: '#374151', marginBottom: 10 }}>
                                                 <span style={{ color: '#6c757d', fontWeight: 600 }}>Верно/Ошибки: </span>
                                                 {teamData.eventStats.correctAnswers || 0} / {teamData.eventStats.wrongAnswers || 0}
                                             </div>
@@ -2708,10 +2710,10 @@ const DashboardTab = ({ sessions, globalStats }) => {
                                     <ResponsiveContainer width="100%" height={300}>
                                         <LineChart data={ratingLineData} margin={{ top: 12, right: 24, left: 0, bottom: 8 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                                            <XAxis dataKey="phase" tick={{ fontSize: 12, fill: '#475569', fontWeight: 600 }} />
-                                            <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                                            <XAxis dataKey="phase" tick={{ fontSize: '0.75rem', fill: '#475569', fontWeight: 600 }} />
+                                            <YAxis allowDecimals={false} tick={{ fontSize: '0.6875rem', fill: '#64748b' }} />
                                             <Tooltip content={<RatingTooltip />} />
-                                            <Legend iconType="circle" wrapperStyle={{ fontSize: 13, paddingTop: 8 }} />
+                                            <Legend iconType="circle" wrapperStyle={{ fontSize: '0.8125rem', paddingTop: 8 }} />
                                             {ratingTeams.map((t, i) => (
                                                 <Line
                                                     key={t.teamId}
@@ -2728,17 +2730,17 @@ const DashboardTab = ({ sessions, globalStats }) => {
 
                                     {/* Итоговая таблица мест */}
                                     <div style={{ marginTop: 16, borderTop: '1px solid #e2e8f0', paddingTop: 14 }}>
-                                        <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>Итоговые места</div>
+                                        <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>Итоговые места</div>
                                         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                                             {finalStandings.map((t) => {
                                                 const rank = standingRanks[t.teamId];
                                                 const color = RATING_LINE_COLORS[ratingTeams.findIndex(r => r.teamId === t.teamId) % RATING_LINE_COLORS.length];
                                                 return (
                                                     <div key={t.teamId} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc', border: `2px solid ${color}`, borderRadius: 10, padding: '8px 16px' }}>
-                                                        <span style={{ fontSize: 18 }}>{MEDAL[rank] || `#${rank}`}</span>
+                                                        <span style={{ fontSize: '1.125rem' }}>{MEDAL[rank] || `#${rank}`}</span>
                                                         <div>
-                                                            <div style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>{t.teamName}</div>
-                                                            <div style={{ fontSize: 12, color: '#64748b' }}>{t.totalPoints} очков</div>
+                                                            <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#1e293b' }}>{t.teamName}</div>
+                                                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{t.totalPoints} очков</div>
                                                         </div>
                                                     </div>
                                                 );
@@ -2773,7 +2775,7 @@ const DashboardTab = ({ sessions, globalStats }) => {
                                         <Tooltip content={<BudgetPieTooltip />} />
                                         <Legend
                                             formatter={(value, entry) => (
-                                                <span style={{ fontSize: 12, color: '#1e293b', fontWeight: 600 }}>
+                                                <span style={{ fontSize: '0.75rem', color: '#1e293b', fontWeight: 600 }}>
                                                     {value} — {mlnFmt(entry.payload.current)}
                                                 </span>
                                             )}
@@ -2789,10 +2791,10 @@ const DashboardTab = ({ sessions, globalStats }) => {
                                 <ResponsiveContainer width="100%" height={barH}>
                                     <BarChart data={spendData} layout="vertical" margin={CHART_MARGIN}>
                                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                                        <XAxis type="number" tickFormatter={v => `${(v / 1e6).toFixed(0)} млн`} tick={{ fontSize: 11, fill: '#64748b' }} />
-                                        <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12, fill: '#1e293b', fontWeight: 600 }} />
+                                        <XAxis type="number" tickFormatter={v => `${(v / 1e6).toFixed(0)} млн`} tick={{ fontSize: '0.6875rem', fill: '#64748b' }} />
+                                        <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: '0.75rem', fill: '#1e293b', fontWeight: 600 }} />
                                         <Tooltip content={<SpendTooltip />} />
-                                        <Legend iconType="square" wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                                        <Legend iconType="square" wrapperStyle={{ fontSize: '0.75rem', paddingTop: 8 }} />
                                         {SPEND_CATS.map(c => (
                                             <Bar key={c.key} dataKey={c.key} name={c.label} stackId="s" fill={c.color} maxBarSize={28}
                                                 radius={[0, 0, 0, 0]}
@@ -2825,12 +2827,12 @@ const DashboardTab = ({ sessions, globalStats }) => {
                                 const CorrectLabel = ({ x, y, width, height, index }) => {
                                     const d = normData[index];
                                     if (!d || width < 55) return null;
-                                    return <text x={x + width / 2} y={y + height / 2 + 4} textAnchor="middle" fill="#fff" fontSize={11} fontWeight={700}>{d.correct} ({d.correctPct}%)</text>;
+                                    return <text x={x + width / 2} y={y + height / 2 + 4} textAnchor="middle" fill="#fff" fontSize="0.6875rem" fontWeight={700}>{d.correct} ({d.correctPct}%)</text>;
                                 };
                                 const WrongLabel = ({ x, y, width, height, index }) => {
                                     const d = normData[index];
                                     if (!d || width < 55) return null;
-                                    return <text x={x + width / 2} y={y + height / 2 + 4} textAnchor="middle" fill="#fff" fontSize={11} fontWeight={700}>{d.wrong} ({d.wrongPct}%)</text>;
+                                    return <text x={x + width / 2} y={y + height / 2 + 4} textAnchor="middle" fill="#fff" fontSize="0.6875rem" fontWeight={700}>{d.wrong} ({d.wrongPct}%)</text>;
                                 };
                                 return (
                                     <div className="dash-chart-card">
@@ -2839,10 +2841,10 @@ const DashboardTab = ({ sessions, globalStats }) => {
                                         <ResponsiveContainer width="100%" height={Math.max(eventsData.length * 44 + 40, 180)}>
                                             <BarChart data={normData} layout="vertical" margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
                                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                                                <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 11, fill: '#64748b' }} />
-                                                <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12, fill: '#1e293b', fontWeight: 600 }} />
+                                                <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: '0.6875rem', fill: '#64748b' }} />
+                                                <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: '0.75rem', fill: '#1e293b', fontWeight: 600 }} />
                                                 <Tooltip content={<NormTooltip />} />
-                                                <Legend iconType="square" wrapperStyle={{ fontSize: 12, paddingTop: 6 }} />
+                                                <Legend iconType="square" wrapperStyle={{ fontSize: '0.75rem', paddingTop: 6 }} />
                                                 <Bar dataKey="correctPct" name="Правильно" stackId="s" fill="#22c55e" maxBarSize={28} isAnimationActive={false} label={<CorrectLabel />} />
                                                 <Bar dataKey="wrongPct" name="Неправильно" stackId="s" fill="#ef4444" maxBarSize={28} isAnimationActive={false} label={<WrongLabel />} />
                                             </BarChart>
@@ -2857,7 +2859,7 @@ const DashboardTab = ({ sessions, globalStats }) => {
                                 if (!allTopics.length) return (
                                     <div className="dash-chart-card dash-chart-card--wide">
                                         <div className="dash-chart-title">Сильные и слабые тематики команд</div>
-                                        <div style={{ color: '#94a3b8', padding: 16, fontSize: 13 }}>Данные появятся после того как команды ответят на карточки событий</div>
+                                        <div style={{ color: '#94a3b8', padding: 16, fontSize: '0.8125rem' }}>Данные появятся после того как команды ответят на карточки событий</div>
                                     </div>
                                 );
                                 return (
@@ -2865,12 +2867,12 @@ const DashboardTab = ({ sessions, globalStats }) => {
                                         <div className="dash-chart-title">Сильные и слабые тематики команд</div>
                                         <div className="dash-chart-hint">Правильных/всего (%) по теме. Зелёный — сильная, красный — слабая, серый — нет данных</div>
                                         <div style={{ overflowX: 'auto', marginTop: 12 }}>
-                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
                                                 <thead>
                                                     <tr>
                                                         <th style={{ padding: '6px 10px', textAlign: 'left', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '2px solid #e2e8f0' }}>Команда</th>
                                                         {allTopics.map(t => (
-                                                            <th key={t} style={{ padding: '6px 6px', textAlign: 'center', color: '#64748b', fontWeight: 600, fontSize: 11, borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }} title={t}>
+                                                            <th key={t} style={{ padding: '6px 6px', textAlign: 'center', color: '#64748b', fontWeight: 600, fontSize: '0.6875rem', borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }} title={t}>
                                                                 {t.length > 12 ? t.slice(0, 11) + '…' : t}
                                                             </th>
                                                         ))}
@@ -2883,16 +2885,16 @@ const DashboardTab = ({ sessions, globalStats }) => {
                                                             {allTopics.map(topic => {
                                                                 const d = team.topics[topic];
                                                                 if (!d) return (
-                                                                    <td key={topic} style={{ padding: '7px 6px', textAlign: 'center', background: '#f1f5f9', color: '#94a3b8', borderBottom: '1px solid #e2e8f0', fontSize: 11 }}>—</td>
+                                                                    <td key={topic} style={{ padding: '7px 6px', textAlign: 'center', background: '#f1f5f9', color: '#94a3b8', borderBottom: '1px solid #e2e8f0', fontSize: '0.6875rem' }}>—</td>
                                                                 );
                                                                 const total = d.correct + d.wrong;
                                                                 const pct = total > 0 ? Math.round(d.correct / total * 100) : 0;
                                                                 const bg = pct >= 70 ? `rgba(34,197,94,${0.15 + pct / 200})` : pct >= 40 ? `rgba(251,191,36,${0.2 + pct / 300})` : `rgba(239,68,68,${0.15 + (100 - pct) / 200})`;
                                                                 const color = pct >= 70 ? '#15803d' : pct >= 40 ? '#92400e' : '#991b1b';
                                                                 return (
-                                                                    <td key={topic} style={{ padding: '7px 6px', textAlign: 'center', background: bg, color, fontWeight: 700, borderBottom: '1px solid #e2e8f0', fontSize: 12, lineHeight: 1.3 }}>
+                                                                    <td key={topic} style={{ padding: '7px 6px', textAlign: 'center', background: bg, color, fontWeight: 700, borderBottom: '1px solid #e2e8f0', fontSize: '0.75rem', lineHeight: 1.3 }}>
                                                                         <div>{d.correct}/{total}</div>
-                                                                        <div style={{ fontSize: 11, opacity: 0.85 }}>({pct}%)</div>
+                                                                        <div style={{ fontSize: '0.6875rem', opacity: 0.85 }}>({pct}%)</div>
                                                                     </td>
                                                                 );
                                                             })}
@@ -2932,17 +2934,17 @@ const RatingTable = ({ title, hint, teams, metricKey, valueLabel, costKey }) => 
     return (
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
             <div style={{ padding: '14px 16px', background: '#1e3a5f', color: '#fff' }}>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>{title}</div>
-                {hint && <div style={{ fontSize: 12, color: '#93c5fd', marginTop: 2 }}>{hint}</div>}
+                <div style={{ fontWeight: 700, fontSize: '0.9375rem' }}>{title}</div>
+                {hint && <div style={{ fontSize: '0.75rem', color: '#93c5fd', marginTop: 2 }}>{hint}</div>}
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                     <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                        <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 12, color: '#64748b', fontWeight: 600 }}>Место</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 12, color: '#64748b', fontWeight: 600 }}>Команда</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right', fontSize: 12, color: '#64748b', fontWeight: 600 }}>Значение</th>
-                        {costKey && <th style={{ padding: '8px 12px', textAlign: 'right', fontSize: 12, color: '#64748b', fontWeight: 600 }}>Расходы, млн</th>}
-                        <th style={{ padding: '8px 12px', textAlign: 'center', fontSize: 12, color: '#64748b', fontWeight: 600 }}>Очки</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Место</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Команда</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Значение</th>
+                        {costKey && <th style={{ padding: '8px 12px', textAlign: 'right', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Расходы, млн</th>}
+                        <th style={{ padding: '8px 12px', textAlign: 'center', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Очки</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -2954,19 +2956,19 @@ const RatingTable = ({ title, hint, teams, metricKey, valueLabel, costKey }) => 
                         const rowBg = rank === 1 ? '#fefce8' : idx % 2 === 0 ? '#fff' : '#f8fafc';
                         return (
                             <tr key={t.teamId} style={{ background: rowBg, borderBottom: '1px solid #e2e8f0' }}>
-                                <td style={{ padding: '9px 12px', fontWeight: 700, fontSize: 14, color: rank <= 3 ? '#1e40af' : '#94a3b8' }}>
+                                <td style={{ padding: '9px 12px', fontWeight: 700, fontSize: '0.875rem', color: rank <= 3 ? '#1e40af' : '#94a3b8' }}>
                                     {MEDAL[rank] || (rank ? `#${rank}` : '—')}
                                 </td>
-                                <td style={{ padding: '9px 12px', fontWeight: 600, fontSize: 14, color: '#1e293b' }}>{t.teamName}</td>
-                                <td style={{ padding: '9px 12px', textAlign: 'right', fontSize: 13, color: '#475569' }}>
+                                <td style={{ padding: '9px 12px', fontWeight: 600, fontSize: '0.875rem', color: '#1e293b' }}>{t.teamName}</td>
+                                <td style={{ padding: '9px 12px', textAlign: 'right', fontSize: '0.8125rem', color: '#475569' }}>
                                     {valueLabel(t.metrics[metricKey])}
                                 </td>
                                 {costKey && (
-                                    <td style={{ padding: '9px 12px', textAlign: 'right', fontSize: 13, color: cost > 0 ? '#c2410c' : '#94a3b8' }}>
+                                    <td style={{ padding: '9px 12px', textAlign: 'right', fontSize: '0.8125rem', color: cost > 0 ? '#c2410c' : '#94a3b8' }}>
                                         {cost > 0 ? `−${fmtNumber(cost)}` : '—'}
                                     </td>
                                 )}
-                                <td style={{ padding: '9px 12px', textAlign: 'center', fontWeight: 700, fontSize: 14, color: '#1e40af' }}>{pts}</td>
+                                <td style={{ padding: '9px 12px', textAlign: 'center', fontWeight: 700, fontSize: '0.875rem', color: '#1e40af' }}>{pts}</td>
                             </tr>
                         );
                     })}
@@ -2991,18 +2993,18 @@ const TotalRatingTable = ({ teams }) => {
     return (
         <div style={{ background: '#fff', border: '2px solid #1e40af', borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
             <div style={{ padding: '14px 16px', background: '#1e40af', color: '#fff' }}>
-                <div style={{ fontWeight: 800, fontSize: 16 }}>Итоговый рейтинг</div>
-                <div style={{ fontSize: 12, color: '#bfdbfe', marginTop: 2 }}>Сумма очков по трём критериям</div>
+                <div style={{ fontWeight: 800, fontSize: '1rem' }}>Итоговый рейтинг</div>
+                <div style={{ fontSize: '0.75rem', color: '#bfdbfe', marginTop: 2 }}>Сумма очков по трём критериям</div>
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                     <tr style={{ background: '#f0f9ff', borderBottom: '2px solid #bae6fd' }}>
-                        <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Место</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Команда</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>ГРР (1–5)</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Проектирование (6–8)</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Управление (9–10)</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#1e40af', fontWeight: 700 }}>Итого очков</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: '0.8125rem', color: '#1e40af', fontWeight: 700 }}>Место</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: '0.8125rem', color: '#1e40af', fontWeight: 700 }}>Команда</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: '0.8125rem', color: '#1e40af', fontWeight: 700 }}>ГРР (1–5)</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: '0.8125rem', color: '#1e40af', fontWeight: 700 }}>Проектирование (6–8)</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: '0.8125rem', color: '#1e40af', fontWeight: 700 }}>Управление (9–10)</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: '0.8125rem', color: '#1e40af', fontWeight: 700 }}>Итого очков</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -3016,29 +3018,29 @@ const TotalRatingTable = ({ teams }) => {
                         const c1 = t.stageCosts?.stage1_5 ?? 0;
                         const c2 = t.stageCosts?.stage6_8 ?? 0;
                         const c3 = t.stageCosts?.stage9_10 ?? 0;
-                        const costStyle = { display: 'block', fontSize: 11, color: '#c2410c', marginTop: 2 };
+                        const costStyle = { display: 'block', fontSize: '0.6875rem', color: '#c2410c', marginTop: 2 };
                         return (
                             <tr key={t.teamId} style={{ background: rowBg, borderBottom: '1px solid #e2e8f0' }}>
-                                <td style={{ padding: '10px 14px', fontWeight: 700, fontSize: 14, color: r <= 3 ? '#1e40af' : '#64748b' }}>
+                                <td style={{ padding: '10px 14px', fontWeight: 700, fontSize: '0.875rem', color: r <= 3 ? '#1e40af' : '#64748b' }}>
                                     {MEDAL[r] || `#${r}`}
                                 </td>
-                                <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 14, color: '#1e293b' }}>{t.teamName}</td>
-                                <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#475569' }}>
+                                <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: '0.875rem', color: '#1e293b' }}>{t.teamName}</td>
+                                <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: '0.8125rem', color: '#475569' }}>
                                     {grr != null ? `${fmtNumber(Math.round(grr))} тыс. т.` : '—'}
-                                    <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: 11 }}>({pt('grr')} оч.)</span>
+                                    <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: '0.6875rem' }}>({pt('grr')} оч.)</span>
                                     {c1 > 0 && <span style={costStyle}>−{fmtNumber(c1)} млн</span>}
                                 </td>
-                                <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#475569' }}>
+                                <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: '0.8125rem', color: '#475569' }}>
                                     {s2 != null ? `${fmtNumber(s2)} т.` : '—'}
-                                    <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: 11 }}>({pt('stage2')} оч.)</span>
+                                    <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: '0.6875rem' }}>({pt('stage2')} оч.)</span>
                                     {c2 > 0 && <span style={costStyle}>−{fmtNumber(c2)} млн</span>}
                                 </td>
-                                <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, color: '#475569' }}>
+                                <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: '0.8125rem', color: '#475569' }}>
                                     {s3 != null ? `${fmtNumber(s3)} т.` : '—'}
-                                    <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: 11 }}>({pt('stage3')} оч.)</span>
+                                    <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: '0.6875rem' }}>({pt('stage3')} оч.)</span>
                                     {c3 > 0 && <span style={costStyle}>−{fmtNumber(c3)} млн</span>}
                                 </td>
-                                <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, fontSize: 15, color: '#1e40af' }}>{t.totalPoints}</td>
+                                <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, fontSize: '0.9375rem', color: '#1e40af' }}>{t.totalPoints}</td>
                             </tr>
                         );
                     })}

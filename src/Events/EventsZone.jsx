@@ -1,6 +1,6 @@
 // EventsZone.jsx — таймер читается из globalTimer store, локального setInterval нет
 import React, { useState, useEffect, useRef } from 'react';
-import { generateEventLine, CARD_TYPES, RISK_CARDS, OPPORTUNITY_QUESTIONS, RANDOM_CARDS, loadCustomQuestions } from './Eventsdata.js';
+import { generateEventLine, CARD_TYPES, RISK_CARDS, OPPORTUNITY_QUESTIONS, RANDOM_CARDS, loadEventPool } from './Eventsdata.js';
 import useGameStore from '../../store/gameStore';
 import GlobalTimer from '../GlobalTimer';
 import styles from './EventsZone.module.css';
@@ -9,23 +9,16 @@ import { getSocket } from '../apiHelpers';
 import EventsZoneTour from './Eventszonetour';
 
 
-// Lookup-таблицы: id карточки → актуальный URL картинки из живых констант.
-// Нужны потому что card.data.image персистируется в localStorage и может
-// содержать устаревший URL от предыдущей сборки.
-const _riskImgById = Object.fromEntries(RISK_CARDS.map(c => [c.id, c.image]));
-// Пул возможностей пополняется кастомными вопросами из БД после
-// loadCustomQuestions() — ищем по живому массиву, а не по снапшоту.
-const _oppImgById  = (id) => OPPORTUNITY_QUESTIONS.find(c => c.id === id)?.image ?? null;
-// Вопросы, где варианты ответа — картинки. Ищем в живом пуле по той же причине.
-const _oppOptionImgsById = (id) => OPPORTUNITY_QUESTIONS.find(c => c.id === id)?.optionImages ?? null;
-const _randImgById = Object.fromEntries(RANDOM_CARDS.map(c => [c.id, c.image]));
-const resolveCardImage = (card) => {
-  if (!card?.data?.id) return card?.data?.image ?? null;
-  if (card.type === CARD_TYPES.RISK)        return _riskImgById[card.data.id] ?? card.data.image ?? null;
-  if (card.type === CARD_TYPES.OPPORTUNITY) return _oppImgById(card.data.id)  ?? card.data.image ?? null;
-  if (card.type === CARD_TYPES.RANDOM)      return _randImgById[card.data.id] ?? card.data.image ?? null;
-  return card.data.image ?? null;
+// Ищем по id в пуле: card.data.image из localStorage может устареть.
+const _poolByType = {
+  [CARD_TYPES.RISK]: RISK_CARDS,
+  [CARD_TYPES.OPPORTUNITY]: OPPORTUNITY_QUESTIONS,
+  [CARD_TYPES.RANDOM]: RANDOM_CARDS,
 };
+const _poolItem = (card) => _poolByType[card?.type]?.find(c => c.id === card?.data?.id) ?? null;
+const resolveCardImage = (card) => _poolItem(card)?.image ?? card?.data?.image ?? null;
+const resolveOptionImages = (card) => _poolItem(card)?.optionImages ?? card?.data?.optionImages ?? null;
+const selectCountOf = (card) => card?.data?.selectCount || 1;
 
 const RISK_BACK_IMG = new URL('../assets/cards/card_back/risk.jpg', import.meta.url).href;
 const POSSIBILITY_BACK_IMG = new URL('../assets/cards/card_back/possibility.jpg', import.meta.url).href;
@@ -217,13 +210,19 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     return currentYearWorks.length > 0;
   };
 
-  // Кастомные вопросы приходят из БД — линии не генерируем, пока пул не готов
-  // (иначе сгенерируем только по базовым вопросам). При недоступном бэке
-  // loadCustomQuestions() тихо падает на снапшот question.json.
   const [poolReady, setPoolReady] = useState(false);
-  useEffect(() => {
-    loadCustomQuestions().finally(() => setPoolReady(true));
-  }, []);
+  const [poolError, setPoolError] = useState(false);
+  const loadPool = () => {
+    setPoolError(false);
+    loadEventPool().then(ok => {
+      setPoolReady(ok);
+      setPoolError(!ok);
+    });
+  };
+  useEffect(loadPool, []);
+
+  const [answerPending, setAnswerPending] = useState(false);
+  const [answerError, setAnswerError] = useState('');
 
   useEffect(() => {
     if (!poolReady) return;
@@ -430,15 +429,14 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     if ((events.skippedLines[luId] || []).length > 0) return;
     setSelectedCard({ lineIndex, cardIndex, card, cardKey, luId });
     setSelectedAnswers([]);
+    setAnswerError('');
   };
 
   // Обработка выбора варианта ответа (с ограничением по количеству)
   const handleSelectAnswer = (answerIndex) => {
     if (!selectedCard || selectedCard.card.type !== CARD_TYPES.OPPORTUNITY) return;
 
-    const { card } = selectedCard;
-    const isMultipleChoice = card.data.correctAnswer && Array.isArray(card.data.correctAnswer);
-    const maxSelections = isMultipleChoice ? card.data.correctAnswer.length : 1;
+    const maxSelections = selectCountOf(selectedCard.card);
 
     if (selectedAnswers.includes(answerIndex)) {
       setSelectedAnswers(selectedAnswers.filter(idx => idx !== answerIndex));
@@ -449,26 +447,31 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     }
   };
 
-  // ── Подтверждение ответа — записываем детальный ответ в lineStatsRef ──────
-  const handleConfirmAnswer = () => {
-    if (!selectedCard || selectedCard.card.type !== CARD_TYPES.OPPORTUNITY) return;
+  // ── Подтверждение ответа: проверяет сервер ──────────────────────────────
+  const checkAnswerOnServer = (questionId, selected) => new Promise((resolve) => {
+    const socket = getSocket();
+    if (!socket?.connected) return resolve(null);
+    socket.timeout(10000).emit('events:answer', { questionId, selected }, (err, res) => {
+      resolve(!err && res?.ok ? res : null);
+    });
+  });
+
+  const handleConfirmAnswer = async () => {
+    if (!selectedCard || selectedCard.card.type !== CARD_TYPES.OPPORTUNITY || answerPending) return;
 
     const { cardKey, card, luId, cardIndex } = selectedCard;
-    const isMultipleChoice = card.data.correctAnswer && Array.isArray(card.data.correctAnswer);
+    if (selectedAnswers.length !== selectCountOf(card)) return;
 
-    const expectedCount = isMultipleChoice ? card.data.correctAnswer.length : 1;
-    if (selectedAnswers.length !== expectedCount) return;
-
-    let isCorrect = false;
-    if (isMultipleChoice) {
-      isCorrect = card.data.correctAnswer.every(correctIdx =>
-        selectedAnswers.includes(correctIdx)
-      ) && selectedAnswers.length === card.data.correctAnswer.length;
-    } else {
-      isCorrect = selectedAnswers[0] === card.data.correctAnswer;
+    setAnswerPending(true);
+    setAnswerError('');
+    const result = await checkAnswerOnServer(card.data.id, [...selectedAnswers]);
+    setAnswerPending(false);
+    if (!result) {
+      setAnswerError('Не удалось проверить ответ: нет связи с сервером. Попробуйте ещё раз.');
+      return;
     }
 
-    const pts = isCorrect ? card.data.points : 0;
+    const { isCorrect, points: pts } = result;
 
     if (!lineStatsRef.current[luId]) {
       lineStatsRef.current[luId] = { correct: 0, wrong: 0, moneyDelta: 0, cardAnswers: [], _saved: false };
@@ -481,10 +484,10 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     lineStatsRef.current[luId].cardAnswers.push({
       cardIndex,
       cardType: 'opportunity',
+      questionId: card.data.id,
       question: card.data.question || '',
       options: card.data.options || [],
       selectedAnswers: [...selectedAnswers],
-      correctAnswer: card.data.correctAnswer,
       isCorrect,
       points: pts,
       skipped: false,
@@ -644,10 +647,10 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
         lineStatsRef.current[line.luId].cardAnswers.push({
           cardIndex: ci,
           cardType: 'opportunity',
+          questionId: card.data?.id,
           question: card.data?.question || '',
           options: card.data?.options || [],
           selectedAnswers: [],
-          correctAnswer: card.data?.correctAnswer ?? null,
           isCorrect: false,
           points: 0,
           skipped: true,
@@ -894,6 +897,13 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
         </div>
       </div>
 
+      {poolError && (
+        <div className={styles.poolError}>
+          Не удалось загрузить карточки событий с сервера.
+          <button className={styles.researchControlBtn} onClick={loadPool}>Повторить</button>
+        </div>
+      )}
+
       <div className={styles.luSection}>
         <h2 className={styles.panelTitle}>Зона событий</h2>
         <div className={styles.luSectionLabel}>Выберите участок:</div>
@@ -999,13 +1009,10 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
         <div className={styles.cardModalOverlay}>
           <div className={`${styles.cardModal} ${selectedCard?.card?.type === CARD_TYPES.RANDOM ? styles.cardModalRandom : ''}`} onClick={e => e.stopPropagation()}>
             {selectedCard.card.type === CARD_TYPES.OPPORTUNITY && (() => {
-              const isMultipleChoice = selectedCard.card.data.correctAnswer &&
-                Array.isArray(selectedCard.card.data.correctAnswer);
-              const maxSelections = isMultipleChoice ? selectedCard.card.data.correctAnswer.length : 1;
-              const canConfirm = selectedAnswers.length === maxSelections;
-              const optionImages = _oppOptionImgsById(selectedCard.card.data.id)
-                ?? selectedCard.card.data.optionImages
-                ?? null;
+              const maxSelections = selectCountOf(selectedCard.card);
+              const isMultipleChoice = maxSelections > 1;
+              const canConfirm = selectedAnswers.length === maxSelections && !answerPending;
+              const optionImages = resolveOptionImages(selectedCard.card);
 
               return (
                 <div className={styles.opportunityModal}>
@@ -1050,9 +1057,10 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
                         onClick={handleConfirmAnswer}
                         disabled={!canConfirm}
                       >
-                        Подтвердить ответ
+                        {answerPending ? 'Проверяем…' : 'Подтвердить ответ'}
                       </button>
                     </div>
+                    {answerError && <p className={styles.answerError}>{answerError}</p>}
                     <p className={styles.pointsInfo}>За правильный ответ: +{selectedCard.card.data.points}</p>
                   </div>
                 </div>
