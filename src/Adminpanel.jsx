@@ -10,7 +10,7 @@ import {
 import { MOBILIZATION_WORKS, normalizeResearchConfig } from './Research/researchData';
 import { DEFAULT_LU_CARDS } from './RegionMap/luCards';
 import { ROWS as FACIES_ROWS, rcToCellRef } from './RegionMap/faciesUtils';
-import { FACIES_PRESETS, getFaciesPresetById } from './RegionMap/faciesPresets';
+import { FACIES_PRESETS, FACIES_ENABLED, getFaciesPresetById } from './RegionMap/faciesPresets';
 import { io as socketIO } from 'socket.io-client';
 import QuestionsTab from './Questions/QuestionsTab';
 import {
@@ -1221,10 +1221,12 @@ const CreateSessionTab = ({ onGoToControl }) => {
                 >
                     <LUCardsEditor value={form.luCards} onChange={v => sf('luCards', v)} />
                 </CollapsibleSection>
-                <CollapsibleSection title="Фации карты региона">
-                    <FaciesPresetPicker value={form.faciesPresetId} onChange={v => sf('faciesPresetId', v)} />
-                </CollapsibleSection>
-                {error && <div className="form-error">{error}</div>}
+                {FACIES_ENABLED && (
+                    <CollapsibleSection title="Фации карты региона">
+                        <FaciesPresetPicker value={form.faciesPresetId} onChange={v => sf('faciesPresetId', v)} />
+                    </CollapsibleSection>
+                )}
+                {error &&<div className="form-error">{error}</div>}
                 <button className="create-btn" onClick={handleCreate} disabled={loading}>
                     {loading ? 'Создание…' : 'Создать сессию'}
                 </button>
@@ -1364,9 +1366,11 @@ const PresetForm = ({ initial, onSave, onCancel, saving, existingNames = [] }) =
                         onBaselineChange={setResearchBaseline}
                     />
                 </CollapsibleSection>
-                <CollapsibleSection title="Фации карты региона">
-                    <FaciesPresetPicker value={form.faciesPresetId} onChange={v => sf('faciesPresetId', v)} />
-                </CollapsibleSection>
+                {FACIES_ENABLED && (
+                    <CollapsibleSection title="Фации карты региона">
+                        <FaciesPresetPicker value={form.faciesPresetId} onChange={v => sf('faciesPresetId', v)} />
+                    </CollapsibleSection>
+                )}
                 <div style={{ display: 'flex', gap: 10 }}>
                     <button className="create-btn" onClick={handleSave} disabled={saving}>
                         {saving ? 'Сохранение…' : 'Сохранить шаблон'}

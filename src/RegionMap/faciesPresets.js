@@ -4,6 +4,9 @@
 
 import { parseFaciesPreset } from './faciesUtils.js';
 
+// Временно выключено — вернуть true, чтобы включить фации
+export const FACIES_ENABLED = false;
+
 const FACIES_PRESETS_RAW = [
     {
         id: 'facies_1',

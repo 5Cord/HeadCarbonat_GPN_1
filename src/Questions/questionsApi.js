@@ -9,6 +9,10 @@ import {
 export const MIN_ANSWERS = 2;
 export const MAX_ANSWERS = 5;
 export const PAGE_SIZE = 10;
+export const QUESTION_SETS = [
+    { id: 'main', label: 'Основной набор' },
+    { id: 'branch', label: 'Ответвление (скрыты в игре)' },
+];
 export const DIFFICULTY_LEVELS = [1, 2, 3];
 export const DIFFICULTY_LABELS = {
     1: 'Лёгкий (1)',
@@ -24,6 +28,7 @@ const normDifficulty = (v) => (DIFFICULTY_LEVELS.includes(Number(v)) ? Number(v)
 const gameToModel = (q) => ({
     id: q.id,
     source: q.source === 'base' ? 'base' : 'custom',
+    questionSet: q.questionSet === 'branch' ? 'branch' : 'main',
     title: String(q.title ?? '').trim(),
     text: String(q.question ?? '').trim(),
     image: resolveApiUrl(q.image) ?? null,
@@ -54,8 +59,8 @@ const modelToGame = (model) => {
 
 // ── Публичный CRUD ───────────────────────────────────────────────────────────
 // Постраничная (ленивая) выборка для бесконечного скролла.
-export async function getQuestionsPage({ offset = 0, limit = PAGE_SIZE, search = '', topic = '', difficulty = '' } = {}) {
-    const page = await getAdminQuestions({ offset, limit, search, topic, difficulty });
+export async function getQuestionsPage({ offset = 0, limit = PAGE_SIZE, search = '', topic = '', difficulty = '', set = '' } = {}) {
+    const page = await getAdminQuestions({ offset, limit, search, topic, difficulty, set });
     return { ...page, items: (page.items || []).map(gameToModel) };
 }
 

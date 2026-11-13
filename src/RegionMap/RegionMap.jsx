@@ -9,7 +9,7 @@ import { getSocket } from '../apiHelpers';
 import { getLastSuccessfulSceneImage, getSceneImageFromMeta, getScenario, resolveSceneImage, WORK_SCENE_MAP } from '../Research/sceneUtils';
 import { resolveLicenseUnits } from './luCards';
 import { getFacies, getFaciesNodes } from './faciesUtils';
-import { getFaciesConfigById } from './faciesPresets';
+import { getFaciesConfigById, FACIES_ENABLED } from './faciesPresets';
 import NeftImg from '../assets/cards/Neft.png';
 
 const DEFAULT_CASE_INTRO = {
@@ -275,7 +275,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
   // Фации карты региона — шаблон, выбранный админом при создании сессии
   const faciesConfig = useMemo(
-    () => getFaciesConfigById(sessionConfig.faciesPresetId),
+    () => (FACIES_ENABLED ? getFaciesConfigById(sessionConfig.faciesPresetId) : null),
     [sessionConfig.faciesPresetId],
   );
   const faciesNodes = useMemo(() => getFaciesNodes(faciesConfig), [faciesConfig]);
@@ -765,6 +765,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
           if (!res?.ok) {
             if (res?.error === 'LIMIT') showAlert('Лимит', `Достигнут лимит ${MAX_LUS_PER_TEAM} участков.`);
             else if (res?.error === 'ALREADY_OWNED') showAlert('Уже ваш', 'Этот участок уже ваш.');
+            else if (res?.error === 'CELL_TAKEN') showAlert('Участок занят', `Команда уже успела приобрести участок ${cellRef}. Выберите другой свободный участок.`);
             else if (res?.error === 'SCENARIO_CELL') showAlert('Участок недоступен', `Участок ${cellRef} занят случайным сценарием и не может быть куплен.`);
             else if (res?.action === 'auction') showAlert('Аукцион', `Участок занят, запущен аукцион за ${cellRef}`);
           }
@@ -780,6 +781,8 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
             // auction:created придёт через WS
           } else if (res?.error === 'LIMIT') {
             showAlert('Лимит', `Достигнут лимит ${MAX_LUS_PER_TEAM} участков.`);
+          } else if (res?.error === 'CELL_TAKEN') {
+            showAlert('Участок занят', `Участок ${cellRef} уже принадлежит другой команде. Во время допокупки аукционы недоступны.`);
           } else if (res?.error) {
             socket.emit('auction:register', { cellRef }, (regRes) => {
               if (!regRes?.ok) showAlert('Ошибка', regRes?.error || 'Не удалось зарегистрироваться на аукцион.');

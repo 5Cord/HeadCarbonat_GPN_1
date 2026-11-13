@@ -15,6 +15,7 @@ const ROLES = [
     { value: 'Геохимик' },
     { value: 'Другое' },
 ];
+const MAX_TEAM_MEMBERS = 7;
 
 // ── Шаг 1: ввод кода сессии ───────────────────────────────────────────────────
 
@@ -32,7 +33,7 @@ const readLastTeam = () => (localStorage.getItem('auth_token') ? readSavedTeam()
 const normalizeMembers = (list) => {
     const arr = (Array.isArray(list) ? list : []).filter(m => m?.name);
     if (arr.length === 0) return [{ name: '', role: 'Геолог' }];
-    return arr.slice(0, 5).map(m => ({
+    return arr.slice(0, MAX_TEAM_MEMBERS).map(m => ({
         name: m.name,
         role: ROLES.some(r => r.value === m.role) ? m.role : 'Геолог',
     }));
@@ -134,7 +135,7 @@ const StepTeam = ({ sessionCode, sessionConfig, onJoin }) => {
     const [error, setError]       = useState('');
 
     const handleSizeChange = (size) => {
-        const n = Math.max(1, Math.min(5, size));
+        const n = Math.max(1, Math.min(MAX_TEAM_MEMBERS, size));
         setTeamSize(n);
         setMembers(prev => Array.from({ length: n }, (_, i) =>
             prev[i] ?? { name: '', role: 'Геолог' }
@@ -232,7 +233,7 @@ const StepTeam = ({ sessionCode, sessionConfig, onJoin }) => {
             <div className="team-size-block">
                 <label className="ts-label">Количество участников</label>
                 <div className="size-pills">
-                    {[1, 2, 3, 4, 5].map(n => (
+                    {Array.from({ length: MAX_TEAM_MEMBERS }, (_, i) => i + 1).map(n => (
                         <button
                             key={n}
                             className={`size-pill ${teamSize === n ? 'active' : ''}`}

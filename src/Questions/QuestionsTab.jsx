@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     getQuestionsPage, createQuestion, updateQuestion, deleteQuestion, getTopics,
     getTopicsAdmin, addTopic, renameTopic, removeTopic,
-    MIN_ANSWERS, MAX_ANSWERS, PAGE_SIZE, DIFFICULTY_LEVELS, DIFFICULTY_LABELS,
+    MIN_ANSWERS, MAX_ANSWERS, PAGE_SIZE, DIFFICULTY_LEVELS, DIFFICULTY_LABELS, QUESTION_SETS,
 } from './questionsApi';
 import './QuestionsTab.css';
 
@@ -283,6 +283,7 @@ const QuestionsTab = () => {
     const [search, setSearch] = useState('');
     const [topicFilter, setTopicFilter] = useState('');
     const [difficultyFilter, setDifficultyFilter] = useState('');
+    const [setFilter, setSetFilter] = useState('main');
     const [showTopics, setShowTopics] = useState(false);
 
     const sentinelRef = useRef(null);
@@ -301,7 +302,7 @@ const QuestionsTab = () => {
         if (fresh) setLoading(true); else setLoadingMore(true);
         try {
             const res = await getQuestionsPage({
-                offset, limit: PAGE_SIZE, search, topic: topicFilter, difficulty: difficultyFilter,
+                offset, limit: PAGE_SIZE, search, topic: topicFilter, difficulty: difficultyFilter, set: setFilter,
             });
             setItems(prev => (fresh ? res.items : [...prev, ...res.items]));
             setTotal(res.total);
@@ -311,7 +312,7 @@ const QuestionsTab = () => {
         } finally {
             if (fresh) setLoading(false); else setLoadingMore(false);
         }
-    }, [search, topicFilter, difficultyFilter]);
+    }, [search, topicFilter, difficultyFilter, setFilter]);
 
     useEffect(() => { reloadTopics(); }, [reloadTopics]);
 
@@ -376,6 +377,10 @@ const QuestionsTab = () => {
                     <option value="">Любая сложность</option>
                     {DIFFICULTY_LEVELS.map(d => <option key={d} value={d}>{DIFFICULTY_LABELS[d]}</option>)}
                 </select>
+                <select className="qf-input" value={setFilter} onChange={e => setSetFilter(e.target.value)}>
+                    {QUESTION_SETS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                    <option value="">Все наборы</option>
+                </select>
             </div>
 
             {loading ? (
@@ -394,6 +399,9 @@ const QuestionsTab = () => {
                                         <span className={`qt-badge qt-badge-src qt-badge-src-${item.source}`}>
                                             {item.source === 'base' ? 'базовый' : 'добавлен'}
                                         </span>
+                                        {item.questionSet === 'branch' && (
+                                            <span className="qt-badge qt-badge-set-branch">ответвление · скрыт в игре</span>
+                                        )}
                                     </div>
                                     {item.title && <div className="qt-card-title">{item.title}</div>}
                                     <div className="qt-card-text">{item.text}</div>
