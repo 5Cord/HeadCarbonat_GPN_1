@@ -233,18 +233,21 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
 
   const autoSave = (confirmedSelections) => {
     const cost = calculateTotalCost(confirmedSelections, avail);
-    const newBudget = player.budget - cost;
+    let newBudget;
 
     useGameStore.setState(st => {
       const prev = st.fieldWork.selectionsByLU[luId] || {};
+      const previousCost = calculateTotalCost(prev.selectionsByYear?.[globalYear] || {}, avail);
+      const change = cost - previousCost;
+      newBudget = st.player.budget - change;
       return {
         player: { ...st.player, budget: newBudget },
         fieldWork: {
           ...st.fieldWork,
-          totalSpent: (st.fieldWork.totalSpent || 0) + cost,
+          totalSpent: (st.fieldWork.totalSpent || 0) + change,
           totalSpentByYear: {
             ...st.fieldWork.totalSpentByYear,
-            [globalYear]: (st.fieldWork.totalSpentByYear?.[globalYear] || 0) + cost,
+            [globalYear]: (st.fieldWork.totalSpentByYear?.[globalYear] || 0) + change,
           },
           selectionsByLU: {
             ...st.fieldWork.selectionsByLU,

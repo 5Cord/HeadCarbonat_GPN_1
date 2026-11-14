@@ -105,6 +105,22 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   const socket = getSocket();
   const isOnline = !!(socket?.connected && player.sessionId);
 
+  const persistResearchProgress = (luId, progress, year = globalYear) => {
+    if (!isOnline || !progress) return;
+    socket.emit('research:save', {
+      luId, year,
+      data: {
+        columnId: progress.columnsByYear?.[year] || null,
+        purchasedWorks: progress.purchasedWorksByYear?.[year] || [],
+        successRates: progress.successRatesByYear?.[year] || {},
+        totalSpent: progress.spentByYear?.[year] || 0,
+        skipped: (progress.skippedYears || []).includes(year),
+      },
+    }, res => {
+      if (!res?.ok) console.warn('research:save failed:', res?.error);
+    });
+  };
+
   const [showYearResultsModal, setShowYearResultsModal] = useState(false);
   const [resultsTimeRemaining, setResultsTimeRemaining] = useState(RESULTS_DURATION);
   const resultsTimerRef = useRef(null);
@@ -628,6 +644,8 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
             showAlert?.('Ошибка', res?.error || 'Не удалось списать бюджет');
             return;
           }
+          breakdown.forEach(({ luId }) =>
+            persistResearchProgress(luId, useGameStore.getState().research.progressByLU[luId]));
         });
       }
 
@@ -673,6 +691,8 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       }, (res) => {
         if (!res?.ok) {
           showAlert?.('Ошибка', res?.error || 'Не удалось списать бюджет');
+          } else {
+            persistResearchProgress(luId, useGameStore.getState().research.progressByLU[luId]);
         }
       });
     }
@@ -705,6 +725,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       updProg[luId] = { ...p, columnsByYear: { ...(p.columnsByYear || {}), [globalYear]: selectedCol } };
     });
     useGameStore.setState({ research: { ...research, progressByLU: updProg } });
+    selectedLUs.forEach(luId => persistResearchProgress(luId, updProg[luId]));
     resetSelection();
   };
 
@@ -715,6 +736,9 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     );
     if (skippable.length === 0) return;
     skippable.forEach(luId => markYearSkippedForLU?.(luId, globalYear));
+    skippable.forEach(luId => persistResearchProgress(
+      luId, useGameStore.getState().research.progressByLU[luId]
+    ));
     const remaining = selectedLUs.filter(id => !skippable.includes(id));
     if (remaining.length === 0) { resetSelection(); }
     else {

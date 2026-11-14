@@ -2025,6 +2025,8 @@ const SummaryTab = ({ summary }) => {
                         { key: 'research', label: 'НИР' },
                         { key: 'fieldwork', label: 'Полевые работы' },
                         { key: 'events', label: 'События (расходы)' },
+                        { key: 'pipeline', label: 'Нефтепровод' },
+                        { key: 'other', label: 'Прочее' },
                     ].map(({ key, label }) => (
                         <MetricCard key={key} label={label} value={`${fmtNumber(spentByType[key])} млн`} />
                     ))}
@@ -2152,7 +2154,7 @@ const YearTab = ({ sessionId, teamId, availableYears }) => {
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                             <MetricCard label="Всего за год" value={`${fmtNumber(data.budget.totalSpentThisYear)} млн`} color="#dc2626" accent />
                             {Object.entries(data.budget.spentByType).filter(([, v]) => v > 0).map(([k, v]) => {
-                                const labels = { research: 'НИРы', events: 'События', fieldwork: 'Полевые', other: 'Прочее' };
+                                const labels = { luCard: 'Карточки ЛУ', auction: 'Аукцион', research: 'НИРы', events: 'События', fieldwork: 'Полевые', pipeline: 'Нефтепровод', other: 'Прочее' };
                                 return <MetricCard key={k} label={labels[k] || k} value={`${fmtNumber(v)} млн`} />;
                             })}
                         </div>
@@ -2226,7 +2228,8 @@ const AdminMonitoring = ({ sessionId, teamId, teamName, onClose }) => {
         if (summary?.research?.byYear) summary.research.byYear.forEach(y => years.add(y.year));
         if (summary?.fieldwork?.byYear) summary.fieldwork.byYear.forEach(y => years.add(y.year));
         const arr = Array.from(years).sort((a, b) => a - b);
-        return arr.length > 0 ? arr : [1, 2, 3];
+        const currentYear = Math.min(10, Math.max(1, Number(summary?.currentYear) || 1));
+        return [...new Set([...Array.from({ length: currentYear }, (_, i) => i + 1), ...arr])].sort((a, b) => a - b);
     }, [summary]);
 
     const tabs = [
@@ -2272,8 +2275,8 @@ const AdminMonitoring = ({ sessionId, teamId, teamName, onClose }) => {
 };
 
 // ── BudgetBreakdown (компактный в карточке команды) ───────────────────────────
-const BudgetBreakdown = ({ initial, current, lu = [], members = [], isOnline = false }) => {
-    const spent = initial - current;
+const BudgetBreakdown = ({ initial, current, spentByType = {}, lu = [], members = [], isOnline = false }) => {
+    const spent = Object.values(spentByType).reduce((sum, value) => sum + Number(value || 0), 0);
     const pct = initial > 0 ? Math.max(0, Math.min(100, (current / initial) * 100)) : 0;
     const isLow = current < initial * 0.2;
     const fmtV = (val) => Number(val || 0).toLocaleString('ru-RU', { maximumFractionDigits: 0 });
@@ -2466,7 +2469,7 @@ const SPEND_CATS = [
     { key: 'fieldwork', label: 'Полевые работы', color: '#0ea5e9' },
     { key: 'events', label: 'События', color: '#ec4899' },
     { key: 'pipeline', label: 'Нефтепровод', color: '#92400e' },
-    { key: 'other', label: 'Инф. карточки', color: '#94a3b8' },
+    { key: 'other', label: 'Прочее', color: '#94a3b8' },
 ];
 
 const mlnFmt = v => `${Number(v || 0).toLocaleString('ru-RU', { maximumFractionDigits: 0 })} млн`;
@@ -2562,13 +2565,15 @@ const DashboardTab = ({ sessions, globalStats }) => {
     const [topicData, setTopicData] = useState(null);
     const [loading, setLoading] = useState(false);
 
-    const load = async (sid) => {
+    const load = useCallback(async (sid, silent = false) => {
         if (!sid) return;
-        setLoading(true);
-        setTeamsData(null);
-        setExpMap({});
-        setRatingData(null);
-        setTopicData(null);
+        if (!silent) {
+            setLoading(true);
+            setTeamsData(null);
+            setExpMap({});
+            setRatingData(null);
+            setTopicData(null);
+        }
         try {
             const [sessJson, ratingJson, topicJson] = await Promise.all([
                 apiAction(`/api/admin/sessions/${sid}`, 'GET'),
@@ -2601,8 +2606,14 @@ const DashboardTab = ({ sessions, globalStats }) => {
             setExpMap(map);
             if (ratingJson?.ok) setRatingData(ratingJson);
             if (topicJson?.ok) setTopicData(topicJson);
-        } catch (e) { console.error(e); } finally { setLoading(false); }
-    };
+        } catch (e) { console.error(e); } finally { if (!silent) setLoading(false); }
+    }, []);
+
+    useEffect(() => {
+        if (!sessId) return undefined;
+        const timer = setInterval(() => load(sessId, true), 10000);
+        return () => clearInterval(timer);
+    }, [sessId, load]);
 
     const handleSessChange = (sid) => { setSessId(sid); load(sid); };
 
@@ -2623,30 +2634,34 @@ const DashboardTab = ({ sessions, globalStats }) => {
         return { name: t.name, ...Object.fromEntries(SPEND_CATS.map(c => [c.key, sp[c.key] || 0])) };
     });
 
-    const eventsData = sorted
-        .filter(t => expMap[t.id]?.eventStats)
-        .map(t => ({
-            name: t.name,
-            correct: expMap[t.id].eventStats.correctAnswers || 0,
-            wrong: expMap[t.id].eventStats.wrongAnswers || 0,
-        }));
-
     const barH = Math.max(teams.length * 52 + 40, 200);
 
     // ── Данные для графика рейтинга по фазам ──
     const PHASES = [
-        { key: 'start', label: 'Старт', components: [] },
-        { key: 'grr', label: 'ГРР (1–5 год)', components: ['grr'] },
-        { key: 'stage2', label: 'Проектирование (6–8 год)', components: ['grr', 'stage2'] },
-        { key: 'stage3', label: 'Управление (9–10 год)', components: ['grr', 'stage2', 'stage3'] },
-        { key: 'final', label: 'Итоговый рейтинг', components: ['grr', 'stage2', 'stage3'] },
+        { key: 'start', label: 'Старт' },
+        { key: 'grr', label: 'ГРР (1–5 год)' },
+        { key: 'development', label: 'Проектирование (6–8 год)' },
+        { key: 'management', label: 'Управление (9–10 год)' },
+        { key: 'final', label: 'Итоговый рейтинг' },
     ];
 
     const ratingTeams = ratingData?.teams ?? [];
+    const extraCostsData = ratingTeams.map(t => ({
+        name: t.teamName,
+        expenses: t.metrics.extraCosts.expenses,
+        bonuses: t.metrics.extraCosts.bonuses,
+        total: t.metrics.extraCosts.value,
+    }));
+    const eventsData = ratingTeams.map(t => ({
+        name: t.teamName,
+        correct: t.metrics.answerAccuracy.correct,
+        wrong: t.metrics.answerAccuracy.answered - t.metrics.answerAccuracy.correct,
+        accuracy: t.metrics.answerAccuracy.value,
+    }));
     const ratingLineData = PHASES.map(phase => {
         const row = { phase: phase.label };
         ratingTeams.forEach(t => {
-            row[t.teamName] = phase.components.reduce((s, c) => s + (t.ranking[c]?.points || 0), 0);
+            row[t.teamName] = phase.key === 'start' ? 0 : (t.phasePoints?.[phase.key] ?? 0);
         });
         return row;
     });
@@ -2795,7 +2810,7 @@ const DashboardTab = ({ sessions, globalStats }) => {
                                 <ResponsiveContainer width="100%" height={barH}>
                                     <BarChart data={spendData} layout="vertical" margin={CHART_MARGIN}>
                                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                                        <XAxis type="number" tickFormatter={v => `${(v / 1e6).toFixed(0)} млн`} tick={{ fontSize: '0.6875rem', fill: '#64748b' }} />
+                                        <XAxis type="number" tickFormatter={v => `${Number(v).toLocaleString('ru-RU')} млн`} tick={{ fontSize: '0.6875rem', fill: '#64748b' }} />
                                         <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: '0.75rem', fill: '#1e293b', fontWeight: 600 }} />
                                         <Tooltip content={<SpendTooltip />} />
                                         <Legend iconType="square" wrapperStyle={{ fontSize: '0.75rem', paddingTop: 8 }} />
@@ -2808,11 +2823,30 @@ const DashboardTab = ({ sessions, globalStats }) => {
                                 </ResponsiveContainer>
                             </div>
 
-                            {/* ── 4. Точность событий — нормированная диаграмма с накоплением ── */}
+                            {extraCostsData.length > 0 && (
+                                <div className="dash-chart-card dash-chart-card--wide">
+                                    <div className="dash-chart-title">Дополнительные затраты</div>
+                                    <div className="dash-chart-hint">Итог = затраты − бонусы; меньше = лучше</div>
+                                    <ResponsiveContainer width="100%" height={Math.max(extraCostsData.length * 52 + 40, 200)}>
+                                        <BarChart data={extraCostsData} layout="vertical" margin={CHART_MARGIN}>
+                                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                                            <XAxis type="number" tickFormatter={v => `${fmtNumber(v)} млн`} tick={{ fontSize: '0.6875rem', fill: '#64748b' }} />
+                                            <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: '0.75rem', fill: '#1e293b', fontWeight: 600 }} />
+                                            <Tooltip formatter={(value, name) => [`${fmtNumber(value)} млн`, name]} />
+                                            <Legend iconType="square" wrapperStyle={{ fontSize: '0.75rem', paddingTop: 8 }} />
+                                            <Bar dataKey="expenses" name="Затраты" fill="#ef4444" maxBarSize={18} />
+                                            <Bar dataKey="bonuses" name="Бонусы" fill="#22c55e" maxBarSize={18} />
+                                            <Bar dataKey="total" name="Итог" fill="#2563eb" maxBarSize={18} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+
+                            {/* ── 5. Точность ответов — нормированная диаграмма с накоплением ── */}
                             {eventsData.length > 0 && (() => {
                                 const normData = eventsData.map(d => {
                                     const total = (d.correct || 0) + (d.wrong || 0);
-                                    const correctPct = total > 0 ? Math.round((d.correct / total) * 100) : 0;
+                                    const correctPct = d.accuracy ?? 0;
                                     const wrongPct = total > 0 ? 100 - correctPct : 0;
                                     return { name: d.name, correctPct, wrongPct, correct: d.correct, wrong: d.wrong, total };
                                 });
@@ -2822,8 +2856,8 @@ const DashboardTab = ({ sessions, globalStats }) => {
                                     return (
                                         <div className="dash-tooltip">
                                             <div className="dash-tooltip-name">{label}</div>
-                                            <div style={{ color: '#16a34a' }}>Правильно: <strong>{d.correct}</strong> ({d.correctPct}%)</div>
-                                            <div style={{ color: '#dc2626' }}>Неправильно: <strong>{d.wrong}</strong> ({d.wrongPct}%)</div>
+                                            <div style={{ color: '#16a34a' }}>Правильно: <strong>{d.correct}</strong> ({d.correctPct.toFixed(1)}%)</div>
+                                            <div style={{ color: '#dc2626' }}>Неправильно: <strong>{d.wrong}</strong> ({d.wrongPct.toFixed(1)}%)</div>
                                             <div style={{ marginTop: 4, borderTop: '1px solid #e2e8f0', paddingTop: 4 }}>Всего: <strong>{d.total}</strong></div>
                                         </div>
                                     );
@@ -2831,17 +2865,17 @@ const DashboardTab = ({ sessions, globalStats }) => {
                                 const CorrectLabel = ({ x, y, width, height, index }) => {
                                     const d = normData[index];
                                     if (!d || width < 55) return null;
-                                    return <text x={x + width / 2} y={y + height / 2 + 4} textAnchor="middle" fill="#fff" fontSize="0.6875rem" fontWeight={700}>{d.correct} ({d.correctPct}%)</text>;
+                                    return <text x={x + width / 2} y={y + height / 2 + 4} textAnchor="middle" fill="#fff" fontSize="0.6875rem" fontWeight={700}>{d.correct} ({d.correctPct.toFixed(1)}%)</text>;
                                 };
                                 const WrongLabel = ({ x, y, width, height, index }) => {
                                     const d = normData[index];
                                     if (!d || width < 55) return null;
-                                    return <text x={x + width / 2} y={y + height / 2 + 4} textAnchor="middle" fill="#fff" fontSize="0.6875rem" fontWeight={700}>{d.wrong} ({d.wrongPct}%)</text>;
+                                    return <text x={x + width / 2} y={y + height / 2 + 4} textAnchor="middle" fill="#fff" fontSize="0.6875rem" fontWeight={700}>{d.wrong} ({d.wrongPct.toFixed(1)}%)</text>;
                                 };
                                 return (
                                     <div className="dash-chart-card">
-                                        <div className="dash-chart-title">Точность ответов на события</div>
-                                        <div className="dash-chart-hint">100% диаграмма: зелёный — правильные, красный — неправильные</div>
+                                        <div className="dash-chart-title">Точность ответов на вопросы</div>
+                                        <div className="dash-chart-hint">Пропущенные вопросы исключены; все отвеченные вопросы имеют одинаковый вес</div>
                                         <ResponsiveContainer width="100%" height={Math.max(eventsData.length * 44 + 40, 180)}>
                                             <BarChart data={normData} layout="vertical" margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
                                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
@@ -2916,7 +2950,7 @@ const DashboardTab = ({ sessions, globalStats }) => {
 
                     {/* ══ ПРАВАЯ КОЛОНКА: Таблицы рейтинга ══ */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <RatingTab sessId={sessId} />
+                        <RatingTab sessId={sessId} externalData={ratingData} />
                     </div>
 
                 </div>
@@ -2927,7 +2961,7 @@ const DashboardTab = ({ sessions, globalStats }) => {
 
 // ── Рейтинг: вспомогательные компоненты ──────────────────────────────────────
 
-const RatingTable = ({ title, hint, teams, metricKey, valueLabel, costKey }) => {
+const RatingTable = ({ title, hint, teams, metricKey, valueLabel, costKey, valueHeader = 'Значение', extraColumns = [] }) => {
     const sorted = [...teams].sort((a, b) => {
         const ra = a.ranking[metricKey]?.rank, rb = b.ranking[metricKey]?.rank;
         if (ra == null && rb == null) return 0;
@@ -2936,7 +2970,7 @@ const RatingTable = ({ title, hint, teams, metricKey, valueLabel, costKey }) => 
         return ra - rb;
     });
     return (
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflowX: 'auto', marginBottom: 20 }}>
             <div style={{ padding: '14px 16px', background: '#1e3a5f', color: '#fff' }}>
                 <div style={{ fontWeight: 700, fontSize: '0.9375rem' }}>{title}</div>
                 {hint && <div style={{ fontSize: '0.75rem', color: '#93c5fd', marginTop: 2 }}>{hint}</div>}
@@ -2946,7 +2980,8 @@ const RatingTable = ({ title, hint, teams, metricKey, valueLabel, costKey }) => 
                     <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
                         <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Место</th>
                         <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Команда</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Значение</th>
+                        {extraColumns.map(column => <th key={column.key} style={{ padding: '8px 12px', textAlign: 'right', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>{column.header}</th>)}
+                        <th style={{ padding: '8px 12px', textAlign: 'right', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>{valueHeader}</th>
                         {costKey && <th style={{ padding: '8px 12px', textAlign: 'right', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Расходы, млн</th>}
                         <th style={{ padding: '8px 12px', textAlign: 'center', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Очки</th>
                     </tr>
@@ -2964,6 +2999,7 @@ const RatingTable = ({ title, hint, teams, metricKey, valueLabel, costKey }) => 
                                     {MEDAL[rank] || (rank ? `#${rank}` : '—')}
                                 </td>
                                 <td style={{ padding: '9px 12px', fontWeight: 600, fontSize: '0.875rem', color: '#1e293b' }}>{t.teamName}</td>
+                                {extraColumns.map(column => <td key={column.key} style={{ padding: '9px 12px', textAlign: 'right', fontSize: '0.8125rem', color: '#475569' }}>{column.render(t.metrics[metricKey])}</td>)}
                                 <td style={{ padding: '9px 12px', textAlign: 'right', fontSize: '0.8125rem', color: '#475569' }}>
                                     {valueLabel(t.metrics[metricKey])}
                                 </td>
@@ -2995,12 +3031,12 @@ const TotalRatingTable = ({ teams }) => {
         i = j;
     }
     return (
-        <div style={{ background: '#fff', border: '2px solid #1e40af', borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
+        <div style={{ background: '#fff', border: '2px solid #1e40af', borderRadius: 12, overflowX: 'auto', marginBottom: 20 }}>
             <div style={{ padding: '14px 16px', background: '#1e40af', color: '#fff' }}>
                 <div style={{ fontWeight: 800, fontSize: '1rem' }}>Итоговый рейтинг</div>
-                <div style={{ fontSize: '0.75rem', color: '#bfdbfe', marginTop: 2 }}>Сумма очков по трём критериям</div>
+                <div style={{ fontSize: '0.75rem', color: '#bfdbfe', marginTop: 2 }}>Пять критериев по 20% каждый; итог — сумма очков</div>
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table style={{ width: '100%', minWidth: 1020, borderCollapse: 'collapse' }}>
                 <thead>
                     <tr style={{ background: '#f0f9ff', borderBottom: '2px solid #bae6fd' }}>
                         <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: '0.8125rem', color: '#1e40af', fontWeight: 700 }}>Место</th>
@@ -3008,6 +3044,8 @@ const TotalRatingTable = ({ teams }) => {
                         <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: '0.8125rem', color: '#1e40af', fontWeight: 700 }}>ГРР (1–5)</th>
                         <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: '0.8125rem', color: '#1e40af', fontWeight: 700 }}>Проектирование (6–8)</th>
                         <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: '0.8125rem', color: '#1e40af', fontWeight: 700 }}>Управление (9–10)</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: '0.8125rem', color: '#1e40af', fontWeight: 700 }}>Доп. затраты</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: '0.8125rem', color: '#1e40af', fontWeight: 700 }}>Точность</th>
                         <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: '0.8125rem', color: '#1e40af', fontWeight: 700 }}>Итого очков</th>
                     </tr>
                 </thead>
@@ -3044,6 +3082,14 @@ const TotalRatingTable = ({ teams }) => {
                                     <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: '0.6875rem' }}>({pt('stage3')} оч.)</span>
                                     {c3 > 0 && <span style={costStyle}>−{fmtNumber(c3)} млн</span>}
                                 </td>
+                                <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: '0.8125rem', color: '#475569' }}>
+                                    {fmtNumber(t.metrics.extraCosts.value)} млн
+                                    <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: '0.6875rem' }}>({pt('extraCosts')} оч.)</span>
+                                </td>
+                                <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: '0.8125rem', color: '#475569' }}>
+                                    {t.metrics.answerAccuracy.value == null ? '—' : `${t.metrics.answerAccuracy.value.toFixed(1)}%`}
+                                    <span style={{ color: '#94a3b8', marginLeft: 6, fontSize: '0.6875rem' }}>({pt('answerAccuracy')} оч.)</span>
+                                </td>
                                 <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, fontSize: '0.9375rem', color: '#1e40af' }}>{t.totalPoints}</td>
                             </tr>
                         );
@@ -3055,7 +3101,7 @@ const TotalRatingTable = ({ teams }) => {
 };
 
 // ── Вкладка рейтинга ──────────────────────────────────────────────────────────
-const RatingTab = ({ sessions, sessId: externalSessId }) => {
+const RatingTab = ({ sessions, sessId: externalSessId, externalData }) => {
     const isControlled = externalSessId !== undefined;
     const [ownSessId, setOwnSessId] = useState('');
     const [data, setData] = useState(null);
@@ -3064,27 +3110,32 @@ const RatingTab = ({ sessions, sessId: externalSessId }) => {
 
     const sessId = isControlled ? externalSessId : ownSessId;
 
-    const load = async (sid) => {
+    const load = useCallback(async (sid, silent = false) => {
         if (!sid) return;
-        setLoading(true); setError(null); setData(null);
+        if (!silent) { setLoading(true); setError(null); setData(null); }
         try {
             const json = await apiAction(`/api/admin/sessions/${sid}/rating`, 'GET');
             setData(json);
-        } catch (e) { setError(e.message); } finally { setLoading(false); }
-    };
+        } catch (e) { if (!silent) setError(e.message); } finally { if (!silent) setLoading(false); }
+    }, []);
 
     useEffect(() => {
+        if (externalData !== undefined) return undefined;
         setData(null);
-        if (externalSessId) load(externalSessId);
-    }, [externalSessId]);
+        if (!sessId) return undefined;
+        load(sessId);
+        const timer = setInterval(() => load(sessId, true), 10000);
+        return () => clearInterval(timer);
+    }, [sessId, externalData, load]);
 
-    const teams = data?.teams ?? [];
+    const shownData = externalData !== undefined ? externalData : data;
+    const teams = shownData?.teams ?? [];
 
     return (
         <div>
             {!isControlled && (
                 <div style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center' }}>
-                    <select className="tc-select" value={ownSessId} onChange={e => { setOwnSessId(e.target.value); load(e.target.value); }}>
+                    <select className="tc-select" value={ownSessId} onChange={e => setOwnSessId(e.target.value)}>
                         <option value="">— выберите сессию —</option>
                         {(sessions ?? []).map(s => (
                             <option key={s.id} value={s.id}>{s.code} · {s.status} · {s.teamsCount ?? 0} команд</option>
@@ -3097,9 +3148,9 @@ const RatingTab = ({ sessions, sessId: externalSessId }) => {
             {loading && <div className="ap-loading">Загрузка рейтинга…</div>}
             {error && <div style={{ color: '#dc2626', padding: 12 }}>Ошибка: {error}</div>}
             {!isControlled && !sessId && !loading && <div className="dash-empty">Выберите сессию для просмотра рейтинга</div>}
-            {data && !loading && teams.length === 0 && <div className="dash-empty">В сессии нет команд</div>}
+            {shownData && !loading && teams.length === 0 && <div className="dash-empty">В сессии нет команд</div>}
 
-            {data && !loading && teams.length > 0 && (
+            {shownData && !loading && teams.length > 0 && (
                 <div>
                     <TotalRatingTable teams={teams} />
 
@@ -3134,6 +3185,32 @@ const RatingTab = ({ sessions, sessId: externalSessId }) => {
                         valueLabel={m => m.value != null && m.value > 0
                             ? `${fmtNumber(m.value)} т.`
                             : '—'}
+                    />
+
+                    <RatingTable
+                        title="4. Дополнительные затраты"
+                        hint="Нефтепровод, карточки риска и случайности, исходная информация и аукционы; итог = затраты − бонусы, меньше = лучше"
+                        teams={teams}
+                        metricKey="extraCosts"
+                        valueHeader="Итог, млн"
+                        extraColumns={[
+                            { key: 'expenses', header: 'Затраты, млн', render: m => fmtNumber(m.expenses) },
+                            { key: 'bonuses', header: 'Бонусы, млн', render: m => fmtNumber(m.bonuses) },
+                        ]}
+                        valueLabel={m => fmtNumber(m.value)}
+                    />
+
+                    <RatingTable
+                        title="5. Точность ответов на вопросы"
+                        hint="Каждый отвеченный вопрос имеет одинаковый вес; пропущенные исключены, без ответов место и очки не назначаются"
+                        teams={teams}
+                        metricKey="answerAccuracy"
+                        valueHeader="Точность"
+                        extraColumns={[
+                            { key: 'correct', header: 'Правильно', render: m => m.correct },
+                            { key: 'answered', header: 'Учтено', render: m => m.answered },
+                        ]}
+                        valueLabel={m => m.value == null ? '—' : `${m.value.toFixed(1)}%`}
                     />
                 </div>
             )}

@@ -9,9 +9,6 @@ const API_BASE = import.meta.env.VITE_WS_URL || '';
 
 // ── Хелперы ───────────────────────────────────────────────────────────────────
 
-const fmt = (n) =>
-    n == null ? '—' : Number(n).toLocaleString('ru-RU');
-
 const fmtBudget = (n) =>
     n == null ? '—' : `${Number(n).toLocaleString('ru-RU')} млн`;
 
@@ -128,11 +125,13 @@ const TeamCard = ({ team, rank, isMe }) => {
                         <div style={{ fontSize: '0.72rem', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8, fontWeight: 600 }}>
                             Рейтинговые показатели
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: 8 }}>
                             {[
                                 { label: 'Запасы ГРР', sublabel: 'Этап 1–5', value: fmtReserves(team.grr), rank: team.ranking?.grr?.rank, pts: team.ranking?.grr?.points },
                                 { label: 'Добыча', sublabel: 'Этап 6–8', value: fmtProd(team.stage2), rank: team.ranking?.stage2?.rank, pts: team.ranking?.stage2?.points },
                                 { label: 'Добыча', sublabel: 'Этап 9–10', value: fmtProd(team.stage3), rank: team.ranking?.stage3?.rank, pts: team.ranking?.stage3?.points },
+                                { label: 'Дополнительные затраты', sublabel: 'Затраты − бонусы', value: fmtBudget(team.metrics?.extraCosts?.value), rank: team.ranking?.extraCosts?.rank, pts: team.ranking?.extraCosts?.points },
+                                { label: 'Точность ответов', sublabel: `${team.metrics?.answerAccuracy?.correct ?? 0} из ${team.metrics?.answerAccuracy?.answered ?? 0}`, value: team.metrics?.answerAccuracy?.value == null ? '—' : `${team.metrics.answerAccuracy.value.toFixed(1)}%`, rank: team.ranking?.answerAccuracy?.rank, pts: team.ranking?.answerAccuracy?.points },
                             ].map(({ label, sublabel, value, rank, pts }) => (
                                 <div key={sublabel} style={{ background: '#f0f4ff', borderRadius: 10, padding: '10px 12px', border: '1px solid #c7d7f5' }}>
                                     <div style={{ fontSize: '0.68rem', color: '#888', marginBottom: 1 }}>{sublabel}</div>
@@ -202,27 +201,28 @@ const GameOverScreen = () => {
         sessionStorage.clear();
     };
 
-    const load = useCallback(async () => {
+    const load = useCallback(async (silent = false) => {
         if (!sessionId) {
             setError('Нет sessionId — невозможно загрузить статистику');
             setLoading(false);
             return;
         }
         try {
-            setLoading(true);
-            setError(null);
+            if (!silent) { setLoading(true); setError(null); }
             const data = await fetchFinalStats(sessionId);
             const sorted = [...(data.teams || [])].sort((a, b) => sortKey(b) - sortKey(a));
             setStats({ ...data, teams: sorted });
         } catch (e) {
-            setError(e.message);
+            if (!silent) setError(e.message);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [sessionId]);
 
     useEffect(() => {
         load();
+        const timer = setInterval(() => load(true), 10000);
+        return () => clearInterval(timer);
     }, [load, retries]);
 
     // ── Render ──────────────────────────────────────────────────────────────────

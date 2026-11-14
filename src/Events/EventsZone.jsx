@@ -106,7 +106,6 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     setNavigateToRefusal, addUsedEventCardIds, addUsedEventTopics,
   } = useGameStore();
 
-  const globalTimer = useGameStore(s => s.globalTimer);
   const globalYear = useGameStore(s => s.game.currentYear);
   const timeRemaining = useGameStore(s => s.globalTimer.timeRemaining);
   const sessionUsedCardIds = useGameStore(s => s.events.sessionUsedCardIds);
@@ -375,6 +374,35 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
   };
 
   // ── Сохранение линии на сервер (с детальными ответами) ────────────────────
+  const getCardStates = (luId, lineIndex = playableLines.findIndex(line => line.luId === luId)) => {
+    const currentEvents = useGameStore.getState().events;
+    const cards = currentEvents.linesByLU?.[luId]?.cards || [];
+    const revealed = currentEvents.revealedCards?.[luId] || {};
+    return cards.map((_, index) => revealed[`${lineIndex}-${index}`] || null);
+  };
+
+  const getCardAnswers = (luId, lineIndex, markUnansweredSkipped = false) => {
+    const currentEvents = useGameStore.getState().events;
+    const cards = currentEvents.linesByLU?.[luId]?.cards || [];
+    const revealed = currentEvents.revealedCards?.[luId] || {};
+    return cards.flatMap((card, cardIndex) => {
+      if (card.type !== CARD_TYPES.OPPORTUNITY) return [];
+      const state = revealed[`${lineIndex}-${cardIndex}`];
+      if (!state?.revealed && !markUnansweredSkipped) return [];
+      return [{
+        cardIndex,
+        cardType: 'opportunity',
+        questionId: card.data?.id,
+        question: card.data?.question || '',
+        options: card.data?.options || [],
+        selectedAnswers: state?.selectedAnswers || [],
+        points: state?.points || 0,
+        skipped: !state?.revealed,
+        topic: card.data?.topic || '',
+      }];
+    });
+  };
+
   const saveLineToServer = (luId, options = {}) => {
     const socket = getSocket();
     if (!socket?.connected || !player.sessionId) return;
@@ -396,7 +424,8 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
         completed: options.completed || false,
         skipped: options.skipped || false,
         // Детальные ответы для AdminPanel
-        cardAnswers: stats.cardAnswers || [],
+        cardAnswers: getCardAnswers(luId, playableLines.findIndex(line => line.luId === luId), options.skipped),
+        cardStates: getCardStates(luId),
       },
     }, (res) => {
       if (!res?.ok) console.warn('events:save failed:', res?.error);
@@ -500,38 +529,9 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     setSelectedAnswers([]);
   };
 
-  const doPlayRandom = (card, cardKey, luId) => {
-    const effect = card.data.effect
-      || (typeof card.data.points === 'number' ? { type: 'points', value: card.data.points } : { type: 'points', value: 0 });
-
-    if (effect.type === 'cancel') {
-      revealEventCard(luId, cardKey, { revealed: true, played: true, points: 0 });
-      setCancelSource({ cardKey, luId });
-      setCancelPickMode(true);
-      return;
-    }
-
-    if (!lineStatsRef.current[luId]) {
-      lineStatsRef.current[luId] = { correct: 0, wrong: 0, moneyDelta: 0, cardAnswers: [], _saved: false };
-    }
-    lineStatsRef.current[luId]._saved = false;
-
-    if (effect.type === 'points') {
-      revealEventCard(luId, cardKey, { revealed: true, played: true, points: effect.value });
-      updateEventLineScore(luId, effect.value);
-    }
-
-    if (effect.type === 'money') {
-      revealEventCard(luId, cardKey, { revealed: true, played: true, money: effect.value });
-      useGameStore.setState(st => ({ player: { ...st.player, budget: st.player.budget + effect.value } }));
-      updateEventMoneySpent(effect.value);
-      lineStatsRef.current[luId].moneyDelta += effect.value;
-    }
-  };
-
   const handlePlayRandom = () => {
     if (!selectedCard || selectedCard.card.type !== CARD_TYPES.RANDOM) return;
-    const { cardKey, card, luId, cardIndex } = selectedCard;
+    const { cardKey, card, luId } = selectedCard;
     const effect = card.data.effect
       || (typeof card.data.points === 'number' ? { type: 'points', value: card.data.points } : { type: 'points', value: 0 });
 
@@ -673,7 +673,8 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
           line: events.linesByLU[line.luId] || {},
           completed: false,
           skipped: true,
-          cardAnswers: lineStatsRef.current[line.luId]?.cardAnswers || [],
+          cardAnswers: getCardAnswers(line.luId, lineIndex, true),
+          cardStates: getCardStates(line.luId, lineIndex),
         },
       }, (res) => {
         if (!res?.ok) console.warn('events:save failed before skip:', res?.error);
@@ -733,15 +734,6 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
       onComplete();
       setTimeout(() => advanceToNextYear(), 0);
     }
-  };
-
-  const getLicenseCost = () => {
-    const ownedLicenses = licenseUnits?.owned ?? licenseUnits?.licenseUnits?.owned ?? [];
-    return ownedLicenses.reduce((s, lu) => s + (lu.cost || 0), 0);
-  };
-
-  const getGridCost = () => {
-    return Object.values(gridCells?.owned ?? {}).reduce((s, c) => s + (c.auctionPrice || 0), 0);
   };
 
   const renderCard = (card, cardIndex, lineIndex, line) => {

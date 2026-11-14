@@ -444,6 +444,7 @@ const useGameStore = create(
           set((state) => {
             const prevYear = nextYear - 1;
             const currentEvents = state.events;
+            if (currentEvents.historyByYear?.[prevYear]) return state;
             const historyEntry = {
               linesByLU: { ...currentEvents.linesByLU },
               revealedCards: { ...currentEvents.revealedCards },
@@ -461,6 +462,7 @@ const useGameStore = create(
                 ...currentEvents,
                 linesByLU: {},
                 revealedCards: {},
+                lineScores: {},
                 skippedLines: {},
                 isCompleted: false,
                 totalMoneySpent: 0,
