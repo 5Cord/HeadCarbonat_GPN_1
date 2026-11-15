@@ -1541,17 +1541,11 @@
   filter: brightness(0.95);
 }
 
-.grid-cell-blocked-reserve,
 .grid-cell-blocked-settlement,
 .grid-cell-blocked-company {
   position: relative;
   overflow: hidden;
   border-width: 2px;
-}
-
-.grid-cell-blocked-reserve {
-  background: #c8e6c9 !important;
-  border: 2px solid #66bb6a !important;
 }
 
 .grid-cell-blocked-settlement {
@@ -1564,7 +1558,6 @@
   border: 2px solid #ab47bc !important;
 }
 
-.grid-cell-blocked-reserve::before,
 .grid-cell-blocked-settlement::before,
 .grid-cell-blocked-company::before {
   content: "";
@@ -1582,7 +1575,6 @@
   z-index: 1;
 }
 
-.grid-cell-blocked-reserve .cell-label,
 .grid-cell-blocked-settlement .cell-label,
 .grid-cell-blocked-company .cell-label {
   color: #333;
@@ -1609,13 +1601,6 @@
 }
 
 
-.legend-color-blocked-reserve {
-  background: #c8e6c9;
-  border: 2px solid #66bb6a;
-  position: relative;
-  overflow: hidden;
-}
-
 .legend-color-blocked-settlement {
   background: #fff9c4;
   border: 2px solid #fbc02d;
@@ -1630,7 +1615,6 @@
   overflow: hidden;
 }
 
-.legend-color-blocked-reserve::before,
 .legend-color-blocked-settlement::before,
 .legend-color-blocked-company::before {
   content: "";

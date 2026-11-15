@@ -6,6 +6,7 @@ import styles from './ResearchPanel.module.css';
 import RefusalMap from './RefusalMap';
 import GeologyInfoCard from '../Results/GeologyInfoCard';
 import PipelineCompletionModal from './PipelineCompletionModal';
+import { BLOCKED_CELLS } from '../RegionMap/blockedCells';
 import ResearchPanelTour, { RefusalTour } from './Researchpaneltour';
 import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
@@ -15,9 +16,6 @@ import { getLastSuccessfulSceneImage, getSceneImageFromMeta, resolveSceneImage, 
 const REFUSAL_YEARS = [3, 5];
 const REFUSAL_DURATION = 10 * 60;
 const RESULTS_DURATION = 2 * 60;
-
-// ЛУ крупной нефтегазовой компании, доступные для обмена
-const COMPANY_LU_CELLS = ['B5', 'C5', 'B6', 'C6'];
 
 const DRILLING_GROUP_A = ['drilling_5gs', 'drilling_6gs', 'drilling_7mzs']; // макс. 2 из 3
 const DRILLING_GROUP_B = ['testing', 'mun'];                                 // макс. 1 из 2
@@ -815,7 +813,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
           if (img) {
             map[cellRef] = img;
           } else {
-            // Участок получен от нефтяной компании — показываем сценарий до начала полевых работ
+            // Участок получен от материнской компании — показываем сценарий до начала полевых работ
             const scenario = cellScenarios[cellRef];
             if (scenario?.workId) {
               const scenNum = getScenario(cellRef) ?? 0;
@@ -1483,9 +1481,9 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
             <h3>{globalYear === 3 ? 'Проектирование нефтепровода' : 'Строительство нефтепровода'}</h3>
             <div className={styles.modalInfo}>
               {globalYear === 3 ? (
-                <p>Начинается проектирование нефтепровода с запада на восток через участки крупной компании. Для продолжения работ необходимо отказаться от <strong>{requiredRefusalCount}</strong> участков.</p>
+                <p>Начинается проектирование нефтепровода с запада на восток через участки материнской компании. Для продолжения работ необходимо отказаться от <strong>{requiredRefusalCount}</strong> участков.</p>
               ) : (
-                <p>Начинается строительство нефтепровода. Точка сдачи нефти расположена в центре участков крупной компании. Для дальнейшей разработки оставьте <strong>одно месторождение</strong>: откажитесь от <strong>{requiredRefusalCount}</strong> участков.</p>
+                <p>Начинается строительство нефтепровода. Точка сдачи нефти расположена между участками D6, D7, E6 и E7. Для дальнейшей разработки оставьте <strong>одно месторождение</strong>: откажитесь от <strong>{requiredRefusalCount}</strong> участков.</p>
               )}
             </div>
             <div className={styles.modalActions}>
@@ -1565,10 +1563,10 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       {showPostRefusalModal && (
         <div className={styles.cellModalOverlay}>
           <div className={styles.cellModal} onClick={e => e.stopPropagation()} style={{ maxWidth: 580, width: '95%' }}>
-            <h3 style={{ textAlign: 'center', color: '#1565c0' }}>Предложение от крупной нефтегазовой компании</h3>
+            <h3 style={{ textAlign: 'center', color: '#1565c0' }}>Предложение от материнской компании</h3>
             <div className={styles.modalInfo}>
               <p style={{ textAlign: 'center', lineHeight: 1.7, fontSize: '1.05rem', margin: '0 0 12px 0' }}>
-                Как оказалось, крупная нефтегазовая компания — это ваша материнская компания. У вас есть возможность взять у нее бесплатно 1 участок, но для этого придется отказаться еще от 1 своего участка. Вы можете согласиться или отказаться и продолжить с текущими участками.
+                Материнская компания предлагает бесплатно взять 1 участок в обмен на 1 ваш участок. Вы можете согласиться или отказаться и продолжить с текущими участками.
               </p>
             </div>
             <div className={styles.modalActions}>
@@ -1602,17 +1600,17 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       {showCompanyExchangeModal && (
         <div className={styles.cellModalOverlay}>
           <div className={`${styles.cellModal} ${styles.mapModal}`} onClick={e => e.stopPropagation()} style={{ maxWidth: 820, width: '97%' }}>
-            <h3 style={{ textAlign: 'center', color: '#1565c0' }}>Обмен участками с компанией</h3>
+            <h3 style={{ textAlign: 'center', color: '#1565c0' }}>Обмен участками с материнской компанией</h3>
             <div className={styles.modalInfo}>
               <p style={{ textAlign: 'center', color: '#555', margin: 0, fontSize: '0.95rem' }}>
                 Нажмите на <strong style={{ color: '#0d47a1' }}>свой участок</strong> (синий) чтобы отдать,
-                затем на <strong style={{ color: '#bf360c' }}>участок компании</strong> (оранжевый) чтобы получить.
+                затем на <strong style={{ color: '#bf360c' }}>участок материнской компании</strong> (оранжевый) чтобы получить.
               </p>
               <RefusalMap
                 mode="exchange"
                 ownedCells={gridCells.owned}
                 allTeamsCells={gridCells.allTeams}
-                companyCells={COMPANY_LU_CELLS.filter(ref => !!cellScenarios[ref])}
+                companyCells={BLOCKED_CELLS.company.filter(ref => !!cellScenarios[ref])}
                 selectedMyRef={exchangeMyRef}
                 selectedCompanyRef={exchangeCompanyRef}
                 onSelectMy={setExchangeMyRef}

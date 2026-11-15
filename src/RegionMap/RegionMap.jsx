@@ -22,7 +22,7 @@ const DEFAULT_CASE_INTRO = {
     'На западе расположен складчато-надвиговый комплекс, где целевые объекты могут выходить на поверхность.',
     'Изученность района крайне низкая: сейсморазведка 2D почти отсутствует, бурение не проводилось.',
     'По периметру пробурены параметрические скважины, примыкающие к зоне лицензирования.',
-    'В районе нет нефтяной инфраструктуры. Нефтепровод можно проложить через участки крупной нефтегазовой компании с запада на восток.',
+    'В районе нет нефтяной инфраструктуры. Нефтепровод можно проложить через участки материнской компании с запада на восток.',
   ],
   buttonText: 'Начать работу →',
 };
@@ -381,7 +381,6 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
     if (globalYear < 2) return;
 
     const allBlockedRefs = [
-      ...BLOCKED_CELLS.reserve,
       ...BLOCKED_CELLS.settlement,
       ...BLOCKED_CELLS.company,
     ];
@@ -584,13 +583,12 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
     if (BLOCKED_CELLS.settlement.includes(ref)) return 'settlement';
     if (ownedCells[ref]) return null;                          // наша после обмена с компанией
     if (gridCells.allTeams[ref]?.ownedByTeamId) return null;  // чужая после обмена — не блокируем
-    if (BLOCKED_CELLS.reserve.includes(ref))    return 'reserve';
     if (BLOCKED_CELLS.company.includes(ref))    return 'company';
     return null;
   };
 
   const isBlocked = (ref) => !!getBlockedType(ref);
-  const getBlockedLabel = (type) => ({ reserve: 'Природный заказник', settlement: 'Населённый пункт', company: 'Занято нефтяной компанией' }[type] || 'Заблокировано');
+  const getBlockedLabel = (type) => ({ settlement: 'Населённый пункт', company: 'Участок материнской компании' }[type] || 'Заблокировано');
 
   const getCellTooltipContent = (cellId) => {
     if (cellId.startsWith('__facies_node__')) {
@@ -1109,7 +1107,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                       ? cellScenarios[cellId]
                       : null;
 
-                    // Сценарий ячейки нефтяной компании — показываем всем командам даже после обмена
+                    // Сценарий ячейки материнской компании — показываем всем командам даже после обмена
                     const companyCellScenario = ownedByOther && cellScenarios[cellId]?.srrWorkId
                       ? cellScenarios[cellId]
                       : null;
@@ -1131,7 +1129,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                             globalTimer.currentYear,
                           );
                           if (fwImg) return fwImg;
-                          // Участок получен от нефтяной компании — показываем сценарий до начала полевых работ
+                          // Участок получен от материнской компании — показываем сценарий до начала полевых работ
                           const cs = cellScenarios[cellId];
                           if (cs?.workId) {
                             const scenNum = getScenario(cellId) ?? 0;
@@ -1274,9 +1272,8 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         <div className="legend-item"><div className="legend-color legend-color-contested"></div><span>Оспаривается</span></div>
         <div className="legend-item"><div className="legend-color legend-color-auction"></div><span>Аукцион</span></div>
         <div className="legend-item"><div className="legend-color legend-color-other"></div><span>Занят другой командой</span></div>
-        <div className="legend-item"><div className="legend-color legend-color-blocked-reserve"></div><span>Природный заказник</span></div>
         <div className="legend-item"><div className="legend-color legend-color-blocked-settlement"></div><span>Населённый пункт</span></div>
-        <div className="legend-item"><div className="legend-color legend-color-blocked-company"></div><span>Другие компании</span></div>
+        <div className="legend-item"><div className="legend-color legend-color-blocked-company"></div><span>Материнская компания</span></div>
 
         {faciesConfig && (
           <>

@@ -1,6 +1,7 @@
 // Frontend часть
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
+import { BLOCKED_CELLS } from '../src/RegionMap/blockedCells';
 
 export const BUDGET_CONFIG = {
   STUDENT: 99999,
@@ -982,8 +983,8 @@ const useGameStore = create(
               });
           }
 
-          // ── Сценарии нефтяных компаний: ~70% случайных, назначаем один раз ────
-          const COMPANY_REFS = ['B5', 'C5', 'B6', 'C6'];
+          // ── Сценарии материнской компании: ~70% случайных, назначаем один раз ────
+          const COMPANY_REFS = BLOCKED_CELLS.company;
           const COMPANY_WORK_POOL = ['srr_2d', 'srr_3d', '1pr'];
           const companyCount = Math.max(1, Math.round(COMPANY_REFS.length * 0.7));
           const companySubset = [...COMPANY_REFS].sort(() => Math.random() - 0.5).slice(0, companyCount);

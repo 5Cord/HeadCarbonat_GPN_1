@@ -23,7 +23,6 @@ const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
 const cols = Array.from({ length: 10 }, (_, i) => i + 1);
 
 const getBlockedType = (cellRef) => {
-  if (BLOCKED_CELLS.reserve.includes(cellRef))    return 'reserve';
   if (BLOCKED_CELLS.settlement.includes(cellRef)) return 'settlement';
   if (BLOCKED_CELLS.company.includes(cellRef))    return 'company';
   return null;
@@ -62,7 +61,7 @@ const RefusalMap = ({
           <>
             <span className="refusal-legend-item refusal-legend-own">Ваш участок</span>
             <span className="refusal-legend-item refusal-legend-give">Отдаёте</span>
-            <span className="refusal-legend-item refusal-legend-company-avail">Участок компании</span>
+            <span className="refusal-legend-item refusal-legend-company-avail">Участок материнской компании</span>
             <span className="refusal-legend-item refusal-legend-receive">Получаете</span>
           </>
         ) : (
@@ -94,7 +93,7 @@ const RefusalMap = ({
                 const cost = getPipelineCost(cellRef);
                 const isOwned = !!ownedCells[cellRef];
                 return (
-                  <div key={cellRef} className={`refusal-cell pipeline-cell pipeline-cell-${cost ?? 'unknown'}${isOwned ? ' pipeline-cell-own' : ''}`}
+                  <div key={cellRef} className={`refusal-cell pipeline-cell pipeline-cell-${cost ?? 'unknown'}${isOwned ? ' pipeline-cell-own' : ''}${cellRef === 'D6' ? ' pipeline-point-anchor' : ''}`}
                     title={`${cellRef}: ${cost == null ? 'стоимость не определена' : `${cost} млн руб.`}${isOwned ? ' — ваш участок' : ''}`}>
                     <span className="refusal-cell-label">{cellRef}</span>
                     {isOwned && <span className="refusal-cell-mark">●</span>}
@@ -139,7 +138,7 @@ const RefusalMap = ({
                       isGive        ? `${cellRef} — отдаёте (нажмите чтобы снять)` :
                       isReceive     ? `${cellRef} — получаете (нажмите чтобы снять)` :
                       isOwned       ? `${cellRef} — нажмите чтобы выбрать для передачи` :
-                      isCompany     ? `${cellRef} — участок компании, нажмите чтобы выбрать` :
+                      isCompany     ? `${cellRef} — участок материнской компании, нажмите чтобы выбрать` :
                       isTakenByOther ? `${cellRef} — уже занят другой командой` :
                       blockedType   ? `${cellRef} — заблокировано` :
                                       cellRef
@@ -198,13 +197,13 @@ const RefusalMap = ({
       {mode === 'pipeline' ? null : mode === 'exchange' ? (
         <div className="refusal-map-selection-summary">
           {!selectedMyRef && !selectedCompanyRef ? (
-            <span className="refusal-summary-hint">Выберите ваш участок и участок компании</span>
+            <span className="refusal-summary-hint">Выберите ваш участок и участок материнской компании</span>
           ) : selectedMyRef && selectedCompanyRef ? (
             <span className="refusal-summary-exchange-ready">
               {selectedMyRef} → {selectedCompanyRef}
             </span>
           ) : selectedMyRef ? (
-            <span className="refusal-summary-hint">Теперь выберите участок компании (оранжевый)</span>
+            <span className="refusal-summary-hint">Теперь выберите участок материнской компании (оранжевый)</span>
           ) : (
             <span className="refusal-summary-hint">Теперь выберите ваш участок для передачи</span>
           )}
