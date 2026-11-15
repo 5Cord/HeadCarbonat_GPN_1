@@ -11,6 +11,8 @@ import { resolveLicenseUnits } from './luCards';
 import { getFacies, getFaciesNodes } from './faciesUtils';
 import { getFaciesConfigById, FACIES_ENABLED } from './faciesPresets';
 import NeftImg from '../assets/cards/Neft.png';
+import { PIPELINE_ZONE_CELLS } from './pipelineZones';
+import { BLOCKED_CELLS } from './blockedCells';
 
 const DEFAULT_CASE_INTRO = {
   title: 'Кейс',
@@ -20,14 +22,9 @@ const DEFAULT_CASE_INTRO = {
     'На западе расположен складчато-надвиговый комплекс, где целевые объекты могут выходить на поверхность.',
     'Изученность района крайне низкая: сейсморазведка 2D почти отсутствует, бурение не проводилось.',
     'По периметру пробурены параметрические скважины, примыкающие к зоне лицензирования.',
+    'В районе нет нефтяной инфраструктуры. Нефтепровод можно проложить через участки крупной нефтегазовой компании с запада на восток.',
   ],
   buttonText: 'Начать работу →',
-};
-
-const BLOCKED_CELLS = {
-  reserve: ['C3', 'C4', 'D3', 'D4'],
-  settlement: ['G6', 'G7', 'H6', 'H7'],
-  company: ['B5', 'C5', 'B6', 'C6'],
 };
 
 const SCENARIO_WORK_LABELS = {
@@ -74,15 +71,6 @@ const ZONE_COLORS = {
   1500: '#00548b',
   2000: '#0a2240',
   2500: '#ff0000',
-};
-
-const PIPELINE_ZONE_CELLS = {
-  0:    ['D6','D7','E6','E7'],
-  500:  ['C5','C6','C7','C8','D8','E8','F8','F7','F6','F5','E5','D5'],
-  1000: ['B4','B5','B6','B7','B8','B9','C9','D9','E9','F9','G9','G8','G7','G6','G5','G4','F4','E4','D4','C4'],
-  1500: ['A3','A4','A5','A6','A7','A8','A9','A10','B3','C3','D3','E3','F3','G3','H3','H4','H5','H6','H7','H8','H9','H10','B10','C10','D10','E10','F10','G10'],
-  2000: ['A2','B2','C2','D2','E2','F2','G2','H2','I2','I3','I4','I5','I6','I7','I8','I9','I10'],
-  2500: ['A1','B1','C1','D1','E1','F1','G1','H1','I1','J1','J2','J3','J4','J5','J6','J7','J8','J9','J10'],
 };
 
 const _ZONE_ROW = 'ABCDEFGHIJ';
@@ -593,10 +581,10 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
   // ── Вспомогательные ──────────────────────────────────────────────────────
   const getBlockedType = (ref) => {
+    if (BLOCKED_CELLS.settlement.includes(ref)) return 'settlement';
     if (ownedCells[ref]) return null;                          // наша после обмена с компанией
     if (gridCells.allTeams[ref]?.ownedByTeamId) return null;  // чужая после обмена — не блокируем
     if (BLOCKED_CELLS.reserve.includes(ref))    return 'reserve';
-    if (BLOCKED_CELLS.settlement.includes(ref)) return 'settlement';
     if (BLOCKED_CELLS.company.includes(ref))    return 'company';
     return null;
   };
@@ -767,6 +755,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
             else if (res?.error === 'ALREADY_OWNED') showAlert('Уже ваш', 'Этот участок уже ваш.');
             else if (res?.error === 'CELL_TAKEN') showAlert('Участок занят', `Команда уже успела приобрести участок ${cellRef}. Выберите другой свободный участок.`);
             else if (res?.error === 'SCENARIO_CELL') showAlert('Участок недоступен', `Участок ${cellRef} занят случайным сценарием и не может быть куплен.`);
+            else if (res?.error === 'BLOCKED_CELL') showAlert('Участок недоступен', `Участок ${cellRef} недоступен для выбора.`);
             else if (res?.action === 'auction') showAlert('Аукцион', `Участок занят, запущен аукцион за ${cellRef}`);
           }
         });
@@ -783,6 +772,10 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
             showAlert('Лимит', `Достигнут лимит ${MAX_LUS_PER_TEAM} участков.`);
           } else if (res?.error === 'CELL_TAKEN') {
             showAlert('Участок занят', `Участок ${cellRef} уже принадлежит другой команде. Во время допокупки аукционы недоступны.`);
+          } else if (res?.error === 'BLOCKED_CELL') {
+            showAlert('Участок недоступен', `Участок ${cellRef} недоступен для выбора.`);
+          } else if (res?.error === 'AUCTION_CLOSED') {
+            showAlert('Аукцион завершён', `Аукцион за участок ${cellRef} уже завершён.`);
           } else if (res?.error) {
             socket.emit('auction:register', { cellRef }, (regRes) => {
               if (!regRes?.ok) showAlert('Ошибка', regRes?.error || 'Не удалось зарегистрироваться на аукцион.');
@@ -832,13 +825,17 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
       {showCaseIntro && (() => {
         const intro = sessionConfig.introContent ?? DEFAULT_CASE_INTRO;
+        const paragraphs = intro.paragraphs ?? DEFAULT_CASE_INTRO.paragraphs;
+        const caseParagraphs = paragraphs.some(p => p.includes(DEFAULT_CASE_INTRO.paragraphs.at(-1)))
+          ? paragraphs
+          : [...paragraphs, DEFAULT_CASE_INTRO.paragraphs.at(-1)];
         return (
           <div className="case-intro-overlay">
             <div className="case-intro-modal">
               <h1 className="case-intro-title">{intro.title || DEFAULT_CASE_INTRO.title}</h1>
               <div className="case-intro-divider" />
               <div className="case-intro-body">
-                {(intro.paragraphs ?? DEFAULT_CASE_INTRO.paragraphs).map((p, i) => (
+                {caseParagraphs.map((p, i) => (
                   <p key={i}>{p}</p>
                 ))}
               </div>

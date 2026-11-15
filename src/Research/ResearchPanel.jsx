@@ -4,6 +4,8 @@ import useGameStore from '../../store/gameStore';
 import GlobalTimer from '../GlobalTimer';
 import styles from './ResearchPanel.module.css';
 import RefusalMap from './RefusalMap';
+import GeologyInfoCard from '../Results/GeologyInfoCard';
+import PipelineCompletionModal from './PipelineCompletionModal';
 import ResearchPanelTour, { RefusalTour } from './Researchpaneltour';
 import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
@@ -127,6 +129,9 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
 
   const [showFinalModal, setShowFinalModal] = useState(false);
   const [showRefusalModal, setShowRefusalModal] = useState(false);
+  const [showRefusalIntro, setShowRefusalIntro] = useState(false);
+  const [postRefusalGeologyRef, setPostRefusalGeologyRef] = useState(null);
+  const [showPipelineModal, setShowPipelineModal] = useState(false);
   const [showPostRefusalModal, setShowPostRefusalModal] = useState(false);
   const [showCompanyExchangeModal, setShowCompanyExchangeModal] = useState(false);
   const [exchangeMyRef, setExchangeMyRef] = useState(null);
@@ -229,6 +234,11 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     }, 1000);
   }, [stopGlobalTimer]);
 
+  const openRefusalIntro = useCallback(() => {
+    stopGlobalTimer();
+    setShowRefusalIntro(true);
+  }, [stopGlobalTimer]);
+
   const stopRefusalTimer = useCallback(() => {
     if (refusalIntervalRef.current) { clearInterval(refusalIntervalRef.current); refusalIntervalRef.current = null; }
     setInRefusal(false);
@@ -245,9 +255,8 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   useEffect(() => {
     if (!triggerRefusal) return;
     setTriggerRefusal(false);
-    startRefusalTimer();
-    setShowRefusalModal(true);
-  }, [triggerRefusal]);
+    openRefusalIntro();
+  }, [triggerRefusal, setTriggerRefusal, openRefusalIntro]);
 
   const prevYearRef = useRef(globalYear);
   useEffect(() => {
@@ -285,14 +294,14 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
 
   const handleYearEnd = useCallback(() => {
     if (globalYear >= 10) { setTimeout(() => setShowFinalModal(true), 200); return; }
-    if (REFUSAL_YEARS.includes(globalYear)) { startRefusalTimer(); setShowRefusalModal(true); return; }
+    if (REFUSAL_YEARS.includes(globalYear)) { openRefusalIntro(); return; }
     setTimeout(() => setShowYearResultsModal(true), 200);
-  }, [globalYear, startRefusalTimer]);
+  }, [globalYear, openRefusalIntro]);
 
   const doFinishYear = () => {
     stopGlobalTimer();
     setShowYearConfirm(false);
-    if (REFUSAL_YEARS.includes(globalYear)) { startRefusalTimer(); setShowRefusalModal(true); }
+    if (REFUSAL_YEARS.includes(globalYear)) { openRefusalIntro(); }
     else setShowYearResultsModal(true);
   };
 
@@ -306,6 +315,12 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     clearInterval(resultsTimerRef.current);
     setShowYearResultsModal(false);
     setResultsTimeRemaining(RESULTS_DURATION);
+
+    if (globalYear === 8 && !showPipelineModal) {
+      setShowPipelineModal(true);
+      return;
+    }
+    setShowPipelineModal(false);
 
     if (globalYear >= 10) { setShowFinalModal(true); return; }
 
@@ -324,34 +339,37 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       applyYearTransitionForAllLUs(globalYear);
       advanceToNextYear();
     }
-  }, [globalYear, isOnline, socket]);
+  }, [globalYear, isOnline, socket, showPipelineModal]);
 
 
   const handleRefusalAccept = useCallback((refsToRemove = []) => {
-    stopRefusalTimer();
-
+    const remainingRef = Object.keys(useGameStore.getState().gridCells.owned).find(ref => !refsToRemove.includes(ref));
+    const finish = () => {
+      stopRefusalTimer();
+      setRefusalRefs([]);
+      setShowRefusalModal(false);
+      if (globalYear === 3) {
+        setShowPostRefusalModal(true);
+      } else {
+        setPostRefusalGeologyRef(remainingRef ?? '');
+      }
+    };
     if (refsToRemove.length > 0) {
       if (isOnline && socket?.connected) {
         socket.emit('cell:refusal_release', { cellRefs: refsToRemove }, (res) => {
           if (!res?.ok) {
             console.error('Refusal release failed:', res);
           } else {
-            console.log('Refusal released on server:', res.released);
             _applyRefusalLocally(refsToRemove);
+            finish();
           }
         });
       } else {
         _applyRefusalLocally(refsToRemove);
+        finish();
       }
-    }
-
-    setRefusalRefs([]);
-    setShowRefusalModal(false);
-    if (globalYear === 3) {
-      setShowPostRefusalModal(true);
     } else {
-      goToNextYear();
-      setTimeout(() => setShowYearResultsModal(true), 200);
+      finish();
     }
   }, [isOnline, socket, stopRefusalTimer, globalYear, goToNextYear]);
 
@@ -1454,6 +1472,33 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
         </div>
       )}
 
+      {showPipelineModal && (
+        <PipelineCompletionModal ownedCells={gridCells.owned} allTeamsCells={gridCells.allTeams}
+          onContinue={confirmNextYear} />
+      )}
+
+      {showRefusalIntro && (
+        <div className={styles.cellModalOverlay}>
+          <div className={styles.cellModal} role="dialog" aria-modal="true" aria-label="Нефтепровод и участки">
+            <h3>{globalYear === 3 ? 'Проектирование нефтепровода' : 'Строительство нефтепровода'}</h3>
+            <div className={styles.modalInfo}>
+              {globalYear === 3 ? (
+                <p>Начинается проектирование нефтепровода с запада на восток через участки крупной компании. Для продолжения работ необходимо отказаться от <strong>{requiredRefusalCount}</strong> участков.</p>
+              ) : (
+                <p>Начинается строительство нефтепровода. Точка сдачи нефти расположена в центре участков крупной компании. Для дальнейшей разработки оставьте <strong>одно месторождение</strong>: откажитесь от <strong>{requiredRefusalCount}</strong> участков.</p>
+              )}
+            </div>
+            <div className={styles.modalActions}>
+              <button className={styles.purchaseModalBtn} onClick={() => {
+                setShowRefusalIntro(false);
+                startRefusalTimer();
+                setShowRefusalModal(true);
+              }}>Выбрать участки</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showRefusalModal && (
         <div className={styles.cellModalOverlay}>
           <div className={`${styles.cellModal} ${styles.mapModal}`} onClick={e => e.stopPropagation()} style={{ maxWidth: 700, width: '95%' }}>
@@ -1494,6 +1539,26 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
             </div>
           </div>
           <RefusalTour onDone={() => { }} refusalCount={requiredRefusalCount} />
+        </div>
+      )}
+
+      {postRefusalGeologyRef !== null && (
+        <div className={styles.cellModalOverlay}>
+          <div className={styles.cellModal} role="dialog" aria-modal="true" aria-label="Геология оставшегося участка">
+            <h3>Геология оставшегося месторождения</h3>
+            <div className={styles.modalInfo}>
+              {postRefusalGeologyRef
+                ? <GeologyInfoCard cellRef={postRefusalGeologyRef} />
+                : <p>У команды не осталось участка. Геологические данные отсутствуют.</p>}
+            </div>
+            <div className={styles.modalActions}>
+              <button className={styles.purchaseModalBtn} onClick={() => {
+                setPostRefusalGeologyRef(null);
+                goToNextYear();
+                setShowYearResultsModal(true);
+              }}>Продолжить</button>
+            </div>
+          </div>
         </div>
       )}
 

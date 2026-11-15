@@ -479,7 +479,16 @@ function _fmt(a) {
     currentBidTeamName: a.leading_team_name ?? a.currentBidTeamName,
     startPrice:         a.start_price       ?? a.startPrice,
     participants:       a.participants      || [],
-    bids:               a.bids              || [],
+    bids:               (a.bids || []).map(b => ({
+      teamId: b.team_id ?? b.teamId,
+      teamName: b.team_name ?? b.teamName,
+      amount: Number(b.amount),
+      at: b.placed_at ?? b.at,
+    })),
+    participantDetails: (a.participantDetails || []).map(p => ({
+      teamId: p.team_id ?? p.teamId,
+      teamName: p.team_name ?? p.teamName,
+    })),
     status:             a.status            || 'active',
   };
 }

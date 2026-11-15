@@ -7,7 +7,8 @@ import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
 import ResultsPanelTour from './ResultsPanelTour';
 import { WORK_SCENE_MAP, getScenario, resolveSceneImage, resolveSceneDesc } from '../Research/sceneUtils.js';
-import infaData from '../infa_.json';
+import GeologyInfoCard from './GeologyInfoCard';
+import PipelineCompletionModal from '../Research/PipelineCompletionModal';
 
 const renderWithSup = (text) => {
   if (!text) return null;
@@ -250,6 +251,7 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
   useEffect(() => { setGlobalPhase('RESULTS'); }, []);
 
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showPipelineModal, setShowPipelineModal] = useState(false);
 
   const [waiting, setWaiting] = useState(false);
   const [readyCount, setReadyCount] = useState(0);
@@ -296,7 +298,7 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
 
   useEffect(() => {
     if (timeRemaining > 0) return;
-    if (showConfirm || waiting) return;
+    if (showConfirm || showPipelineModal || waiting) return;
     if ([3, 5].includes(globalYear)) { setNavigateToRefusal(true); return; }
     handleFinishYear();
   }, [timeRemaining]);
@@ -332,21 +334,19 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
   };
 
 
-  // Сценарий раскрывается после 5-го года, если на ЛУ было проведено бурение 3Р
-  const scenarioReveal = globalYear > 5
-    ? ownedLUs.flatMap(lu => {
-        const prog = research.progressByLU[lu.cellRef];
-        if (!prog?.mobilizedColumns?.includes('3r')) return [];
-        const scenId = getScenario(lu.cellRef);
-        const scenInfo = infaData.scenarios.find(s => s.id === scenId) ?? null;
-        return [{ lu, scenId, scenInfo }];
-      })
-    : [];
+  // После отказа пятого года раскрываем геологию оставшегося участка.
+  const scenarioReveal = globalYear > 5 ? ownedLUs : [];
 
   const handleFinishYear = () => setShowConfirm(true);
 
   const confirmFinishYear = () => {
     setShowConfirm(false);
+
+    if (globalYear === 8 && !showPipelineModal) {
+      setShowPipelineModal(true);
+      return;
+    }
+    setShowPipelineModal(false);
 
     if ([3, 5].includes(globalYear)) {
       setNavigateToRefusal(true);
@@ -456,24 +456,7 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
 
           {scenarioReveal.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {scenarioReveal.map(({ lu, scenId, scenInfo }) => (
-                <div key={lu.cellRef} style={{
-                  background: 'linear-gradient(135deg,#0d47a1,#1565c0)',
-                  borderRadius: 14,
-                  padding: '18px 24px',
-                  color: '#fff',
-                  minWidth: 280,
-                  maxWidth: 400,
-                  boxShadow: '0 4px 20px rgba(13,71,161,0.35)',
-                }}>
-                  <div style={{ fontSize: '2.8rem', fontWeight: 900, lineHeight: 1, marginBottom: 8 }}>
-                    Участок {lu.cellRef}
-                  </div>
-                  <div style={{ fontSize: '0.95rem', lineHeight: 1.6, opacity: 0.92 }}>
-                    {scenInfo?.description ?? '—'}
-                  </div>
-                </div>
-              ))}
+              {scenarioReveal.map(lu => <GeologyInfoCard key={lu.cellRef} cellRef={lu.cellRef} />)}
             </div>
           )}
         </div>
@@ -582,6 +565,11 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
           globalYear={globalYear} isLastYear={isLastYear}
           onConfirm={confirmFinishYear} onCancel={() => setShowConfirm(false)}
         />
+      )}
+
+      {showPipelineModal && (
+        <PipelineCompletionModal ownedCells={gridCells.owned} allTeamsCells={gridCells.allTeams}
+          onContinue={confirmFinishYear} />
       )}
 
       {waiting && (

@@ -16,12 +16,8 @@
 
 import React from 'react';
 import './RefusalMap.css';
-
-const BLOCKED_CELLS = {
-  reserve:    ['C3', 'C4', 'D3', 'D4'],
-  settlement: ['G6', 'G7', 'H6', 'H7'],
-  company:    ['B5', 'C5', 'B6', 'C6'],
-};
+import { getPipelineCost } from '../RegionMap/pipelineZones';
+import { BLOCKED_CELLS } from '../RegionMap/blockedCells';
 
 const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
 const cols = Array.from({ length: 10 }, (_, i) => i + 1);
@@ -54,7 +50,15 @@ const RefusalMap = ({
     <div className="refusal-map-wrap">
       {/* Легенда */}
       <div className="refusal-map-legend">
-        {mode === 'exchange' ? (
+        {mode === 'pipeline' ? (
+          <>
+            {[0, 500, 1000, 1500, 2000, 2500].map(cost =>
+              <span key={cost} className={`refusal-legend-item pipeline-legend-${cost}`}>{cost} млн</span>
+            )}
+            <span className="refusal-legend-item refusal-legend-own">Ваш участок</span>
+            <span className="refusal-legend-item pipeline-legend-point">Точка сдачи нефти</span>
+          </>
+        ) : mode === 'exchange' ? (
           <>
             <span className="refusal-legend-item refusal-legend-own">Ваш участок</span>
             <span className="refusal-legend-item refusal-legend-give">Отдаёте</span>
@@ -86,17 +90,32 @@ const RefusalMap = ({
             {cols.map(col => {
               const cellRef = `${row}${col}`;
 
+              if (mode === 'pipeline') {
+                const cost = getPipelineCost(cellRef);
+                const isOwned = !!ownedCells[cellRef];
+                return (
+                  <div key={cellRef} className={`refusal-cell pipeline-cell pipeline-cell-${cost ?? 'unknown'}${isOwned ? ' pipeline-cell-own' : ''}`}
+                    title={`${cellRef}: ${cost == null ? 'стоимость не определена' : `${cost} млн руб.`}${isOwned ? ' — ваш участок' : ''}`}>
+                    <span className="refusal-cell-label">{cellRef}</span>
+                    {isOwned && <span className="refusal-cell-mark">●</span>}
+                    {cellRef === 'D6' && <span className="pipeline-point" title="Точка сдачи нефти">◆</span>}
+                  </div>
+                );
+              }
+
               if (mode === 'exchange') {
+                const isSettlement   = BLOCKED_CELLS.settlement.includes(cellRef);
                 const isOwned        = !!ownedCells[cellRef];
                 const isTakenByOther = !isOwned && !!allTeamsCells[cellRef]?.ownedByTeamId;
                 // company-клетка доступна только если ещё никем не взята
                 const isCompany      = companyCells.includes(cellRef) && !isTakenByOther;
                 const isGive         = selectedMyRef === cellRef;
                 const isReceive      = selectedCompanyRef === cellRef;
-                const blockedType    = (!isOwned && !isCompany && !isTakenByOther) ? getBlockedType(cellRef) : null;
+                const blockedType    = isSettlement ? 'settlement' : (!isOwned && !isCompany && !isTakenByOther) ? getBlockedType(cellRef) : null;
 
                 let cls = 'refusal-cell';
-                if (isGive)           cls += ' refusal-cell-give';
+                if (isSettlement)     cls += ' refusal-cell-blocked refusal-cell-blocked-settlement';
+                else if (isGive)      cls += ' refusal-cell-give';
                 else if (isOwned)     cls += ' refusal-cell-own';
                 else if (isReceive)   cls += ' refusal-cell-receive';
                 else if (isCompany)   cls += ' refusal-cell-company-avail';
@@ -104,6 +123,7 @@ const RefusalMap = ({
                 else if (blockedType) cls += ` refusal-cell-blocked refusal-cell-blocked-${blockedType}`;
 
                 const handleClick = () => {
+                  if (isSettlement) return;
                   if (isOwned) onSelectMy?.(isGive ? null : cellRef);
                   else if (isCompany) onSelectCompany?.(isReceive ? null : cellRef);
                 };
@@ -115,6 +135,7 @@ const RefusalMap = ({
                     className={cls}
                     onClick={handleClick}
                     title={
+                      isSettlement ? `${cellRef} — населённый пункт, недоступно для выбора` :
                       isGive        ? `${cellRef} — отдаёте (нажмите чтобы снять)` :
                       isReceive     ? `${cellRef} — получаете (нажмите чтобы снять)` :
                       isOwned       ? `${cellRef} — нажмите чтобы выбрать для передачи` :
@@ -123,7 +144,7 @@ const RefusalMap = ({
                       blockedType   ? `${cellRef} — заблокировано` :
                                       cellRef
                     }
-                    style={{ cursor: (isOwned || isCompany) ? 'pointer' : 'default' }}
+                    style={{ cursor: !isSettlement && (isOwned || isCompany) ? 'pointer' : 'default' }}
                   >
                     {sceneImg && <img className="refusal-cell-scene-img" src={sceneImg} alt="" />}
                     <span className="refusal-cell-label">{cellRef}</span>
@@ -138,9 +159,9 @@ const RefusalMap = ({
               const isSelected = selectedRefs.includes(cellRef);
               const isOwnedByOther = !isOwned && !!allTeamsCells[cellRef]?.ownedByTeamId;
               // если клетка из BLOCKED_CELLS.company уже взята кем-то — не показываем как заблокированную
-              const blockedType = (isOwned || isOwnedByOther) ? null : getBlockedType(cellRef);
+              const blockedType = BLOCKED_CELLS.settlement.includes(cellRef) ? 'settlement' : (isOwned || isOwnedByOther) ? null : getBlockedType(cellRef);
               const isOther    = isOwnedByOther;
-              const canToggle  = isOwned && (isSelected || selectedRefs.length < maxCount);
+              const canToggle  = !blockedType && isOwned && (isSelected || selectedRefs.length < maxCount);
 
               let cls = 'refusal-cell';
               if (blockedType)     cls += ` refusal-cell-blocked refusal-cell-blocked-${blockedType}`;
@@ -155,6 +176,7 @@ const RefusalMap = ({
                   className={cls}
                   onClick={() => canToggle && onToggle(cellRef)}
                   title={
+                    blockedType === 'settlement' ? `${cellRef} — населённый пункт, недоступно для выбора` :
                     isSelected  ? `${cellRef} — выбран для отказа (нажмите чтобы снять)` :
                     isOwned     ? (selectedRefs.length >= maxCount ? `${cellRef} — лимит выбора (${maxCount})` : `${cellRef} — нажмите для выбора`) :
                     blockedType ? `${cellRef} — заблокировано` :
@@ -173,7 +195,7 @@ const RefusalMap = ({
       </div>
 
       {/* Итог выбора */}
-      {mode === 'exchange' ? (
+      {mode === 'pipeline' ? null : mode === 'exchange' ? (
         <div className="refusal-map-selection-summary">
           {!selectedMyRef && !selectedCompanyRef ? (
             <span className="refusal-summary-hint">Выберите ваш участок и участок компании</span>

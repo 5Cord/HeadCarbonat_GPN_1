@@ -136,6 +136,15 @@ const AuctionDashboard = ({ auctions, player, budget, onPlaceBid, onLeaveAuction
               || Number(bidVal) < minNextBid
               || Number(bidVal) > budget;
 
+            const participantRows = (auction.participants || []).map(teamId => {
+              const latestBid = [...(auction.bids || [])].reverse().find(b => b.teamId === teamId);
+              const teamName = auction.participantDetails?.find(p => p.teamId === teamId)?.teamName
+                || latestBid?.teamName
+                || (auction.currentBidTeamId === teamId ? auction.currentBidTeamName : null)
+                || teamId;
+              return { teamId, teamName, latestBid };
+            });
+
             return (
               <div
                 key={cellRef}
@@ -231,14 +240,25 @@ const AuctionDashboard = ({ auctions, player, budget, onPlaceBid, onLeaveAuction
                     </div>
                   )}
 
+                  <div className="auction-participants-list">
+                    <div className="auction-participants-title">Участники и последние ставки</div>
+                    {participantRows.map(({ teamId, teamName, latestBid }) => (
+                      <div key={teamId} className={`auction-participant-row ${teamId === myId ? 'auction-participant-me' : ''}`}>
+                        <span>{teamId === myId ? `Вы — ${teamName}` : teamName}</span>
+                        <strong>{latestBid ? `${latestBid.amount} млн` : 'Пока без ставки'}</strong>
+                      </div>
+                    ))}
+                  </div>
+
                   {/* История последних ставок */}
                   {auction.bids?.length > 0 && (
                     <div className="auction-bids-mini">
+                      <div className="auction-participants-title">Последние ставки</div>
                       {[...auction.bids].reverse().slice(0, 3).map((bid, i) => {
                         const isMe = bid.teamId === myId || bid.teamName === player.name;
                         return (
                           <div key={i} className={`auction-bid-mini-row ${isMe ? 'bid-mini-me' : ''}`}>
-                            <span>{isMe ? 'Вы' : bid.teamName}</span>
+                            <span>{isMe ? 'Вы' : (bid.teamName || bid.teamId || 'Участник')}</span>
                             <span>{bid.amount} млн</span>
                           </div>
                         );

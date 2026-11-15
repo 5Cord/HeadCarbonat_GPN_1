@@ -382,6 +382,33 @@
   border: 1px solid #ef9a9a;
 }
 
+/* Участники и ставки */
+.auction-participants-list {
+  border-top: 1px solid #f0f0f0;
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.auction-participants-title {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.auction-participant-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #344054;
+  font-size: 13px;
+}
+
+.auction-participant-row span { overflow-wrap: anywhere; }
+.auction-participant-row strong { white-space: nowrap; }
+.auction-participant-me { color: #168778; }
+
 /* Мини-история */
 .auction-bids-mini {
   border-top: 1px solid #f0f0f0;
@@ -395,7 +422,7 @@
   display: flex;
   justify-content: space-between;
   font-size: 12px;
-  color: #bbb;
+  color: #667085;
 }
 
 .bid-mini-me {
