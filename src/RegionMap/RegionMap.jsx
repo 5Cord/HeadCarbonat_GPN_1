@@ -13,6 +13,7 @@ import { getFaciesConfigById, FACIES_ENABLED } from './faciesPresets';
 import NeftImg from '../assets/cards/Neft.png';
 import { PIPELINE_ZONE_CELLS } from './pipelineZones';
 import { BLOCKED_CELLS } from './blockedCells';
+import { getRegionMapLayout, getRegionMapNorthArrow, normalizeRegionMapRotation, rotateRegionMapPoint } from './regionMapRotation';
 
 const DEFAULT_CASE_INTRO = {
   title: 'Кейс',
@@ -132,11 +133,11 @@ const ZONE_CONTOUR_PATHS = (() => {
   return result;
 })();
 
-function ZoneContours() {
+function ZoneContours({ rotation = 0 }) {
   const size = 10 * _CELL_U;
   return (
     <svg
-      style={{ position: 'absolute', top: 0, left: 0, width: size, height: size, pointerEvents: 'none', zIndex: 5, overflow: 'visible' }}
+      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 5, overflow: 'visible', transform: `rotate(${rotation}deg)`, transformOrigin: 'center' }}
       viewBox={`0 0 ${size} ${size}`}
     >
       <defs>
@@ -254,6 +255,9 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
   const sessionConfig = player.sessionConfig ?? {};
   const MAX_LUS_PER_TEAM = sessionConfig.maxLUsPerTeam ?? 5;
+  const regionMapRotation = normalizeRegionMapRotation(sessionConfig.regionMapRotation);
+  const mapLayout = getRegionMapLayout(regionMapRotation);
+  const fixedCardCells = getRegionMapLayout(0).cells;
 
   // Карточки ЛУ: дефолты + настройки сессии из админки (name/cost/description/image)
   const licenseUnitsList = useMemo(
@@ -1081,20 +1085,21 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
       <div className="map-main-area">
         <div className="grid-with-lu-wrapper">
           <div className="grid-column-headers">
-            <div className="grid-corner"></div>
-            {cols.map(col => <div key={col} className="grid-header-cell">{col}</div>)}
+            <div className="grid-corner" aria-label={`Север: ${getRegionMapNorthArrow(regionMapRotation)}`}>
+              {getRegionMapNorthArrow(regionMapRotation)} С
+            </div>
+            {mapLayout.columnHeaders.map((header, index) => <div key={index} className="grid-header-cell">{header}</div>)}
           </div>
           <div className="grid-content-wrapper">
             <div className="grid-row-headers">
-              {rows.map(row => <div key={row} className="grid-row-header">{row}</div>)}
+              {mapLayout.rowHeaders.map((header, index) => <div key={index} className="grid-row-header">{header}</div>)}
             </div>
             <div className="grid-with-lu" style={{ position: 'relative' }}>
-              {rows.map(row => (
-                <div key={row} className="grid-row">
-                  {cols.map(col => {
-                    const cellId = `${row}${col}`;
+              {mapLayout.cells.map((cellRow, rowIndex) => (
+                <div key={rowIndex} className="grid-row">
+                  {cellRow.map((cellId, columnIndex) => {
                     const facies = getFacies(faciesConfig, cellId);
-                    const lu = getLUPosition(cellId);
+                    const lu = getLUPosition(fixedCardCells[rowIndex][columnIndex]);
                     const ownedByMe = isOwnedByMe(cellId);
                     const ownedByOther = isOwnedByOther(cellId);
                     const hasActiveAuction = !!auctions.active[cellId];
@@ -1249,18 +1254,19 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                   })}
                 </div>
               ))}
-              {globalYear >= 9 && <ZoneContours />}
-              {faciesNodes.map(node => (
-                <img
+              {globalYear >= 9 && <ZoneContours rotation={regionMapRotation} />}
+              {faciesNodes.map(node => {
+                const point = rotateRegionMapPoint(node.x, node.y, regionMapRotation, 10 * _CELL_U);
+                return <img
                   key={node.at}
                   src={NeftImg}
                   alt={node.label}
                   className="facies-node-marker"
-                  style={{ left: node.x, top: node.y }}
+                  style={{ left: point.x, top: point.y }}
                   onMouseMove={(e) => setCellTooltip({ cellId: `__facies_node__${node.at}`, x: e.clientX, y: e.clientY })}
                   onMouseLeave={() => setCellTooltip(null)}
-                />
-              ))}
+                />;
+              })}
             </div>
           </div>
         </div>

@@ -1139,6 +1139,7 @@ const CreateSessionTab = ({ onGoToControl }) => {
         researchConfig: freshResearchConfig(),
         luCards: freshLUCards(),
         faciesPresetId: null,
+        regionMapRotation: 0,
     });
     const sf = (k, v) => setForm(f => ({ ...f, [k]: v }));
     // Выбор шаблона и его эталон держим здесь: разделы сворачиваемые, редакторы
@@ -1178,7 +1179,7 @@ const CreateSessionTab = ({ onGoToControl }) => {
             const r = await fetch(`${API_URL}/api/admin/sessions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ gameMode: form.gameMode, playerType: form.playerType, maxLUsPerTeam: form.maxLUs, budget: form.budgets[form.playerType], budgets: form.budgets, regionMapTimers: form.timers.regionMap, timers: form.timers.years, introContent: form.introContent, researchConfig: form.researchConfig, faciesPresetId: form.faciesPresetId, luCards: form.luCards.map(c => { const cc = { ...c }; delete cc.defaultImage; return cc; }) }),
+                body: JSON.stringify({ gameMode: form.gameMode, playerType: form.playerType, maxLUsPerTeam: form.maxLUs, budget: form.budgets[form.playerType], budgets: form.budgets, regionMapTimers: form.timers.regionMap, regionMapRotation: form.regionMapRotation, timers: form.timers.years, introContent: form.introContent, researchConfig: form.researchConfig, faciesPresetId: form.faciesPresetId, luCards: form.luCards.map(c => { const cc = { ...c }; delete cc.defaultImage; return cc; }) }),
             });
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const res = await r.json();
@@ -1209,7 +1210,7 @@ const CreateSessionTab = ({ onGoToControl }) => {
 
     return (
         <div className="create-form create-form-session">
-            <RegionMapMiniature />
+            <RegionMapMiniature rotation={form.regionMapRotation} onRotationChange={value => sf('regionMapRotation', value)} />
             <div className="create-form-left">
                 {ENABLE_SESSION_PRESETS && presets.length > 0 && (
                     <div className="fs">

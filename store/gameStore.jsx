@@ -61,6 +61,7 @@ const defaultSessionConfig = {
     auction: 2,
     postAuction: 2,
   },
+  regionMapRotation: 0,
   maxLUsPerTeam: 5,
   researchConfig: null,
 };

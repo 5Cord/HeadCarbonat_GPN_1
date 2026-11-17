@@ -71,6 +71,12 @@
 
 .refusal-grid-corner {
   min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1a7a6e;
+  font-size: .9rem;
+  font-weight: 800;
 }
 
 .refusal-grid-col-header {
@@ -131,6 +137,9 @@
 .pipeline-point, .pipeline-legend-point { color: #8a4200; font-weight: 900; }
 .pipeline-point-anchor { overflow: visible; z-index: 3; }
 .pipeline-point { position: absolute; bottom: -1px; right: -1px; transform: translate(50%, 50%); z-index: 2; font-size: 1rem; }
+.pipeline-point-rotation-90 { right: auto; left: -1px; transform: translate(-50%, 50%); }
+.pipeline-point-rotation-180 { right: auto; bottom: auto; left: -1px; top: -1px; transform: translate(-50%, -50%); }
+.pipeline-point-rotation-270 { bottom: auto; top: -1px; transform: translate(50%, -50%); }
 
 .refusal-cell-scene-img {
   position: absolute;

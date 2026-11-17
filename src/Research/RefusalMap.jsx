@@ -18,9 +18,8 @@ import React from 'react';
 import './RefusalMap.css';
 import { getPipelineCost } from '../RegionMap/pipelineZones';
 import { BLOCKED_CELLS } from '../RegionMap/blockedCells';
-
-const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
-const cols = Array.from({ length: 10 }, (_, i) => i + 1);
+import { getRegionMapLayout, getRegionMapNorthArrow, normalizeRegionMapRotation } from '../RegionMap/regionMapRotation';
+import useGameStore from '../../store/gameStore';
 
 const getBlockedType = (cellRef) => {
   if (BLOCKED_CELLS.settlement.includes(cellRef)) return 'settlement';
@@ -44,6 +43,8 @@ const RefusalMap = ({
   onSelectCompany,
 }) => {
   const ownedKeys = Object.keys(ownedCells);
+  const rotation = normalizeRegionMapRotation(useGameStore(state => state.player.sessionConfig?.regionMapRotation));
+  const mapLayout = getRegionMapLayout(rotation);
 
   return (
     <div className="refusal-map-wrap">
@@ -78,16 +79,15 @@ const RefusalMap = ({
       <div className="refusal-map-grid-wrap">
         {/* Заголовок колонок */}
         <div className="refusal-grid-col-headers">
-          <div className="refusal-grid-corner" />
-          {cols.map(c => <div key={c} className="refusal-grid-col-header">{c}</div>)}
+          <div className="refusal-grid-corner" title="Север" aria-label="Север">{getRegionMapNorthArrow(rotation)}</div>
+          {mapLayout.columnHeaders.map((header, index) => <div key={index} className="refusal-grid-col-header">{header}</div>)}
         </div>
 
         {/* Строки */}
-        {rows.map(row => (
-          <div key={row} className="refusal-grid-row">
-            <div className="refusal-grid-row-header">{row}</div>
-            {cols.map(col => {
-              const cellRef = `${row}${col}`;
+        {mapLayout.cells.map((cellRow, rowIndex) => (
+          <div key={rowIndex} className="refusal-grid-row">
+            <div className="refusal-grid-row-header">{mapLayout.rowHeaders[rowIndex]}</div>
+            {cellRow.map(cellRef => {
 
               if (mode === 'pipeline') {
                 const cost = getPipelineCost(cellRef);
@@ -97,7 +97,7 @@ const RefusalMap = ({
                     title={`${cellRef}: ${cost == null ? 'стоимость не определена' : `${cost} млн руб.`}${isOwned ? ' — ваш участок' : ''}`}>
                     <span className="refusal-cell-label">{cellRef}</span>
                     {isOwned && <span className="refusal-cell-mark">●</span>}
-                    {cellRef === 'D6' && <span className="pipeline-point" title="Точка сдачи нефти">◆</span>}
+                    {cellRef === 'D6' && <span className={`pipeline-point pipeline-point-rotation-${rotation}`} title="Точка сдачи нефти">◆</span>}
                   </div>
                 );
               }
