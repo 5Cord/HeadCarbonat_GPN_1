@@ -11,6 +11,8 @@ import { MOBILIZATION_WORKS, normalizeResearchConfig } from './Research/research
 import { DEFAULT_LU_CARDS } from './RegionMap/luCards';
 import { ROWS as FACIES_ROWS, rcToCellRef } from './RegionMap/faciesUtils';
 import { FACIES_PRESETS, FACIES_ENABLED, getFaciesPresetById } from './RegionMap/faciesPresets';
+import RegionMapMiniature from './RegionMap/RegionMapMiniature';
+import { createPortal } from 'react-dom';
 import { io as socketIO } from 'socket.io-client';
 import QuestionsTab from './Questions/QuestionsTab';
 import {
@@ -826,7 +828,7 @@ const LiveTimersEditor = ({ sessionId, adminSocket }) => {
 };
 
 const ConfirmModal = ({ message, hint, onConfirm, onCancel }) => (
-    <div className="cm-overlay" onClick={onCancel}>
+    createPortal(<div className="cm-overlay" onClick={onCancel}>
         <div className="cm-box" onClick={e => e.stopPropagation()}>
             <p className="cm-message">{message}</p>
             {hint && <p className="cm-hint">{hint}</p>}
@@ -835,13 +837,13 @@ const ConfirmModal = ({ message, hint, onConfirm, onCancel }) => (
                 <button className="cm-btn cm-btn-confirm" onClick={onConfirm}>Подтвердить</button>
             </div>
         </div>
-    </div>
+    </div>, document.body)
 );
 
 const PromptModal = ({ title, initialValue = '', confirmLabel = 'ОК', error, onConfirm, onCancel }) => {
     const [value, setValue] = useState(initialValue);
     return (
-        <div className="cm-overlay" onClick={onCancel}>
+        createPortal(<div className="cm-overlay" onClick={onCancel}>
             <div className="cm-box" onClick={e => e.stopPropagation()}>
                 <p className="cm-message">{title}</p>
                 <input
@@ -858,7 +860,7 @@ const PromptModal = ({ title, initialValue = '', confirmLabel = 'ОК', error, o
                     <button className="cm-btn cm-btn-confirm" onClick={() => onConfirm(value)}>{confirmLabel}</button>
                 </div>
             </div>
-        </div>
+        </div>, document.body)
     );
 };
 
@@ -1029,6 +1031,81 @@ const CollapsibleSection = ({ title, extra, defaultOpen = false, children }) => 
     );
 };
 
+const ModalEditorSection = ({ title, extra, children }) => {
+    const [open, setOpen] = useState(false);
+    const triggerRef = useRef(null);
+    const dialogRef = useRef(null);
+    const titleId = React.useId();
+
+    useEffect(() => {
+        if (!open) return undefined;
+        const previousOverflow = document.body.style.overflow;
+        const triggerElement = triggerRef.current;
+        document.body.style.overflow = 'hidden';
+        dialogRef.current?.focus();
+
+        const handleKeyDown = event => {
+            if (document.querySelector('.cm-overlay')) return;
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                setOpen(false);
+            }
+            if (event.key !== 'Tab') return;
+            const focusable = [...dialogRef.current.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])')]
+                .filter(element => element.getClientRects().length > 0);
+            if (!focusable.length) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (!dialogRef.current.contains(document.activeElement)) {
+                event.preventDefault();
+                (event.shiftKey ? last : first).focus();
+                return;
+            }
+            if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+            document.body.style.overflow = previousOverflow;
+            triggerElement?.focus();
+        };
+    }, [open]);
+
+    return (
+        <>
+            <button type="button" className="fs editor-section-trigger" ref={triggerRef} onClick={() => setOpen(true)}>
+                <span className="fs-title">{title}</span>
+                <span className="editor-section-action">Открыть ↗</span>
+            </button>
+            {open && createPortal(
+                <div className="editor-modal-overlay" onClick={event => { if (event.target === event.currentTarget) setOpen(false); }}>
+                    <div className="editor-modal" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} ref={dialogRef}>
+                        <div className="editor-modal-header">
+                            <h2 id={titleId}>{title}</h2>
+                            <button type="button" className="editor-modal-close" aria-label="Закрыть окно" onClick={() => setOpen(false)}>✕</button>
+                        </div>
+                        <div className="editor-modal-content">
+                            {extra && <div className="editor-modal-tools">{extra}</div>}
+                            {children}
+                        </div>
+                        <div className="editor-modal-footer">
+                            <button type="button" className="editor-modal-done" onClick={() => setOpen(false)}>Готово</button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+        </>
+    );
+};
+
 // Откат раздела к эталону: сохранённый вид выбранного шаблона, а без шаблона — дефолт.
 const ResetBaselineButton = ({ baseline, fallback, onReset }) => {
     const presetName = baseline?.presetName;
@@ -1131,7 +1208,8 @@ const CreateSessionTab = ({ onGoToControl }) => {
     }
 
     return (
-        <div className="create-form">
+        <div className="create-form create-form-session">
+            <RegionMapMiniature />
             <div className="create-form-left">
                 {ENABLE_SESSION_PRESETS && presets.length > 0 && (
                     <div className="fs">
@@ -1191,7 +1269,7 @@ const CreateSessionTab = ({ onGoToControl }) => {
                     </div>
                     <TimersForm timers={form.timers} onChange={v => sf('timers', v)} />
                 </div>
-                <CollapsibleSection
+                <ModalEditorSection
                     title="Стартовое окно"
                     extra={<ResetBaselineButton baseline={introBaseline} fallback={() => DEFAULT_CASE_INTRO} onReset={v => sf('introContent', v)} />}
                 >
@@ -1202,8 +1280,8 @@ const CreateSessionTab = ({ onGoToControl }) => {
                         onPresetIdChange={setIntroPresetId}
                         onBaselineChange={setIntroBaseline}
                     />
-                </CollapsibleSection>
-                <CollapsibleSection
+                </ModalEditorSection>
+                <ModalEditorSection
                     title="Научные исследования (виды работ)"
                     extra={<ResetBaselineButton baseline={researchBaseline} fallback={freshResearchConfig} onReset={v => sf('researchConfig', v)} />}
                 >
@@ -1214,13 +1292,13 @@ const CreateSessionTab = ({ onGoToControl }) => {
                         onPresetIdChange={setResearchPresetId}
                         onBaselineChange={setResearchBaseline}
                     />
-                </CollapsibleSection>
-                <CollapsibleSection
+                </ModalEditorSection>
+                <ModalEditorSection
                     title="Карточки информации (карта региона)"
                     extra={<button className="ghost-btn" title="Вернуть все карточки к исходному виду" onClick={() => sf('luCards', freshLUCards())}>↺ По умолчанию</button>}
                 >
                     <LUCardsEditor value={form.luCards} onChange={v => sf('luCards', v)} />
-                </CollapsibleSection>
+                </ModalEditorSection>
                 {FACIES_ENABLED && (
                     <CollapsibleSection title="Фации карты региона">
                         <FaciesPresetPicker value={form.faciesPresetId} onChange={v => sf('faciesPresetId', v)} />
@@ -1342,7 +1420,7 @@ const PresetForm = ({ initial, onSave, onCancel, saving, existingNames = [] }) =
                     </div>
                     <TimersForm timers={form.timers} onChange={v => sf('timers', v)} />
                 </div>
-                <CollapsibleSection
+                <ModalEditorSection
                     title="Стартовое окно (кейс)"
                     extra={<ResetBaselineButton baseline={introBaseline} fallback={() => DEFAULT_CASE_INTRO} onReset={v => sf('introContent', v)} />}
                 >
@@ -1353,8 +1431,8 @@ const PresetForm = ({ initial, onSave, onCancel, saving, existingNames = [] }) =
                         onPresetIdChange={setIntroPresetId}
                         onBaselineChange={setIntroBaseline}
                     />
-                </CollapsibleSection>
-                <CollapsibleSection
+                </ModalEditorSection>
+                <ModalEditorSection
                     title="НИРы (виды работ, проценты)"
                     extra={<ResetBaselineButton baseline={researchBaseline} fallback={freshResearchConfig} onReset={v => sf('researchConfig', v)} />}
                 >
@@ -1365,7 +1443,7 @@ const PresetForm = ({ initial, onSave, onCancel, saving, existingNames = [] }) =
                         onPresetIdChange={setResearchPresetId}
                         onBaselineChange={setResearchBaseline}
                     />
-                </CollapsibleSection>
+                </ModalEditorSection>
                 {FACIES_ENABLED && (
                     <CollapsibleSection title="Фации карты региона">
                         <FaciesPresetPicker value={form.faciesPresetId} onChange={v => sf('faciesPresetId', v)} />
@@ -2564,6 +2642,8 @@ const DashboardTab = ({ sessions, globalStats }) => {
     const [ratingData, setRatingData] = useState(null);
     const [topicData, setTopicData] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [exporting, setExporting] = useState(false);
+    const [exportError, setExportError] = useState('');
 
     const load = useCallback(async (sid, silent = false) => {
         if (!sid) return;
@@ -2615,7 +2695,24 @@ const DashboardTab = ({ sessions, globalStats }) => {
         return () => clearInterval(timer);
     }, [sessId, load]);
 
-    const handleSessChange = (sid) => { setSessId(sid); load(sid); };
+    const handleSessChange = (sid) => { setSessId(sid); setExportError(''); load(sid); };
+
+    const handleExport = async () => {
+        if (!sessId || exporting) return;
+        setExporting(true);
+        setExportError('');
+        try {
+            const report = await apiAction(`/api/admin/sessions/${encodeURIComponent(sessId)}/final-stats`, 'GET');
+            const { downloadSessionExcel } = await import('./admin/sessionExcel');
+            await downloadSessionExcel(report, sessions.find(session => session.id === sessId));
+        } catch (error) {
+            setExportError(error.message === 'Unauthorized'
+                ? 'Сессия администратора истекла. Войдите снова.'
+                : `Не удалось выгрузить отчёт: ${error.message}`);
+        } finally {
+            setExporting(false);
+        }
+    };
 
     const teams = teamsData?.teams ?? [];
     const sorted = [...teams].sort((a, b) => b.budget - a.budget);
@@ -2708,7 +2805,12 @@ const DashboardTab = ({ sessions, globalStats }) => {
                 <button className="tb tb-gray" onClick={() => load(sessId)} disabled={!sessId || loading}>
                     ↻ Обновить
                 </button>
+                <button className="tb tb-primary" onClick={handleExport} disabled={!sessId || exporting}>
+                    {exporting ? 'Подготовка Excel…' : '↓ Выгрузить Excel'}
+                </button>
             </div>
+
+            {exportError && <div className="form-error" role="alert">{exportError}</div>}
 
             {loading && <div className="ap-loading">Загрузка данных…</div>}
             {!sessId && !loading && <div className="dash-empty">Выберите сессию, чтобы увидеть данные</div>}

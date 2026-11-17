@@ -313,13 +313,37 @@ body,
   cursor: not-allowed;
 }
 
-/* ── Создание сессии — двухколоночный layout ── */
+/* ── Формы создания сессии и шаблона ── */
 .create-form {
   display: grid;
   grid-template-columns: 400px 1fr;
   gap: 1rem;
   align-items: start;
   width: 100%;
+}
+
+.create-form.create-form-session {
+  grid-template-columns: 360px 400px minmax(0, 1fr);
+}
+
+@media (max-width: 1250px) {
+  .create-form.create-form-session {
+    grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  }
+
+  .create-form-session .create-form-right {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .create-form.create-form-session {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .create-form-session .create-form-right {
+    grid-column: auto;
+  }
 }
 
 .create-form-left {
@@ -557,6 +581,129 @@ body,
 
 .collapsible-arrow-open {
   transform: rotate(90deg);
+}
+
+/* Редакторы крупных разделов открываются поверх формы. */
+.editor-section-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid var(--border);
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.editor-section-trigger:hover,
+.editor-section-trigger:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(41, 166, 148, .13);
+}
+
+.editor-section-trigger .fs-title { margin: 0; }
+
+.editor-section-action {
+  flex-shrink: 0;
+  color: var(--accent2);
+  font-size: .86rem;
+  font-weight: 700;
+}
+
+.editor-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(10, 34, 64, .62);
+  backdrop-filter: blur(3px);
+  font-family: 'GPN_DIN', 'Segoe UI', sans-serif;
+  color: var(--text);
+}
+
+.editor-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 980px);
+  max-height: min(90vh, 900px);
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .3);
+}
+
+.editor-modal-header,
+.editor-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-shrink: 0;
+  padding: .85rem 1.25rem;
+}
+
+.editor-modal-header { border-bottom: 1px solid var(--border); }
+.editor-modal-footer { justify-content: flex-end; border-top: 1px solid var(--border); }
+
+.editor-modal-header h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.2rem;
+  line-height: 1.25;
+}
+
+.editor-modal-close {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--surface2);
+  color: var(--text2);
+  font: inherit;
+  cursor: pointer;
+}
+
+.editor-modal-close:hover { color: var(--text); background: var(--border); }
+
+.editor-modal-content {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem 1.25rem;
+}
+
+.editor-modal-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: .75rem;
+}
+
+.editor-modal-done {
+  padding: .55rem 1.25rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent2);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.editor-modal-done:hover { background: var(--accent); }
+
+@media (max-width: 600px) {
+  .editor-modal-overlay { padding: .5rem; }
+  .editor-modal { max-height: calc(100dvh - 1rem); }
+  .editor-modal-header,
+  .editor-modal-footer,
+  .editor-modal-content { padding: .75rem; }
 }
 
 /* ── Цветные кнопки управления шаблоном ── */
