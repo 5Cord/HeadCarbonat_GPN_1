@@ -13,7 +13,7 @@ import { getFaciesConfigById, FACIES_ENABLED } from './faciesPresets';
 import NeftImg from '../assets/cards/Neft.png';
 import { PIPELINE_ZONE_CELLS } from './pipelineZones';
 import { BLOCKED_CELLS } from './blockedCells';
-import { getRegionMapLayout, getRegionMapNorthArrow, normalizeRegionMapRotation, rotateRegionMapPoint } from './regionMapRotation';
+import { getRegionMapCardLabelDirections, getRegionMapLayout, getRegionMapNorthArrow, getRotatedCardSide, getRotatedCardStyle, normalizeRegionMapRotation, rotateRegionMapPoint } from './regionMapRotation';
 
 const DEFAULT_CASE_INTRO = {
   title: 'Кейс',
@@ -47,18 +47,14 @@ const SCENARIO_WORK_LABELS = {
 
 // Подпись ставится от края маркера, чтобы положение не зависело от длины названия.
 const LU_LABEL_GAP = 8;
-const getLULabelStyle = (lu) => {
-  const markerLeft = parseFloat(lu.customStyle?.left) || 0;
-  const style = { position: 'absolute', top: lu.customStyle?.top || '0' };
-  if (lu.position === 'left') {
-    style.left = `${markerLeft - LU_LABEL_GAP}px`;
-    style.transform = 'translateX(-100%)';
-  } else {
-    style.left = `calc(${markerLeft}px + var(--lu-size, 65px) + ${LU_LABEL_GAP}px)`;
-    if (lu.position === 'corner-top-right') style.transform = 'translateY(20%)';
-  }
-  return style;
-};
+const getLULabelStyle = (side, markerStyle) => ({
+  position: 'absolute',
+  top: markerStyle.top,
+  left: side === 'left'
+    ? `calc(${markerStyle.left} - ${LU_LABEL_GAP}px)`
+    : `calc(${markerStyle.left} + var(--lu-size, 65px) + ${LU_LABEL_GAP}px)`,
+  ...(side === 'left' ? { transform: 'translateX(-100%)' } : {}),
+});
 
 const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
 const cols = Array.from({ length: 10 }, (_, i) => i + 1);
@@ -257,12 +253,15 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const MAX_LUS_PER_TEAM = sessionConfig.maxLUsPerTeam ?? 5;
   const regionMapRotation = normalizeRegionMapRotation(sessionConfig.regionMapRotation);
   const mapLayout = getRegionMapLayout(regionMapRotation);
-  const fixedCardCells = getRegionMapLayout(0).cells;
 
   // Карточки ЛУ: дефолты + настройки сессии из админки (name/cost/description/image)
   const licenseUnitsList = useMemo(
     () => resolveLicenseUnits(sessionConfig.luCards),
     [sessionConfig.luCards],
+  );
+  const cardLabelDirections = useMemo(
+    () => getRegionMapCardLabelDirections(licenseUnitsList, regionMapRotation),
+    [licenseUnitsList, regionMapRotation],
   );
 
   // Фации карты региона — шаблон, выбранный админом при создании сессии
@@ -1097,9 +1096,12 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
             <div className="grid-with-lu" style={{ position: 'relative' }}>
               {mapLayout.cells.map((cellRow, rowIndex) => (
                 <div key={rowIndex} className="grid-row">
-                  {cellRow.map((cellId, columnIndex) => {
+                  {cellRow.map(cellId => {
                     const facies = getFacies(faciesConfig, cellId);
-                    const lu = getLUPosition(fixedCardCells[rowIndex][columnIndex]);
+                    const lu = getLUPosition(cellId);
+                    const cardStyle = lu ? getRotatedCardStyle(lu.customStyle, regionMapRotation) : null;
+                    const cardSide = lu ? getRotatedCardSide(lu.customStyle, regionMapRotation) : null;
+                    const labelDirection = lu ? (cardLabelDirections[lu.id] ?? cardSide) : null;
                     const ownedByMe = isOwnedByMe(cellId);
                     const ownedByOther = isOwnedByOther(cellId);
                     const hasActiveAuction = !!auctions.active[cellId];
@@ -1234,7 +1236,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                           <div className="lu-container">
                             <div
                               className={['lu-marker', isLUSelected(lu.id) ? 'selected' : '', !canAffordLU(lu) && !isLUSelected(lu.id) ? 'disabled' : '', !canBuyCells() && !isLUSelected(lu.id) ? 'timer-disabled' : ''].filter(Boolean).join(' ')}
-                              style={lu.customStyle}
+                              style={cardStyle}
                               onClick={() => handleLUClick(lu)}
                               onMouseEnter={() => setHoveredLU(lu.id)}
                               onMouseLeave={() => setHoveredLU(null)}
@@ -1243,7 +1245,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                               <span className="lu-marker-number">{lu.shortName}</span>
                               {isLUSelected(lu.id) && <span className="lu-marker-check"></span>}
                             </div>
-                            <div className={`lu-name-label${lu.position === 'left' ? ' lu-name-label-left' : ''}`} style={getLULabelStyle(lu)}>
+                            <div className={`lu-name-label${labelDirection === 'left' ? ' lu-name-label-left' : ''}`} style={getLULabelStyle(labelDirection, cardStyle)}>
                               <div className="lu-name-text">{lu.name}</div>
                               <div className="lu-cost-text">{lu.cost} млн руб.</div>
                             </div>

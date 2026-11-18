@@ -1210,7 +1210,7 @@ const CreateSessionTab = ({ onGoToControl }) => {
 
     return (
         <div className="create-form create-form-session">
-            <RegionMapMiniature rotation={form.regionMapRotation} onRotationChange={value => sf('regionMapRotation', value)} />
+            <RegionMapMiniature rotation={form.regionMapRotation} luCards={form.luCards} onRotationChange={value => sf('regionMapRotation', value)} />
             <div className="create-form-left">
                 {ENABLE_SESSION_PRESETS && presets.length > 0 && (
                     <div className="fs">

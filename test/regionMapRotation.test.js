@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getRegionMapLayout, getRegionMapNorthArrow, normalizeRegionMapRotation, rotateRegionMapPoint } from '../src/RegionMap/regionMapRotation.js';
+import { getRegionMapLayout, getRegionMapNorthArrow, getRotatedCardSide, getRotatedCardStyle, normalizeRegionMapRotation, rotateRegionMapPoint } from '../src/RegionMap/regionMapRotation.js';
 
 test('each quarter turn keeps all cell references and rotates their positions', () => {
   const corners = {
@@ -37,9 +37,18 @@ test('overlay points follow the same rotation', () => {
   assert.deepEqual(rotateRegionMapPoint(20, 30, 270, 100), { x: 30, y: 80 });
 });
 
-test('card slots stay fixed while the map and north direction turn', () => {
-  const fixedCardCells = getRegionMapLayout(0).cells;
-  assert.equal(fixedCardCells[0][1], 'A2');
-  assert.equal(getRegionMapLayout(90).cells[0][1], 'I1');
+test('card positions turn with their attached cells and north direction', () => {
+  const cardStyle = { top: '-130px', left: '0px' };
+  assert.deepEqual([0, 90, 180, 270].map(angle => getRotatedCardSide(cardStyle, angle)), ['top', 'right', 'bottom', 'left']);
+  assert.deepEqual([0, 90, 180, 270].map(angle => getRotatedCardStyle(cardStyle, angle)), [
+    { left: '0px', top: 'calc(-1 * var(--lu-size, 65px) - 75px)' },
+    { left: 'calc(var(--lu-size, 65px) + 30px)', top: '0px' },
+    { left: '0px', top: 'calc(var(--lu-size, 65px) + 30px)' },
+    { left: 'calc(-1 * var(--lu-size, 65px) - 75px)', top: '0px' },
+  ]);
+  for (const angle of [0, 90, 180, 270]) {
+    const cells = getRegionMapLayout(angle).cells;
+    assert.equal(cells.flat().filter(ref => ref === 'A2').length, 1);
+  }
   assert.deepEqual([0, 90, 180, 270].map(getRegionMapNorthArrow), ['↑', '→', '↓', '←']);
 });
