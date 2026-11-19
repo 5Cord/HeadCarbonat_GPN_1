@@ -7,6 +7,7 @@ import styles from './EventsZone.module.css';
 import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
 import EventsZoneTour from './Eventszonetour';
+import { getDisplayCellRef } from '../RegionMap/regionMapRotation';
 
 
 // Ищем по id в пуле: card.data.image из localStorage может устареть.
@@ -105,6 +106,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
     resetEventCardsForNewYear, applyYearTransitionForAllLUs, advanceToNextYear,
     setNavigateToRefusal, addUsedEventCardIds, addUsedEventTopics,
   } = useGameStore();
+  const displayCellRef = ref => getDisplayCellRef(ref, player.sessionConfig?.regionMapRotation);
 
   const globalYear = useGameStore(s => s.game.currentYear);
   const timeRemaining = useGameStore(s => s.globalTimer.timeRemaining);
@@ -132,7 +134,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
 
   const ownedLUs = Object.values(gridCells.owned).map(cell => ({
     id: cell.cellRef, cellRef: cell.cellRef,
-    name: cell.name || `Участок ${cell.cellRef}`,
+    name: cell.name?.replace(cell.cellRef, displayCellRef(cell.cellRef)) || `Участок ${displayCellRef(cell.cellRef)}`,
   }));
 
   const [activeLUId, setActiveLUId] = useState(() => ownedLUs[0]?.cellRef || null);
@@ -916,7 +918,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
             return (
               <div key={lu.cellRef} onClick={() => setActiveLUId(lu.cellRef)}
                 className={[styles.luCard, isActive ? styles.luCardActive : '', styles['luSt_' + status]].join(' ')}>
-                <div className={styles.luCardRef}>{lu.cellRef}</div>
+                <div className={styles.luCardRef}>{displayCellRef(lu.cellRef)}</div>
                 <div className={styles.luCardName}>{lu.name}</div>
                 <div className={styles.luCardMeta}>
                   {hasRes && line?.successRate != null && <span className={styles.metaMob}>Успех {line.successRate}%</span>}
@@ -954,13 +956,13 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
           <div className={styles.emptyMsg}>Нет купленных участков</div>
         ) : !activeLine ? (
           <div className={styles.emptyMsg}>
-            Для участка <strong>{activeLU.cellRef}</strong> не проводились НИРы в этом году.
+            Для участка <strong>{displayCellRef(activeLU.cellRef)}</strong> не проводились НИРы в этом году.
           </div>
         ) : (
           <div className={`${styles.eventLine} ${activeLine.generatedAt && Date.now() - activeLine.generatedAt < 5000 ? styles.newLine : ''}`}>
             <div className={styles.lineHeader}>
               <div className={styles.lineHeaderLeft}>
-                <h3>{activeLine.luName}</h3>
+                <h3>{activeLine.luName?.replace(activeLine.luId, displayCellRef(activeLine.luId))}</h3>
                 <span className={styles.successRate}>Успешность: {activeLine.successRate}%</span>
               </div>
               <div className={styles.lineStats}>
@@ -991,7 +993,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
           <div className={styles.noResearchSection}>
             <p className={styles.noResearchLabel}>Участки без НИРов в этом году:</p>
             <div className={styles.noResearchList}>
-              {nonResearchLines.map(line => <span key={line.luId} className={styles.noResearchItem}>{line.luName}</span>)}
+              {nonResearchLines.map(line => <span key={line.luId} className={styles.noResearchItem}>{line.luName?.replace(line.luId, displayCellRef(line.luId))}</span>)}
             </div>
           </div>
         )}
@@ -1088,7 +1090,7 @@ const EventsZone = ({ onComplete, onBack, onMenu }) => {
 
       {skipConfirmData && (
         <SkipConfirmModal
-          lineName={skipConfirmData.line.luName}
+          lineName={skipConfirmData.line.luName?.replace(skipConfirmData.line.luId, displayCellRef(skipConfirmData.line.luId))}
           stats={skipConfirmData.stats}
           onConfirm={confirmSkipLine}
           onCancel={cancelSkipLine}

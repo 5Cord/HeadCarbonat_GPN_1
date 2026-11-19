@@ -7,6 +7,8 @@ import ResultsPanel from './Results/ResultsPanel';
 import GlobalTimer from './GlobalTimer';
 import useGameStore from '../store/gameStore';
 import styles from './GameBoard.module.css';
+import { getDisplayCellRef } from './RegionMap/regionMapRotation';
+import { isResearchDoneForYear } from './Research/researchData';
 
 // Маппинг экрана (строка в Zustand) ↔ expandedField (число в компоненте)
 const SCREEN_TO_FIELD = { region_map: 0, research: 1, events: 2, field_work: 3, results: 4 };
@@ -34,7 +36,7 @@ const GameBoard = () => {
     };
 
     const {
-        game, player, licenseUnits, gridCells,
+        game, player, licenseUnits, gridCells, research,
         purchaseLU, getCurrentLU, globalTimer,
         navigateToResearch, setNavigateToResearch,
         navigateToRefusal, setNavigateToRefusal,
@@ -50,6 +52,10 @@ const GameBoard = () => {
     const ownedGridCellsCount = ownedGridCells.length;
     const infoCards = licenseUnits.owned;
     const currentYear = globalTimer?.currentYear ?? game.currentYear ?? 1;
+    const progressKey = currentLU?.id ?? `_year_${currentYear}`;
+    const researchDone = ownedGridCellsCount > 0 && ownedGridCells.every(cell =>
+        isResearchDoneForYear(research.progressByLU[cell.cellRef], currentYear)
+    );
 
     useEffect(() => {
         const handleResize = () => setIsWideScreen(window.innerWidth > 1580);
@@ -131,9 +137,8 @@ const GameBoard = () => {
 
     const getActiveField = () => {
         if (infoCards.length === 0 && ownedGridCellsCount === 0) return 0;
-        if (!currentLU) return 0;
-        const luResearch = game.currentLUProgress?.[currentLU.id] || {};
-        if (!luResearch.researchCompleted) return 1;
+        const luResearch = game.currentLUProgress?.[progressKey] || {};
+        if (!luResearch.researchCompleted && !researchDone) return 1;
         if (!luResearch.eventsCompleted) return 2;
         if (!luResearch.fieldWorkCompleted) return 3;
         if (!luResearch.resultsCompleted) return 4;
@@ -144,7 +149,7 @@ const GameBoard = () => {
 
     const isFieldAvailable = (fieldIndex) => {
         if (fieldIndex === 0) return true;
-        if (infoCards.length === 0) return false;
+        if (infoCards.length === 0 && ownedGridCellsCount === 0) return false;
         return fieldIndex <= activeField;
     };
 
@@ -157,15 +162,13 @@ const GameBoard = () => {
     };
 
     const getCurrentLUProgress = () => {
-        if (!currentLU) return {};
-        return game.currentLUProgress?.[currentLU.id] || {};
+        return game.currentLUProgress?.[progressKey] || {};
     };
 
     const isStageCompleted = (fieldIndex) => {
-        if (!currentLU) return false;
         const progress = getCurrentLUProgress();
         switch (fieldIndex) {
-            case 1: return progress.researchCompleted || false;
+            case 1: return progress.researchCompleted || researchDone;
             case 2: return progress.eventsCompleted || false;
             case 3: return progress.fieldWorkCompleted || false;
             case 4: return progress.resultsCompleted || false;
@@ -250,7 +253,7 @@ const GameBoard = () => {
                                     ...st.game,
                                     currentLUProgress: {
                                         ...st.game.currentLUProgress,
-                                        [currentLU?.id]: { ...st.game.currentLUProgress?.[currentLU?.id], researchCompleted: true },
+                                        [progressKey]: { ...st.game.currentLUProgress?.[progressKey], researchCompleted: true },
                                     },
                                 },
                             }));
@@ -269,7 +272,7 @@ const GameBoard = () => {
                                     ...st.game,
                                     currentLUProgress: {
                                         ...st.game.currentLUProgress,
-                                        [currentLU?.id]: { ...st.game.currentLUProgress?.[currentLU?.id], researchCompleted: true, eventsCompleted: true },
+                                        [progressKey]: { ...st.game.currentLUProgress?.[progressKey], researchCompleted: true, eventsCompleted: true },
                                     },
                                 },
                             }));
@@ -288,7 +291,7 @@ const GameBoard = () => {
                                     ...st.game,
                                     currentLUProgress: {
                                         ...st.game.currentLUProgress,
-                                        [currentLU?.id]: { ...st.game.currentLUProgress?.[currentLU?.id], researchCompleted: true, eventsCompleted: true, fieldWorkCompleted: true },
+                                        [progressKey]: { ...st.game.currentLUProgress?.[progressKey], researchCompleted: true, eventsCompleted: true, fieldWorkCompleted: true },
                                     },
                                 },
                             }));
@@ -351,7 +354,7 @@ const GameBoard = () => {
                         <div className={styles.ownedCellsCompact}>
                             {ownedGridCells.map(cell => (
                                 <span key={cell.cellRef} className={styles.ownedCellBadge}>
-                                    {cell.cellRef}
+                                    {getDisplayCellRef(cell.cellRef, player.sessionConfig?.regionMapRotation)}
                                 </span>
                             ))}
                         </div>

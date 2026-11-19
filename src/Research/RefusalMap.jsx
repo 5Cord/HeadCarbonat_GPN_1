@@ -18,7 +18,7 @@ import React from 'react';
 import './RefusalMap.css';
 import { getPipelineCost } from '../RegionMap/pipelineZones';
 import { BLOCKED_CELLS } from '../RegionMap/blockedCells';
-import { getRegionMapLayout, getRegionMapNorthArrow, normalizeRegionMapRotation } from '../RegionMap/regionMapRotation';
+import { getDisplayCellRef, getRegionMapLayout, getRegionMapNorthArrow, normalizeRegionMapRotation } from '../RegionMap/regionMapRotation';
 import useGameStore from '../../store/gameStore';
 
 const getBlockedType = (cellRef) => {
@@ -88,14 +88,15 @@ const RefusalMap = ({
           <div key={rowIndex} className="refusal-grid-row">
             <div className="refusal-grid-row-header">{mapLayout.rowHeaders[rowIndex]}</div>
             {cellRow.map(cellRef => {
+              const displayRef = mapLayout.displayRefByCell[cellRef];
 
               if (mode === 'pipeline') {
                 const cost = getPipelineCost(cellRef);
                 const isOwned = !!ownedCells[cellRef];
                 return (
                   <div key={cellRef} className={`refusal-cell pipeline-cell pipeline-cell-${cost ?? 'unknown'}${isOwned ? ' pipeline-cell-own' : ''}${cellRef === 'D6' ? ' pipeline-point-anchor' : ''}`}
-                    title={`${cellRef}: ${cost == null ? 'стоимость не определена' : `${cost} млн руб.`}${isOwned ? ' — ваш участок' : ''}`}>
-                    <span className="refusal-cell-label">{cellRef}</span>
+                    title={`${displayRef}: ${cost == null ? 'стоимость не определена' : `${cost} млн руб.`}${isOwned ? ' — ваш участок' : ''}`}>
+                    <span className="refusal-cell-label">{displayRef}</span>
                     {isOwned && <span className="refusal-cell-mark">●</span>}
                     {cellRef === 'D6' && <span className={`pipeline-point pipeline-point-rotation-${rotation}`} title="Точка сдачи нефти">◆</span>}
                   </div>
@@ -134,19 +135,19 @@ const RefusalMap = ({
                     className={cls}
                     onClick={handleClick}
                     title={
-                      isSettlement ? `${cellRef} — населённый пункт, недоступно для выбора` :
-                      isGive        ? `${cellRef} — отдаёте (нажмите чтобы снять)` :
-                      isReceive     ? `${cellRef} — получаете (нажмите чтобы снять)` :
-                      isOwned       ? `${cellRef} — нажмите чтобы выбрать для передачи` :
-                      isCompany     ? `${cellRef} — участок материнской компании, нажмите чтобы выбрать` :
-                      isTakenByOther ? `${cellRef} — уже занят другой командой` :
-                      blockedType   ? `${cellRef} — заблокировано` :
-                                      cellRef
+                      isSettlement ? `${displayRef} — населённый пункт, недоступно для выбора` :
+                      isGive        ? `${displayRef} — отдаёте (нажмите чтобы снять)` :
+                      isReceive     ? `${displayRef} — получаете (нажмите чтобы снять)` :
+                      isOwned       ? `${displayRef} — нажмите чтобы выбрать для передачи` :
+                      isCompany     ? `${displayRef} — участок материнской компании, нажмите чтобы выбрать` :
+                      isTakenByOther ? `${displayRef} — уже занят другой командой` :
+                      blockedType   ? `${displayRef} — заблокировано` :
+                                      displayRef
                     }
                     style={{ cursor: !isSettlement && (isOwned || isCompany) ? 'pointer' : 'default' }}
                   >
                     {sceneImg && <img className="refusal-cell-scene-img" src={sceneImg} alt="" />}
-                    <span className="refusal-cell-label">{cellRef}</span>
+                    <span className="refusal-cell-label">{displayRef}</span>
                     {isGive    && <span className="refusal-cell-mark" style={{ color: '#c62828' }}>✕</span>}
                     {isReceive && <span className="refusal-cell-mark" style={{ color: '#1565c0' }}>✓</span>}
                   </div>
@@ -175,16 +176,16 @@ const RefusalMap = ({
                   className={cls}
                   onClick={() => canToggle && onToggle(cellRef)}
                   title={
-                    blockedType === 'settlement' ? `${cellRef} — населённый пункт, недоступно для выбора` :
-                    isSelected  ? `${cellRef} — выбран для отказа (нажмите чтобы снять)` :
-                    isOwned     ? (selectedRefs.length >= maxCount ? `${cellRef} — лимит выбора (${maxCount})` : `${cellRef} — нажмите для выбора`) :
-                    blockedType ? `${cellRef} — заблокировано` :
-                    isOther     ? `${cellRef} — участок другой команды` :
-                                  cellRef
+                    blockedType === 'settlement' ? `${displayRef} — населённый пункт, недоступно для выбора` :
+                    isSelected  ? `${displayRef} — выбран для отказа (нажмите чтобы снять)` :
+                    isOwned     ? (selectedRefs.length >= maxCount ? `${displayRef} — лимит выбора (${maxCount})` : `${displayRef} — нажмите для выбора`) :
+                    blockedType ? `${displayRef} — заблокировано` :
+                    isOther     ? `${displayRef} — участок другой команды` :
+                                  displayRef
                   }
                 >
                   {sceneImg && <img className="refusal-cell-scene-img" src={sceneImg} alt="" />}
-                  <span className="refusal-cell-label">{cellRef}</span>
+                  <span className="refusal-cell-label">{displayRef}</span>
                   {isSelected && <span className="refusal-cell-mark">✕</span>}
                 </div>
               );
@@ -200,7 +201,7 @@ const RefusalMap = ({
             <span className="refusal-summary-hint">Выберите ваш участок и участок материнской компании</span>
           ) : selectedMyRef && selectedCompanyRef ? (
             <span className="refusal-summary-exchange-ready">
-              {selectedMyRef} → {selectedCompanyRef}
+              {getDisplayCellRef(selectedMyRef, rotation)} → {getDisplayCellRef(selectedCompanyRef, rotation)}
             </span>
           ) : selectedMyRef ? (
             <span className="refusal-summary-hint">Теперь выберите участок материнской компании (оранжевый)</span>
@@ -218,7 +219,7 @@ const RefusalMap = ({
               </span>
             ) : (
               <span className="refusal-summary-chosen">
-                Выбрано для отказа: {selectedRefs.join(', ')}
+                Выбрано для отказа: {selectedRefs.map(ref => getDisplayCellRef(ref, rotation)).join(', ')}
                 {maxCount > 1 && ` (${selectedRefs.length}/${maxCount})`}
               </span>
             )}

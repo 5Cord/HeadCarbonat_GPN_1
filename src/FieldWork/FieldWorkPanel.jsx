@@ -6,6 +6,7 @@ import styles from './FieldWorkPanel.module.css';
 import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
 import FieldWorkPanelTour from './Fieldworkpaneltour';
+import { getDisplayCellRef } from '../RegionMap/regionMapRotation';
 
 
 
@@ -35,6 +36,7 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
     resetEventCardsForNewYear, applyYearTransitionForAllLUs, advanceToNextYear,
     setNavigateToRefusal,
   } = useGameStore();
+  const displayCellRef = ref => getDisplayCellRef(ref, player.sessionConfig?.regionMapRotation);
   const { setGlobalPhase } = useGameStore();
   const globalYear = useGameStore(s => s.game.currentYear);
   const timeRemaining = useGameStore(s => s.globalTimer.timeRemaining);
@@ -106,7 +108,7 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
 
   const ownedCells = Object.values(gridCells.owned).map(c => ({
     id: c.cellRef, cellRef: c.cellRef,
-    name: c.name || ('Участок ' + c.cellRef),
+    name: c.name?.replace(c.cellRef, displayCellRef(c.cellRef)) || ('Участок ' + displayCellRef(c.cellRef)),
     auctionPrice: c.auctionPrice || 0,
   }));
 
@@ -369,7 +371,7 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
             return (
               <div key={lu.cellRef} onClick={() => setActiveLUId(lu.cellRef)}
                 className={[styles.luCard, isActive ? styles.luCardActive : '', styles['luSt_' + status]].join(' ')}>
-                <div className={styles.luCardRef}>{lu.cellRef}</div>
+                <div className={styles.luCardRef}>{displayCellRef(lu.cellRef)}</div>
                 <div className={styles.luCardName}>{lu.name}</div>
                 <div className={styles.luCardMeta}>
                   {mob > 0 && <span className={styles.metaMob}>{mob} НИР</span>}
@@ -421,7 +423,7 @@ const FieldWorkPanel = ({ onComplete, currentLU: currentLUProp, onBack, onMenu }
         ) : avail.length === 0 ? (
           evScore < 0 ? (
             <div className={styles.emptyMsg}>
-              Провал в зоне событий (счёт {evScore}) — полевые работы недоступны для участка {activeLU.cellRef}
+              Провал в зоне событий (счёт {evScore}) — полевые работы недоступны для участка {displayCellRef(activeLU.cellRef)}
             </div>
           ) : !researchProg || !(researchProg.mobilizedColumns?.length) ? (
             <div className={styles.emptyStateNoResearch}>

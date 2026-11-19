@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { MOBILIZATION_WORKS, normalizeResearchConfig } from './researchData';
+import { MOBILIZATION_WORKS, normalizeResearchConfig, isResearchDoneForYear } from './researchData';
 import useGameStore from '../../store/gameStore';
 import GlobalTimer from '../GlobalTimer';
 import styles from './ResearchPanel.module.css';
@@ -7,6 +7,7 @@ import RefusalMap from './RefusalMap';
 import GeologyInfoCard from '../Results/GeologyInfoCard';
 import PipelineCompletionModal from './PipelineCompletionModal';
 import { BLOCKED_CELLS } from '../RegionMap/blockedCells';
+import { getDisplayCellRef } from '../RegionMap/regionMapRotation';
 import ResearchPanelTour, { RefusalTour } from './Researchpaneltour';
 import BudgetBar from '../Budgetbar.jsx';
 import { getSocket } from '../apiHelpers';
@@ -104,6 +105,8 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
 
   const socket = getSocket();
   const isOnline = !!(socket?.connected && player.sessionId);
+  const mapRotation = player.sessionConfig?.regionMapRotation;
+  const displayCellRef = ref => getDisplayCellRef(ref, mapRotation);
 
   const persistResearchProgress = (luId, progress, year = globalYear) => {
     if (!isOnline || !progress) return;
@@ -144,6 +147,10 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   const [refusalLeft, setRefusalLeft] = useState(0);
   const [inRefusal, setInRefusal] = useState(false);
   const refusalIntervalRef = useRef(null);
+  const refusalSubmittingRef = useRef(false);
+  const refusalFinishedRef = useRef(false);
+  const [refusalSaving, setRefusalSaving] = useState(false);
+  const [refusalError, setRefusalError] = useState('');
 
   const [selectedLUs, setSelectedLUs] = useState([]);
   const [selectedCol, setSelectedCol] = useState(null);
@@ -196,12 +203,15 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
       setReadyTeamIds(readyTeams || []);
     };
 
-    const onYearAdvanced = ({ year }) => {
+    const onYearAdvanced = () => {
       setWaiting(false);
-      const nextYear = year;
-      resetEventCardsForNewYear(nextYear);
-      applyYearTransitionForAllLUs(nextYear - 1);
-      advanceToNextYear();
+      if (refusalIntervalRef.current) {
+        clearInterval(refusalIntervalRef.current);
+        refusalIntervalRef.current = null;
+      }
+      setInRefusal(false);
+      setShowRefusalIntro(false);
+      setShowRefusalModal(false);
     };
 
     const onGameOver = () => {
@@ -221,6 +231,11 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   }, [socket]);
 
   const startRefusalTimer = useCallback(() => {
+    if (refusalIntervalRef.current) clearInterval(refusalIntervalRef.current);
+    refusalSubmittingRef.current = false;
+    refusalFinishedRef.current = false;
+    setRefusalSaving(false);
+    setRefusalError('');
     setRefusalLeft(REFUSAL_DURATION);
     setInRefusal(true);
     stopGlobalTimer();
@@ -340,38 +355,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   }, [globalYear, isOnline, socket, showPipelineModal]);
 
 
-  const handleRefusalAccept = useCallback((refsToRemove = []) => {
-    const remainingRef = Object.keys(useGameStore.getState().gridCells.owned).find(ref => !refsToRemove.includes(ref));
-    const finish = () => {
-      stopRefusalTimer();
-      setRefusalRefs([]);
-      setShowRefusalModal(false);
-      if (globalYear === 3) {
-        setShowPostRefusalModal(true);
-      } else {
-        setPostRefusalGeologyRef(remainingRef ?? '');
-      }
-    };
-    if (refsToRemove.length > 0) {
-      if (isOnline && socket?.connected) {
-        socket.emit('cell:refusal_release', { cellRefs: refsToRemove }, (res) => {
-          if (!res?.ok) {
-            console.error('Refusal release failed:', res);
-          } else {
-            _applyRefusalLocally(refsToRemove);
-            finish();
-          }
-        });
-      } else {
-        _applyRefusalLocally(refsToRemove);
-        finish();
-      }
-    } else {
-      finish();
-    }
-  }, [isOnline, socket, stopRefusalTimer, globalYear, goToNextYear]);
-
-  const _applyRefusalLocally = (refsToRemove) => {
+  const _applyRefusalLocally = useCallback((refsToRemove, assignLocalScenarios = true) => {
     const st = useGameStore.getState();
     const newOwned = { ...st.gridCells.owned };
     const newAll = { ...st.gridCells.allTeams };
@@ -388,13 +372,15 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     const year = Math.min(Math.max(st.game.currentYear, 2), 10);
     const works = WORKS_BY_YEAR[year];
     const newScenarios = { ...st.cellScenarios };
-    refsToRemove.forEach(ref => {
-      newScenarios[ref] = {
-        workId: works[Math.floor(Math.random() * works.length)],
-        rank: Math.ceil(Math.random() * 3),
-        year,
-      };
-    });
+    if (assignLocalScenarios) {
+      refsToRemove.forEach(ref => {
+        newScenarios[ref] = {
+          workId: works[Math.floor(Math.random() * works.length)],
+          rank: Math.ceil(Math.random() * 3),
+          year,
+        };
+      });
+    }
 
     useGameStore.setState({
       gridCells: { owned: newOwned, allTeams: newAll },
@@ -403,7 +389,85 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
     });
     if (refsToRemove.includes(activeLU?.cellRef)) setActiveLU(null);
     setSelectedLUs(p => p.filter(id => !refsToRemove.includes(id)));
-  };
+  }, [activeLU?.cellRef]);
+
+  const handleRefusalAccept = useCallback((refsToRemove = [], automatic = false) => {
+    if (refusalSubmittingRef.current || refusalFinishedRef.current || !REFUSAL_YEARS.includes(globalYear)) return;
+    if (!automatic && (refusalLeft <= 0 || refsToRemove.length !== requiredRefusalCount)) return;
+    refusalSubmittingRef.current = true;
+    setRefusalSaving(true);
+    setRefusalError('');
+    const ownedBefore = Object.keys(useGameStore.getState().gridCells.owned);
+
+    const finish = (released, remaining) => {
+      refusalFinishedRef.current = true;
+      const removed = remaining
+        ? ownedBefore.filter(ref => !remaining.includes(ref))
+        : released;
+      _applyRefusalLocally(removed, !player.sessionId);
+      const remainingRef = remaining?.[0] ?? Object.keys(useGameStore.getState().gridCells.owned)[0];
+      stopRefusalTimer();
+      setRefusalRefs([]);
+      setShowRefusalModal(false);
+      setRefusalSaving(false);
+      if (globalYear === 3) {
+        setShowPostRefusalModal(true);
+      } else {
+        setPostRefusalGeologyRef(remainingRef ?? '');
+      }
+    };
+    const fail = (message) => {
+      refusalSubmittingRef.current = false;
+      setRefusalSaving(false);
+      setRefusalError(message);
+    };
+
+    if (player.sessionId) {
+      if (!socket?.connected) {
+        fail('Нет соединения с сервером. Повторим сохранение после подключения.');
+        return;
+      }
+      socket.timeout(5000).emit(
+        automatic ? 'cell:refusal_auto' : 'cell:refusal_release',
+        automatic ? {} : { cellRefs: refsToRemove },
+        (error, response) => {
+          if (error || !response?.ok) {
+            socket.timeout(5000).emit('cell:refusal_status', {}, (statusError, status) => {
+              if (!statusError && status?.ok && status.remaining.length <= status.keepCount) {
+                finish([], status.remaining);
+              } else {
+                fail('Не удалось сохранить отказ от участков. Повторите попытку.');
+              }
+            });
+            return;
+          }
+          finish(response.released ?? [], response.remaining);
+        },
+      );
+    } else {
+      const ownedRefs = Object.keys(useGameStore.getState().gridCells.owned);
+      const released = automatic
+        ? (() => {
+            const refs = [...ownedRefs];
+            const count = Math.max(0, refs.length - (globalYear === 5 ? 1 : 2));
+            for (let i = 0; i < count; i++) {
+              const j = i + Math.floor(Math.random() * (refs.length - i));
+              [refs[i], refs[j]] = [refs[j], refs[i]];
+            }
+            return refs.slice(0, count);
+          })()
+        : refsToRemove;
+      finish(released, ownedRefs.filter(ref => !released.includes(ref)));
+    }
+  }, [socket, stopRefusalTimer, globalYear, refusalLeft, requiredRefusalCount, player.sessionId, _applyRefusalLocally]);
+
+  useEffect(() => {
+    if (!inRefusal || !showRefusalModal || refusalLeft > 0) return;
+    const attempt = () => handleRefusalAccept([], true);
+    attempt();
+    const retry = setInterval(attempt, 2000);
+    return () => clearInterval(retry);
+  }, [inRefusal, showRefusalModal, refusalLeft, handleRefusalAccept]);
 
   const handleCompanyExchange = () => {
     if (!exchangeMyRef || !exchangeCompanyRef) return;
@@ -490,6 +554,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   };
 
   const toggleRefusalRef = (cellRef) => {
+    if (refusalLeft <= 0 || refusalSaving) return;
     const keep = globalYear === 5 ? 1 : 2;
     const maxRefusal = Math.max(0, Object.keys(useGameStore.getState().gridCells.owned).length - keep);
     setRefusalRefs(prev => {
@@ -503,10 +568,10 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   const ownedLUs = useMemo(() =>
     Object.values(gridCells.owned).map(c => ({
       id: c.cellRef, cellRef: c.cellRef,
-      name: c.name || `Участок ${c.cellRef}`,
+      name: c.name?.replace(c.cellRef, getDisplayCellRef(c.cellRef, mapRotation)) || `Участок ${getDisplayCellRef(c.cellRef, mapRotation)}`,
       auctionPrice: c.auctionPrice || 0,
     })),
-    [gridCells.owned]);
+    [gridCells.owned, mapRotation]);
 
   // Виды работ берём из конфигурации сессии (правится в админке), иначе — дефолт.
   const researchWorks = useMemo(
@@ -573,8 +638,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
   }, [globalYear, allMobilized, getProgress, research.progressByLU, selectedLUs]);
 
   const isLUDone = useCallback((luId) => {
-    const prog = getProgress(luId);
-    return (prog.skippedYears || []).includes(globalYear) || !!prog.columnsByYear?.[globalYear];
+    return isResearchDoneForYear(getProgress(luId), globalYear);
   }, [getProgress, globalYear]);
 
 
@@ -1021,7 +1085,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
               if (c.mobilizationType === activeColId) sum += (c.successRate || 0);
             });
             const rate = Math.min(sum, 95);
-            const luName = ownedLUs.find(l => l.cellRef === luId)?.name || luId;
+            const luName = ownedLUs.find(l => l.cellRef === luId)?.name || displayCellRef(luId);
             return { luId, luName, rate };
           });
 
@@ -1364,8 +1428,8 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
             <button className={styles.closeModal} onClick={() => setPurchaseModal(null)}>✕</button>
             <p style={{ margin: '0 0 2px', fontSize: '0.75rem', color: '#999', fontWeight: 400 }}>
               {purchaseModal.multi
-                ? `${purchaseModal.toBuy.length} участка · ${purchaseModal.toBuy.map(id => ownedLUs.find(l => l.cellRef === id)?.name || id).join(', ')}`
-                : ownedLUs.find(l => l.cellRef === purchaseModal.luId)?.name || purchaseModal.luId}
+                ? `${purchaseModal.toBuy.length} участка · ${purchaseModal.toBuy.map(id => ownedLUs.find(l => l.cellRef === id)?.name || displayCellRef(id)).join(', ')}`
+                : ownedLUs.find(l => l.cellRef === purchaseModal.luId)?.name || displayCellRef(purchaseModal.luId)}
             </p>
             <p style={{ margin: '0 0 1.25rem', fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.4, paddingRight: '2rem', color: '#333' }}>{purchaseModal.work.name}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: '1rem' }}>
@@ -1374,7 +1438,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                   <div style={{ background: '#f8f9fa', borderRadius: 8, padding: '10px 14px' }}>
                     <div style={{ fontSize: '0.7rem', color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6, fontWeight: 600 }}>Мобилизация</div>
                     {purchaseModal.breakdown.map(({ luId, needsMob }) => {
-                      const luName = ownedLUs.find(l => l.cellRef === luId)?.name || luId;
+                      const luName = ownedLUs.find(l => l.cellRef === luId)?.name || displayCellRef(luId);
                       return needsMob
                         ? <div key={luId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', padding: '2px 0' }}><span style={{ color: '#555' }}>{luName}</span><span style={{ color: '#333', fontWeight: 600 }}>{purchaseModal.mob.cost} млн</span></div>
                         : <div key={luId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', padding: '2px 0' }}><span style={{ color: '#aaa' }}>{luName}</span><span style={{ color: '#aaa', fontSize: '0.8rem' }}>оплачена ✓</span></div>;
@@ -1393,7 +1457,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
               <div style={{ background: '#f8f9fa', borderRadius: 8, padding: '10px 14px' }}>
                 <div style={{ fontSize: '0.7rem', color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6, fontWeight: 600 }}>НИР</div>
                 {purchaseModal.multi
-                  ? purchaseModal.breakdown.map(({ luId }) => { const n = ownedLUs.find(l => l.cellRef === luId)?.name || luId; return <div key={luId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', padding: '2px 0' }}><span style={{ color: '#555' }}>{n}</span><span style={{ color: '#333', fontWeight: 600 }}>{purchaseModal.work.cost} млн</span></div>; })
+                  ? purchaseModal.breakdown.map(({ luId }) => { const n = ownedLUs.find(l => l.cellRef === luId)?.name || displayCellRef(luId); return <div key={luId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', padding: '2px 0' }}><span style={{ color: '#555' }}>{n}</span><span style={{ color: '#333', fontWeight: 600 }}>{purchaseModal.work.cost} млн</span></div>; })
                   : <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}><span style={{ color: '#555' }}>{purchaseModal.work.name}</span><span style={{ color: '#333', fontWeight: 600 }}>{purchaseModal.work.cost} млн</span></div>}
               </div>
             </div>
@@ -1433,7 +1497,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                     const spent = (prog.purchasedWorksByYear?.[globalYear] || []).reduce((s, w) => s + (w.baseCost || 0), 0);
                     return (
                       <div key={cell.cellRef} style={{ padding: '8px 12px', background: '#f8f9fa', borderRadius: 8, border: '1px solid #e0e0e0' }}>
-                        <div style={{ fontWeight: 700, marginBottom: 3, color: '#222' }}>{cell.name || `Участок ${cell.cellRef}`}</div>
+                        <div style={{ fontWeight: 700, marginBottom: 3, color: '#222' }}>{cell.name?.replace(cell.cellRef, displayCellRef(cell.cellRef)) || `Участок ${displayCellRef(cell.cellRef)}`}</div>
                         {skipped ? <div style={{ color: '#ff9800', fontSize: '0.85rem' }}>Исследования пропущены</div>
                           : colName ? <><div style={{ fontSize: '0.85rem', color: '#555' }}>Направление: <strong>{colName}</strong></div><div style={{ fontSize: '0.85rem', color: '#555' }}>НИР: <strong>{worksThisYear}</strong> шт. · Потрачено: <strong>{spent} млн</strong></div></>
                             : <div style={{ fontSize: '0.85rem', color: '#999' }}>Направление не выбрано</div>}
@@ -1481,9 +1545,9 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
             <h3>{globalYear === 3 ? 'Проектирование нефтепровода' : 'Строительство нефтепровода'}</h3>
             <div className={styles.modalInfo}>
               {globalYear === 3 ? (
-                <p>Начинается проектирование нефтепровода с запада на восток через участки материнской компании. Для продолжения работ необходимо отказаться от <strong>{requiredRefusalCount}</strong> участков.</p>
+                <p>Нефтепровод начали проектировать. Согласно предварительной документации, он пройдет с запада на восток. Учитывайте также информацию, полученную о нефтепроводе ранее.</p>
               ) : (
-                <p>Нефтепровод уже строится. Точка сдачи нефти в него будет вблизи центральной части участков крупной компании-недропользователя. Учитывайте также информацию, полученную о нефтепроводе ранее</p>
+                <p>Нефтепровод уже строится. Точка сдачи нефти в него будет вблизи центральной части участков крупной компании-недропользователя. Учитывайте также информацию, полученную о нефтепроводе ранее.</p>
               )}
             </div>
             <div className={styles.modalActions}>
@@ -1505,6 +1569,9 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
               <div style={{ textAlign: 'center', padding: '4px 12px', background: '#fff3e0', borderRadius: 8, border: '2px solid #ff9800', margin: 0 }}>
                 <span style={{ fontWeight: 700, fontSize: '1.1rem', color: '#e65100' }}>Время: {fmt(refusalLeft)}</span>
               </div>
+              {refusalLeft <= 0 && <p style={{ textAlign: 'center', margin: 0 }}>Время истекло. Участки для отказа выбираются автоматически.</p>}
+              {refusalSaving && <p style={{ textAlign: 'center', margin: 0 }}>Сохраняем отказ от участков…</p>}
+              {refusalError && <p role="alert" style={{ textAlign: 'center', color: '#c62828', margin: 0 }}>{refusalError}</p>}
               {globalYear === 5 ? (
                 <p style={{ textAlign: 'center', lineHeight: 1.4, margin: 0 }}>
                   После 5-го года ваша команда продолжает разработку только на <strong>одном участке</strong>.
@@ -1527,11 +1594,11 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
               <button
                 className={styles.purchaseModalBtn}
                 onClick={() => handleRefusalAccept(refusalRefs)}
-                disabled={refusalRefs.length !== requiredRefusalCount}
-                style={{ background: refusalRefs.length === requiredRefusalCount ? '#e65100' : '#bbb', cursor: refusalRefs.length === requiredRefusalCount ? 'pointer' : 'not-allowed' }}
+                disabled={refusalSaving || refusalLeft <= 0 || refusalRefs.length !== requiredRefusalCount}
+                style={{ background: !refusalSaving && refusalLeft > 0 && refusalRefs.length === requiredRefusalCount ? '#e65100' : '#bbb', cursor: !refusalSaving && refusalLeft > 0 && refusalRefs.length === requiredRefusalCount ? 'pointer' : 'not-allowed' }}
               >
                 {refusalRefs.length === requiredRefusalCount
-                  ? `Отказаться от: ${refusalRefs.join(', ')}`
+                  ? `Отказаться от: ${refusalRefs.map(displayCellRef).join(', ')}`
                   : `Выберите ещё ${requiredRefusalCount - refusalRefs.length} участок(-ов)`}
               </button>
             </div>
@@ -1630,7 +1697,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
                 onClick={handleCompanyExchange}
               >
                 {exchangeMyRef && exchangeCompanyRef
-                  ? `Обменять ${exchangeMyRef} → ${exchangeCompanyRef}`
+                  ? `Обменять ${displayCellRef(exchangeMyRef)} → ${displayCellRef(exchangeCompanyRef)}`
                   : 'Выберите оба участка'}
               </button>
               <button
@@ -1657,7 +1724,7 @@ export default function ResearchPanel({ onComplete, onBack, onMenu }) {
             <div className={styles.modalInfo}>
               <p style={{ textAlign: 'center', fontSize: '1.1rem', marginBottom: 12 }}>Все 10 лет пройдены</p>
               {Object.keys(gridCells.owned).map(cellRef => (
-                <div key={cellRef} style={{ padding: '6px 14px', background: '#e8f5e9', borderRadius: 6, marginBottom: 4, fontWeight: 600 }}>✓ Участок {cellRef}</div>
+                <div key={cellRef} style={{ padding: '6px 14px', background: '#e8f5e9', borderRadius: 6, marginBottom: 4, fontWeight: 600 }}>✓ Участок {displayCellRef(cellRef)}</div>
               ))}
             </div>
             <div className={styles.modalActions}>

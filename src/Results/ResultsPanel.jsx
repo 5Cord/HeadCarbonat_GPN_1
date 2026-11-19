@@ -9,6 +9,8 @@ import ResultsPanelTour from './ResultsPanelTour';
 import { WORK_SCENE_MAP, getScenario, resolveSceneImage, resolveSceneDesc } from '../Research/sceneUtils.js';
 import GeologyInfoCard from './GeologyInfoCard';
 import PipelineCompletionModal from '../Research/PipelineCompletionModal';
+import { getDisplayCellRef } from '../RegionMap/regionMapRotation';
+import { getCompanyWorkResults } from './companyWorkResults.js';
 
 const renderWithSup = (text) => {
   if (!text) return null;
@@ -83,15 +85,15 @@ const getTotalCostAllYears = (fwData) => {
 };
 
 
-const WorkCell = ({ block, selections, year, sceneImg, sceneDesc }) => {
-  if (!block || !selections) return <div className="rp-empty-cell" />;
+const WorkCell = ({ block, selections, year, sceneImg, sceneDesc, completedByCompany = false }) => {
+  if (!block || (!selections && !completedByCompany)) return <div className="rp-empty-cell" />;
   const chosen = block.cards.map(card => {
-    const rank = selections[card.cardId];
+    const rank = selections?.[card.cardId];
     if (rank == null) return null;
     const opt = card.options.find(o => o.rank === rank);
     return opt ? { title: card.cardTitle, param: opt.param, cost: opt.cost } : null;
   }).filter(Boolean);
-  if (!chosen.length) return <div className="rp-empty-cell" />;
+  if (!chosen.length && !completedByCompany) return <div className="rp-empty-cell" />;
   const clr = COLOR_MAP[block.groupColor] || '#aaa';
   return (
     <div className="rp-work-cell" style={{ borderColor: clr }}>
@@ -109,6 +111,7 @@ const WorkCell = ({ block, selections, year, sceneImg, sceneDesc }) => {
         </div>
       ) : (
         <div className="rp-work-cell-body">
+          {completedByCompany && <div>Изображение результата отсутствует</div>}
           {chosen.map((c, i) => (
             <div key={i} className="rp-work-param">
               <div className="rp-work-param-label">{c.title}</div>
@@ -238,10 +241,11 @@ const ConfirmYearModal = ({ globalYear, isLastYear, onConfirm, onCancel }) => (
 
 const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
   const {
-    player, research, events, fieldWork, gridCells, licenseUnits,
+    player, research, events, fieldWork, gridCells, licenseUnits, cellScenarios,
     advanceToNextYear, resetEventCardsForNewYear, applyYearTransitionForAllLUs,
     game, setGlobalPhase, setNavigateToRefusal,
   } = useGameStore();
+  const displayCellRef = ref => getDisplayCellRef(ref, player.sessionConfig?.regionMapRotation);
 
   const globalTimer = useGameStore(s => s.globalTimer);
   const timeRemaining = globalTimer.timeRemaining;
@@ -305,13 +309,16 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
 
   const ownedLUs = Object.values(gridCells.owned).map(c => ({
     cellRef: c.cellRef,
-    name: c.name || `Участок ${c.cellRef}`,
+    name: c.name?.replace(c.cellRef, displayCellRef(c.cellRef)) || `Участок ${displayCellRef(c.cellRef)}`,
   }));
 
   const [activeLUId, setActiveLUId] = useState(() => ownedLUs[0]?.cellRef || null);
   const activeLU = ownedLUs.find(l => l.cellRef === activeLUId) || ownedLUs[0] || null;
   const activeFwData = activeLU ? (fieldWork.selectionsByLU[activeLU.cellRef] || null) : null;
   const workedYears = getWorkedYears(activeFwData);
+  const companyWorkResults = activeLU
+    ? getCompanyWorkResults(activeLU.cellRef, gridCells.owned, cellScenarios)
+    : [];
 
   const blockByMobId = {};
   FIELD_WORK_BLOCKS.forEach(b => { blockByMobId[b.mobWorkId] = b; });
@@ -329,6 +336,7 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
     const rp = research.progressByLU[cellRef];
     if (sc < 0) return 'failed';
     if (getWorkedYears(fw).length > 0) return 'done';
+    if (getCompanyWorkResults(cellRef, gridCells.owned, cellScenarios).length > 0) return 'done';
     if (!rp?.mobilizedColumns?.length) return 'noResearch';
     return 'noWork';
   };
@@ -432,7 +440,7 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
                   className={['rp-lu-card', isActive ? 'rp-lu-card--active' : '', `rp-lu-card--${status}`].join(' ')}
                 >
                   {isActive && <span className="rp-lu-check"></span>}
-                  <div className="rp-lu-ref">{lu.cellRef}</div>
+                  <div className="rp-lu-ref">{displayCellRef(lu.cellRef)}</div>
                   <div className="rp-lu-name">{lu.name}</div>
                   <div className="rp-lu-badges">
                     {mob > 0 && <span className="rp-badge rp-badge-mob">{mob} НИР</span>}
@@ -486,7 +494,35 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
                 </tr>
               </thead>
               <tbody>
-                {workedYears.length === 0 && (
+                {companyWorkResults.length > 0 && (
+                  <tr style={{ background: '#f8f9fa' }}>
+                    <td className="rp-td rp-td-lu">
+                      <div className="rp-lu-info">
+                        <div className="rp-lu-info-ref">{displayCellRef(activeLU.cellRef)}</div>
+                        <div className="rp-lu-info-name">Работы материнской компании</div>
+                      </div>
+                    </td>
+                    {TABLE_COLUMNS.map(col => {
+                      if (!companyWorkResults.includes(col.mobWorkId)) {
+                        return <td key={col.mobWorkId} className="rp-td"><div className="rp-empty-cell" /></td>;
+                      }
+                      const block = blockByMobId[col.mobWorkId];
+                      const scenario = getScenario(activeLU.cellRef);
+                      const rank = Math.min(cellScenarios[activeLU.cellRef].rank ?? 1, WORK_SCENE_MAP[col.mobWorkId].rows);
+                      return (
+                        <td key={col.mobWorkId} className="rp-td">
+                          <WorkCell
+                            block={block}
+                            completedByCompany
+                            sceneImg={resolveSceneImage(scenario, col.mobWorkId, rank, 'к')}
+                            sceneDesc={resolveSceneDesc(scenario, col.mobWorkId, rank)}
+                          />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                )}
+                {workedYears.length === 0 && companyWorkResults.length === 0 && (
                   <tr>
                     {TABLE_COLUMNS.map(col => (
                       <td key={col.mobWorkId} className="rp-td"><div className="rp-empty-cell" /></td>
@@ -506,7 +542,7 @@ const ResultsPanel = ({ onComplete, onBack, onMenu }) => {
                     <tr style={{ background: '#f8f9fa' }}>
                       <td className="rp-td rp-td-lu">
                         <div className="rp-lu-info">
-                          <div className="rp-lu-info-ref">{activeLU.cellRef}</div>
+                          <div className="rp-lu-info-ref">{displayCellRef(activeLU.cellRef)}</div>
                           <div className="rp-lu-info-name">{activeLU.name}</div>
                         </div>
                       </td>

@@ -17,15 +17,20 @@ const layouts = Object.fromEntries([0, 90, 180, 270].map(rotation => {
       return `${ROWS[row]}${column + 1}`;
     }),
   );
-  const swappedAxes = rotation === 90 || rotation === 270;
+  const displayRefByCell = Object.fromEntries(cells.flatMap((cellRow, rowIndex) =>
+    cellRow.map((ref, columnIndex) => [ref, `${ROWS[rowIndex]}${columnIndex + 1}`]),
+  ));
   return [rotation, {
     cells,
-    columnHeaders: cells[0].map(ref => swappedAxes ? ref[0] : Number(ref.slice(1))),
-    rowHeaders: cells.map(row => swappedAxes ? Number(row[0].slice(1)) : row[0][0]),
+    columnHeaders: Array.from({ length: SIZE }, (_, index) => index + 1),
+    rowHeaders: ROWS,
+    displayRefByCell,
   }];
 }));
 
 export const getRegionMapLayout = rotation => layouts[normalizeRegionMapRotation(rotation)];
+export const getDisplayCellRef = (cellRef, rotation) =>
+  getRegionMapLayout(rotation).displayRefByCell[cellRef] ?? cellRef;
 
 const NORTH_ARROWS = { 0: '↑', 90: '→', 180: '↓', 270: '←' };
 export const getRegionMapNorthArrow = rotation => NORTH_ARROWS[normalizeRegionMapRotation(rotation)];

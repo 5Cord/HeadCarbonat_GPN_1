@@ -12,12 +12,7 @@ const API_BASE = import.meta.env.VITE_WS_URL || '';
 const fmtBudget = (n) =>
     n == null ? '—' : `${Number(n).toLocaleString('ru-RU')} млн`;
 
-const medal = (rank) => {
-    if (rank === 0) return '🥇';
-    if (rank === 1) return '🥈';
-    if (rank === 2) return '🥉';
-    return `${rank + 1}.`;
-};
+const placeLabel = (rank) => `${rank + 1} место`;
 
 const sortKey = (team) => team.totalPoints ?? team.finalBudget ?? 0;
 
@@ -67,6 +62,7 @@ const TeamCard = ({ team, rank, isMe }) => {
                 style={{
                     display: 'flex',
                     alignItems: 'center',
+                    flexWrap: 'wrap',
                     gap: 12,
                     padding: '14px 18px',
                     cursor: 'pointer',
@@ -75,8 +71,8 @@ const TeamCard = ({ team, rank, isMe }) => {
                 }}
                 onClick={() => setOpen((o) => !o)}
             >
-                <span style={{ fontSize: 22, minWidth: 36, textAlign: 'center' }}>{medal(rank)}</span>
-                <div style={{ flex: 1 }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, whiteSpace: 'nowrap' }}>{placeLabel(rank)}</span>
+                <div style={{ flex: '1 1 140px', minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: '1.05rem', color: '#1a1a1a' }}>
                         {team.teamName}
                         {isMe && (
@@ -103,7 +99,7 @@ const TeamCard = ({ team, rank, isMe }) => {
                 </div>
 
                 {/* Основные показатели в заголовке */}
-                <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
                     <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: '0.68rem', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Бюджет</div>
                         <div style={{ fontWeight: 800, fontSize: '1rem', color: budgetColor }}>{fmtBudget(team.finalBudget)}</div>
@@ -362,12 +358,14 @@ const GameOverScreen = () => {
                                                         alignItems: 'flex-start',
                                                         justifyContent: 'center',
                                                         paddingTop: 10,
-                                                        fontSize: 22,
+                                                        fontSize: '0.9rem',
+                                                        fontWeight: 700,
+                                                        whiteSpace: 'nowrap',
                                                         border: `2px solid ${color}`,
                                                         borderBottom: 'none',
                                                     }}
                                                 >
-                                                    {medal(idx)}
+                                                    {placeLabel(idx)}
                                                 </div>
                                             </div>
                                         );

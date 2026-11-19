@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
-    getAdminTeams, getAdminStats,
+    getAdminTeams, getAdminStats, issueTeamRecoveryCode, kickTeam,
     deleteSession, resetTeam,
     adminLogin, getAdminSessionDetails,
     getPresets, createPreset, updatePreset, deletePreset,
@@ -12,6 +12,7 @@ import { DEFAULT_LU_CARDS } from './RegionMap/luCards';
 import { ROWS as FACIES_ROWS, rcToCellRef } from './RegionMap/faciesUtils';
 import { FACIES_PRESETS, FACIES_ENABLED, getFaciesPresetById } from './RegionMap/faciesPresets';
 import RegionMapMiniature from './RegionMap/RegionMapMiniature';
+import { DEFAULT_CASE_INTRO } from './RegionMap/caseIntro';
 import { createPortal } from 'react-dom';
 import { io as socketIO } from 'socket.io-client';
 import QuestionsTab from './Questions/QuestionsTab';
@@ -30,18 +31,6 @@ const DEFAULT_TIMERS = {
 };
 
 const BUDGET_DEFAULTS = { students: 20000, professionals: 20000 };
-
-const DEFAULT_CASE_INTRO = {
-    title: 'Кейс',
-    paragraphs: [
-        'В стране растёт интерес компаний к новому потенциально нефтеносному району.',
-        'По данным федеральных научных институтов, перспективы связаны с карбонатным комплексом платформенного типа.',
-        'На западе расположен складчато-надвиговый комплекс, где целевые объекты могут выходить на поверхность.',
-        'Изученность района крайне низкая: сейсморазведка 2D почти отсутствует, бурение не проводилось.',
-        'По периметру пробурены параметрические скважины, примыкающие к зоне лицензирования.',
-    ],
-    buttonText: 'Начать работу →',
-};
 
 // ── Преобразование таймеров шаблона/сессии в форму TimersForm ────────────────
 const timersFromConfig = (cfg) => {
@@ -2398,6 +2387,8 @@ const TeamsMonitor = ({ sessionId }) => {
     const [expensesMap, setExpensesMap] = useState({});
     const [expensesLoading, setExpensesLoading] = useState(false);
     const [monitoringTeam, setMonitoringTeam] = useState(null);
+    const [recovery, setRecovery] = useState(null);
+    const [kickingTeamId, setKickingTeamId] = useState(null);
 
     const load = async (sid) => {
         if (!sid) return;
@@ -2434,7 +2425,7 @@ const TeamsMonitor = ({ sessionId }) => {
     };
 
     useEffect(() => {
-        setData(null); setOpenIds(new Set()); setExpensesMap({});
+        setData(null); setOpenIds(new Set()); setExpensesMap({}); setRecovery(null);
         load(sessionId);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sessionId]);
@@ -2519,6 +2510,32 @@ const TeamsMonitor = ({ sessionId }) => {
                                         )}
                                         <button className="tb tb-primary" onClick={() => setMonitoringTeam(team)} style={{ width: '100%' }}>
                                             Детальный мониторинг
+                                        </button>
+                                        <button className="tb tb-gray" disabled={data.status === 'finished'}
+                                            onClick={async () => {
+                                                try { setRecovery(await issueTeamRecoveryCode(sessionId, team.id)); }
+                                                catch (e) { alert(e.message); }
+                                            }} style={{ width: '100%', marginTop: 8 }}>
+                                            Выдать код для другого устройства
+                                        </button>
+                                        {recovery?.teamId === team.id && (
+                                            <div style={{ marginTop: 8, padding: 12, borderRadius: 8, background: '#edf6ff', color: '#17324d' }}>
+                                                Код команды «{team.name}»: <strong style={{ fontSize: '1.25rem', letterSpacing: 2, userSelect: 'all' }}>{recovery.code}</strong>
+                                                <div style={{ fontSize: '0.8rem', marginTop: 4 }}>Действует 15 минут и только один раз. Передайте его команде лично.</div>
+                                            </div>
+                                        )}
+                                        <button className="tb tb-red" disabled={kickingTeamId === team.id || data.status === 'finished'}
+                                            onClick={async () => {
+                                                if (!window.confirm(`Исключить команду «${team.name}» из сессии? Она потеряет доступ, её участки освободятся, а остальные команды больше не будут её ждать.`)) return;
+                                                setKickingTeamId(team.id);
+                                                try {
+                                                    await kickTeam(sessionId, team.id);
+                                                    setRecovery(null);
+                                                    await load(sessionId);
+                                                } catch (error) { alert(error.message); }
+                                                finally { setKickingTeamId(null); }
+                                            }} style={{ width: '100%', marginTop: 8 }}>
+                                            {kickingTeamId === team.id ? 'Исключение...' : 'Исключить команду из сессии'}
                                         </button>
                                     </div>
                                 )}
@@ -2618,7 +2635,7 @@ const EventsTooltip = ({ active, payload, label }) => {
 };
 
 const CHART_MARGIN = { top: 8, right: 20, left: 10, bottom: 8 };
-const MEDAL = { 1: '🥇', 2: '🥈', 3: '🥉' };
+const placeLabel = (rank) => rank ? `${rank} место` : '—';
 const RATING_LINE_COLORS = ['#6366f1', '#f59e0b', '#22c55e', '#ef4444', '#0ea5e9', '#ec4899', '#8b5cf6', '#14b8a6'];
 
 const RatingTooltip = ({ active, payload, label }) => {
@@ -2859,7 +2876,7 @@ const DashboardTab = ({ sessions, globalStats }) => {
                                                 const color = RATING_LINE_COLORS[ratingTeams.findIndex(r => r.teamId === t.teamId) % RATING_LINE_COLORS.length];
                                                 return (
                                                     <div key={t.teamId} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc', border: `2px solid ${color}`, borderRadius: 10, padding: '8px 16px' }}>
-                                                        <span style={{ fontSize: '1.125rem' }}>{MEDAL[rank] || `#${rank}`}</span>
+                                                        <span style={{ fontSize: '0.875rem', fontWeight: 700, whiteSpace: 'nowrap' }}>{placeLabel(rank)}</span>
                                                         <div>
                                                             <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#1e293b' }}>{t.teamName}</div>
                                                             <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{t.totalPoints} очков</div>
@@ -3098,8 +3115,8 @@ const RatingTable = ({ title, hint, teams, metricKey, valueLabel, costKey, value
                         const rowBg = rank === 1 ? '#fefce8' : idx % 2 === 0 ? '#fff' : '#f8fafc';
                         return (
                             <tr key={t.teamId} style={{ background: rowBg, borderBottom: '1px solid #e2e8f0' }}>
-                                <td style={{ padding: '9px 12px', fontWeight: 700, fontSize: '0.875rem', color: rank <= 3 ? '#1e40af' : '#94a3b8' }}>
-                                    {MEDAL[rank] || (rank ? `#${rank}` : '—')}
+                                <td style={{ padding: '9px 12px', fontWeight: 700, fontSize: '0.875rem', whiteSpace: 'nowrap', color: rank <= 3 ? '#1e40af' : '#94a3b8' }}>
+                                    {placeLabel(rank)}
                                 </td>
                                 <td style={{ padding: '9px 12px', fontWeight: 600, fontSize: '0.875rem', color: '#1e293b' }}>{t.teamName}</td>
                                 {extraColumns.map(column => <td key={column.key} style={{ padding: '9px 12px', textAlign: 'right', fontSize: '0.8125rem', color: '#475569' }}>{column.render(t.metrics[metricKey])}</td>)}
@@ -3166,8 +3183,8 @@ const TotalRatingTable = ({ teams }) => {
                         const costStyle = { display: 'block', fontSize: '0.6875rem', color: '#c2410c', marginTop: 2 };
                         return (
                             <tr key={t.teamId} style={{ background: rowBg, borderBottom: '1px solid #e2e8f0' }}>
-                                <td style={{ padding: '10px 14px', fontWeight: 700, fontSize: '0.875rem', color: r <= 3 ? '#1e40af' : '#64748b' }}>
-                                    {MEDAL[r] || `#${r}`}
+                                <td style={{ padding: '10px 14px', fontWeight: 700, fontSize: '0.875rem', whiteSpace: 'nowrap', color: r <= 3 ? '#1e40af' : '#64748b' }}>
+                                    {placeLabel(r)}
                                 </td>
                                 <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: '0.875rem', color: '#1e293b' }}>{t.teamName}</td>
                                 <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: '0.8125rem', color: '#475569' }}>

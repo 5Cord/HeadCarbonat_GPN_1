@@ -45,12 +45,12 @@ export default function RegionMapMiniature({ rotation = 0, luCards, onRotationCh
           {layout.cells.map((cells, rowIndex) => (
             <React.Fragment key={rowIndex}>
               <span className="region-miniature-axis">{layout.rowHeaders[rowIndex]}</span>
-              {cells.map(ref => {
+              {cells.map((ref, columnIndex) => {
                 const type = SETTLEMENTS.has(ref) ? 'settlement'
                   : PARENT_COMPANY.has(ref) ? 'company' : 'free';
                 const card = cardsByCell[ref];
                 return <span key={ref} className={`region-miniature-cell region-miniature-cell-${type}`}>
-                  <span className="region-miniature-cell-ref">{ref}</span>
+                  <span className="region-miniature-cell-ref">{`${ROWS[rowIndex]}${columnIndex + 1}`}</span>
                   {card && <span className={`region-miniature-card region-miniature-card-${getRotatedCardSide(card.customStyle, currentRotation)}`} title={`${card.name} · ${card.cost} млн ₽`}>{card.shortName}</span>}
                 </span>;
               })}
@@ -61,7 +61,7 @@ export default function RegionMapMiniature({ rotation = 0, luCards, onRotationCh
 
       <div className="region-miniature-legend">
         <span><i className="region-miniature-swatch region-miniature-swatch-free" />Свободные · {freeCount}</span>
-        <span><i className="region-miniature-swatch region-miniature-swatch-settlement" />Населённые пункты · {SETTLEMENTS.size}</span>
+        <span><i className="region-miniature-swatch region-miniature-swatch-settlement" />Населенные пункты и заказники · {SETTLEMENTS.size}</span>
         <span><i className="region-miniature-swatch region-miniature-swatch-company" />Материнская компания · {PARENT_COMPANY.size}</span>
         <span><i className="region-miniature-swatch region-miniature-swatch-card" />Карточки информации · {Object.keys(cardsByCell).length}</span>
       </div>

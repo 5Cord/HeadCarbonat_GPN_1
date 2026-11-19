@@ -13,20 +13,8 @@ import { getFaciesConfigById, FACIES_ENABLED } from './faciesPresets';
 import NeftImg from '../assets/cards/Neft.png';
 import { PIPELINE_ZONE_CELLS } from './pipelineZones';
 import { BLOCKED_CELLS } from './blockedCells';
-import { getRegionMapCardLabelDirections, getRegionMapLayout, getRegionMapNorthArrow, getRotatedCardSide, getRotatedCardStyle, normalizeRegionMapRotation, rotateRegionMapPoint } from './regionMapRotation';
-
-const DEFAULT_CASE_INTRO = {
-  title: 'Кейс',
-  paragraphs: [
-    'В стране растёт интерес компаний к новому потенциально нефтеносному району.',
-    'По данным федеральных научных институтов, перспективы связаны с карбонатным комплексом платформенного типа.',
-    'На западе расположен складчато-надвиговый комплекс, где целевые объекты могут выходить на поверхность.',
-    'Изученность района крайне низкая: сейсморазведка 2D почти отсутствует, бурение не проводилось.',
-    'По периметру пробурены параметрические скважины, примыкающие к зоне лицензирования.',
-    'В районе нет нефтяной инфраструктуры. Нефтепровод можно проложить через участки материнской компании с запада на восток.',
-  ],
-  buttonText: 'Начать работу →',
-};
+import { getDisplayCellRef, getRegionMapCardLabelDirections, getRegionMapLayout, getRegionMapNorthArrow, getRotatedCardSide, getRotatedCardStyle, normalizeRegionMapRotation, rotateRegionMapPoint } from './regionMapRotation';
+import { DEFAULT_CASE_INTRO, getCaseIntroParagraphs } from './caseIntro';
 
 const SCENARIO_WORK_LABELS = {
   srr_3d:        'СРР 3D',
@@ -253,6 +241,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const MAX_LUS_PER_TEAM = sessionConfig.maxLUsPerTeam ?? 5;
   const regionMapRotation = normalizeRegionMapRotation(sessionConfig.regionMapRotation);
   const mapLayout = getRegionMapLayout(regionMapRotation);
+  const displayCellRef = cellRef => getDisplayCellRef(cellRef, regionMapRotation);
 
   // Карточки ЛУ: дефолты + настройки сессии из админки (name/cost/description/image)
   const licenseUnitsList = useMemo(
@@ -351,12 +340,13 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const hasLUs  = ownedCount > 0;
 
 
+  const caseIntroStorageKey = `caseIntroDone:${player.sessionId ?? 'local'}`;
   const [showCaseIntro, setShowCaseIntro] = useState(
-    () => sessionStorage.getItem('caseIntroDone') !== '1'
+    () => sessionStorage.getItem(caseIntroStorageKey) !== '1'
   );
 
   const dismissCaseIntro = () => {
-    sessionStorage.setItem('caseIntroDone', '1');
+    sessionStorage.setItem(caseIntroStorageKey, '1');
     setShowCaseIntro(false);
   };
 
@@ -596,31 +586,32 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const getCellTooltipContent = (cellId) => {
     if (cellId.startsWith('__facies_node__')) {
       const node = faciesNodes.find(n => n.at === cellId.slice('__facies_node__'.length));
-      return { title: node?.label ?? 'Точка', sub: `на стыке участков ${node?.at ?? ''}` };
+      return { title: node?.label ?? 'Точка', sub: 'на стыке участков' };
     }
+    const displayRef = displayCellRef(cellId);
     const facies = getFacies(faciesConfig, cellId);
     const blockedType = getBlockedType(cellId);
-    if (blockedType) return { title: getBlockedLabel(blockedType), sub: `${cellId} · недоступен` };
+    if (blockedType) return { title: getBlockedLabel(blockedType), sub: `${displayRef} · недоступен` };
     const isContested = isMyContestedCell(cellId);
     if (isContested) {
       const bid = myContestedCells[cellId]?.currentBid;
-      return { title: 'Ваш участок оспаривается ⚔', sub: `${cellId}${bid != null ? ` · ставка: ${bid} млн` : ''}` };
+      return { title: 'Ваш участок оспаривается ⚔', sub: `${displayRef}${bid != null ? ` · ставка: ${bid} млн` : ''}` };
     }
     if (isOwnedByMe(cellId)) {
       const isAuto = ownedCells[cellId]?.isAutoAssigned;
-      return { title: isAuto ? 'Ваш участок (авто)' : 'Ваш участок', sub: cellId };
+      return { title: isAuto ? 'Ваш участок (авто)' : 'Ваш участок', sub: displayRef };
     }
     if (isOwnedByOther(cellId)) {
       const name = gridCells.allTeams[cellId]?.ownedByTeamName ?? 'Другая команда';
-      return { title: name, sub: `${cellId} · занят` };
+      return { title: name, sub: `${displayRef} · занят` };
     }
     const auction = auctions.active[cellId];
     if (auction) {
       const bid = auction.currentBid;
-      return { title: 'Аукцион LIVE', sub: `${cellId} · текущая ставка: ${bid != null ? `${bid} млн` : '—'}` };
+      return { title: 'Аукцион LIVE', sub: `${displayRef} · текущая ставка: ${bid != null ? `${bid} млн` : '—'}` };
     }
-    if (isRegisteredForAuction(cellId)) return { title: 'Вы в очереди', sub: `${cellId} · ожидание аукциона` };
-    return { title: 'Свободный участок', sub: facies ? `${cellId} · ${facies.name}` : cellId };
+    if (isRegisteredForAuction(cellId)) return { title: 'Вы в очереди', sub: `${displayRef} · ожидание аукциона` };
+    return { title: 'Свободный участок', sub: facies ? `${displayRef} · ${facies.name}` : displayRef };
   };
 
   const isLUSelected = (luId) => selectedLU.some(lu => lu.id === luId);
@@ -706,16 +697,17 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const getLUPosition = (cellId) => licenseUnitsList.find(lu => lu.cellRef === cellId);
 
   const handleGridCellClick = (cellRef) => {
+    const displayRef = displayCellRef(cellRef);
     if (!isOurPhase) { showAlert('Время истекло', 'Время на выбор участков истекло.'); return; }
     if (isBlocked(cellRef)) { showAlert('Участок недоступен', `Причина: ${getBlockedLabel(getBlockedType(cellRef))}`); return; }
-    if (cellScenarios[cellRef]) { showAlert('Участок недоступен', `Участок ${cellRef} занят случайным сценарием и не может быть куплен или оспорен.`); return; }
+    if (cellScenarios[cellRef]) { showAlert('Участок недоступен', `Участок ${displayRef} занят случайным сценарием и не может быть куплен или оспорен.`); return; }
     if (selectedLU.length === 0) { setNoCardModal(true); return; }
     if (isOwnedByMe(cellRef)) {
       if (isMyContestedCell(cellRef)) {
         const auction = myContestedCells[cellRef];
         const competitorCount = (auction.participants || []).filter(p => p !== myId).length;
-        showAlert(`⚔️ Участок ${cellRef} оспаривается!`,
-          `${competitorCount} ${competitorCount === 1 ? 'команда претендует' : 'команды претендуют'} на ваш участок ${cellRef}. После фазы выбора состоится аукцион — вы в нём не участвуете, участок будет разыгран между претендентами. Победитель выкупит его у вас по финальной ставке.`
+        showAlert(`⚔️ Участок ${displayRef} оспаривается!`,
+          `${competitorCount} ${competitorCount === 1 ? 'команда претендует' : 'команды претендуют'} на ваш участок ${displayRef}. После фазы выбора состоится аукцион — вы в нём не участвуете, участок будет разыгран между претендентами. Победитель выкупит его у вас по финальной ставке.`
         );
       } else {
         showAlert('Уже ваш', 'Этот участок уже принадлежит вашей команде.');
@@ -725,9 +717,9 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
     if (isOwnedByOther(cellRef)) {
       const ownerTeam = gridCells.allTeams[cellRef]?.ownedByTeamName || 'Другая команда';
-      if (currentPhase === 'post_auction') { showAlert('Участок занят', `Участок ${cellRef} занят командой «${ownerTeam}».\n\nВо время допокупки аукционы недоступны.`); return; }
+      if (currentPhase === 'post_auction') { showAlert('Участок занят', `Участок ${displayRef} занят командой «${ownerTeam}».\n\nВо время допокупки аукционы недоступны.`); return; }
       if (!canJoinAuction()) { showAlert('Недоступно', 'Регистрация на аукцион сейчас недоступна.'); return; }
-      if (isRegisteredForAuction(cellRef)) { showAlert('Уже зарегистрированы', `Вы уже зарегистрированы на аукцион за участок ${cellRef}.`); return; }
+      if (isRegisteredForAuction(cellRef)) { showAlert('Уже зарегистрированы', `Вы уже зарегистрированы на аукцион за участок ${displayRef}.`); return; }
       if (totalCommittedCells >= MAX_LUS_PER_TEAM) { showAlert('Лимит', `Достигнут лимит ${MAX_LUS_PER_TEAM} участков.`); return; }
       setGridConfirmModal({ cellRef, mode: 'auction', ownerTeam });
       return;
@@ -745,6 +737,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
   const confirmGridAction = () => {
     if (!gridConfirmModal) return;
     const { cellRef, mode } = gridConfirmModal;
+    const displayRef = displayCellRef(cellRef);
     setGridConfirmModal(null);
 
     if (mode === 'buy') {
@@ -754,10 +747,10 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
           if (!res?.ok) {
             if (res?.error === 'LIMIT') showAlert('Лимит', `Достигнут лимит ${MAX_LUS_PER_TEAM} участков.`);
             else if (res?.error === 'ALREADY_OWNED') showAlert('Уже ваш', 'Этот участок уже ваш.');
-            else if (res?.error === 'CELL_TAKEN') showAlert('Участок занят', `Команда уже успела приобрести участок ${cellRef}. Выберите другой свободный участок.`);
-            else if (res?.error === 'SCENARIO_CELL') showAlert('Участок недоступен', `Участок ${cellRef} занят случайным сценарием и не может быть куплен.`);
-            else if (res?.error === 'BLOCKED_CELL') showAlert('Участок недоступен', `Участок ${cellRef} недоступен для выбора.`);
-            else if (res?.action === 'auction') showAlert('Аукцион', `Участок занят, запущен аукцион за ${cellRef}`);
+            else if (res?.error === 'CELL_TAKEN') showAlert('Участок занят', `Команда уже успела приобрести участок ${displayRef}. Выберите другой свободный участок.`);
+            else if (res?.error === 'SCENARIO_CELL') showAlert('Участок недоступен', `Участок ${displayRef} занят случайным сценарием и не может быть куплен.`);
+            else if (res?.error === 'BLOCKED_CELL') showAlert('Участок недоступен', `Участок ${displayRef} недоступен для выбора.`);
+            else if (res?.action === 'auction') showAlert('Аукцион', `Участок занят, запущен аукцион за ${displayRef}`);
           }
         });
       } else {
@@ -772,11 +765,11 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
           } else if (res?.error === 'LIMIT') {
             showAlert('Лимит', `Достигнут лимит ${MAX_LUS_PER_TEAM} участков.`);
           } else if (res?.error === 'CELL_TAKEN') {
-            showAlert('Участок занят', `Участок ${cellRef} уже принадлежит другой команде. Во время допокупки аукционы недоступны.`);
+            showAlert('Участок занят', `Участок ${displayRef} уже принадлежит другой команде. Во время допокупки аукционы недоступны.`);
           } else if (res?.error === 'BLOCKED_CELL') {
-            showAlert('Участок недоступен', `Участок ${cellRef} недоступен для выбора.`);
+            showAlert('Участок недоступен', `Участок ${displayRef} недоступен для выбора.`);
           } else if (res?.error === 'AUCTION_CLOSED') {
-            showAlert('Аукцион завершён', `Аукцион за участок ${cellRef} уже завершён.`);
+            showAlert('Аукцион завершён', `Аукцион за участок ${displayRef} уже завершён.`);
           } else if (res?.error) {
             socket.emit('auction:register', { cellRef }, (regRes) => {
               if (!regRes?.ok) showAlert('Ошибка', regRes?.error || 'Не удалось зарегистрироваться на аукцион.');
@@ -826,10 +819,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
 
       {showCaseIntro && (() => {
         const intro = sessionConfig.introContent ?? DEFAULT_CASE_INTRO;
-        const paragraphs = intro.paragraphs ?? DEFAULT_CASE_INTRO.paragraphs;
-        const caseParagraphs = paragraphs.some(p => p.includes(DEFAULT_CASE_INTRO.paragraphs.at(-1)))
-          ? paragraphs
-          : [...paragraphs, DEFAULT_CASE_INTRO.paragraphs.at(-1)];
+        const caseParagraphs = getCaseIntroParagraphs(intro.paragraphs ?? DEFAULT_CASE_INTRO.paragraphs);
         return (
           <div className="case-intro-overlay">
             <div className="case-intro-modal">
@@ -1015,7 +1005,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                     const competitors = (auction.participants || []).filter(p => p !== myId);
                     return (
                       <div key={ref} className="contested-cell-row">
-                        <span className="contested-cell-ref">{ref}</span>
+                        <span className="contested-cell-ref">{displayCellRef(ref)}</span>
                         <span className="contested-cell-info">{competitors.length} {competitors.length === 1 ? 'претендент' : 'претендента'}</span>
                         <span className="contested-cell-hint">аукцион ждёт</span>
                       </div>
@@ -1030,7 +1020,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
             {myAuctionCells.length > 0 && currentPhase === 'selection' && (
               <div className="pending-auctions-list">
                 <div className="pending-auctions-title">Ожидание аукционов:</div>
-                {myAuctionCells.map(ref => <div key={ref} className="pending-auction-item"><span className="pending-auction-cell">WAIT {ref}</span></div>)}
+                {myAuctionCells.map(ref => <div key={ref} className="pending-auction-item"><span className="pending-auction-cell">WAIT {displayCellRef(ref)}</span></div>)}
               </div>
             )}
 
@@ -1039,10 +1029,10 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                 <div className="owned-cells-title">Ваши участки:</div>
                 {Object.values(ownedCells).map(cell => (
                   <div key={cell.cellRef} className={`owned-cell-item owned-cell-item-static ${myContestedCells[cell.cellRef] ? 'owned-cell-item-contested' : ''} ${cell.isAutoAssigned ? 'owned-cell-item-auto' : ''}`}>
-                    <span className="owned-cell-ref">{cell.cellRef}</span>
+                    <span className="owned-cell-ref">{displayCellRef(cell.cellRef)}</span>
                     {myContestedCells[cell.cellRef] && <span className="owned-cell-contested-icon" title="Другая команда претендует на этот участок">⚔️</span>}
                     {cell.isAutoAssigned && <span className="owned-cell-auto-icon" title="Участок выдан автоматически">🎲</span>}
-                    <span className="owned-cell-name">{cell.name}</span>
+                    <span className="owned-cell-name">{cell.name?.replace(cell.cellRef, displayCellRef(cell.cellRef)) ?? `Участок ${displayCellRef(cell.cellRef)}`}</span>
                     {cell.auctionPrice ? <span className="owned-cell-price">{cell.auctionPrice} млн</span> : <span className="owned-cell-free">{cell.isAutoAssigned ? 'авто' : ''}</span>}
                   </div>
                 ))}
@@ -1097,6 +1087,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
               {mapLayout.cells.map((cellRow, rowIndex) => (
                 <div key={rowIndex} className="grid-row">
                   {cellRow.map(cellId => {
+                    const displayRef = mapLayout.displayRefByCell[cellId];
                     const facies = getFacies(faciesConfig, cellId);
                     const lu = getLUPosition(cellId);
                     const cardStyle = lu ? getRotatedCardStyle(lu.customStyle, regionMapRotation) : null;
@@ -1182,16 +1173,16 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                           )}
                           {sceneImg ? (
                             <div className="cell-scene-img-wrap">
-                              <img src={sceneImg} alt={cellId} className="cell-scene-img" />
+                              <img src={sceneImg} alt={displayRef} className="cell-scene-img" />
                               <div className="cell-scene-owned-overlay" />
                               <span className="cell-scene-owned-badge">
                                 {isContested ? '⚔' : isAutoAssigned ? '🎲' : '★'}
                               </span>
-                              <span className="cell-scene-label">{cellId}</span>
+                              <span className="cell-scene-label">{displayRef}</span>
                             </div>
                           ) : (
                             <>
-                              {!scenarioImg && <span className="cell-label">{cellId}</span>}
+                              {!scenarioImg && <span className="cell-label">{displayRef}</span>}
                               {ownedByMe && isContested && <span className="cell-mark cell-mark-contested">⚔</span>}
                               {ownedByMe && !isContested && isAutoAssigned && <span className="cell-mark cell-mark-auto">🎲</span>}
                               {ownedByMe && !isContested && !isAutoAssigned && <span className="cell-mark cell-mark-own">OK</span>}
@@ -1200,10 +1191,10 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                           {!sceneImg && ownedByOther && !enemySceneImg && !enemyCompanySceneImg && <span className="cell-mark cell-mark-other">!</span>}
                           {!sceneImg && ownedByOther && (enemySceneImg || enemyCompanySceneImg) && (
                             <div className="cell-scene-img-wrap">
-                              <img src={enemySceneImg ?? enemyCompanySceneImg} alt={cellId} className="cell-scene-img" />
+                              <img src={enemySceneImg ?? enemyCompanySceneImg} alt={displayRef} className="cell-scene-img" />
                               <div className="cell-scene-enemy-overlay" />
                               {!companyCellScenario && <span className="cell-scene-enemy-badge">!</span>}
-                              <span className="cell-scene-label">{cellId}</span>
+                              <span className="cell-scene-label">{displayRef}</span>
                               {companyCellScenario && (
                                 <div className="cell-scenario-img-badge">
                                   {SCENARIO_WORK_LABELS[companyCellScenario.workId] ?? companyCellScenario.workId}
@@ -1218,8 +1209,8 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                           {cellScenario && !hasActiveAuction && !isPendingAuction && (
                             scenarioImg ? (
                               <div className="cell-scene-img-wrap cell-scene-scenario">
-                                <img src={scenarioImg} alt={cellId} className="cell-scene-img" />
-                                <span className="cell-scene-label">{cellId}</span>
+                                <img src={scenarioImg} alt={displayRef} className="cell-scene-img" />
+                                <span className="cell-scene-label">{displayRef}</span>
                                 <div className="cell-scenario-img-badge">
                                   {SCENARIO_WORK_LABELS[cellScenario.workId] ?? cellScenario.workId}
                                 </div>
@@ -1280,7 +1271,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         <div className="legend-item"><div className="legend-color legend-color-contested"></div><span>Оспаривается</span></div>
         <div className="legend-item"><div className="legend-color legend-color-auction"></div><span>Аукцион</span></div>
         <div className="legend-item"><div className="legend-color legend-color-other"></div><span>Занят другой командой</span></div>
-        <div className="legend-item"><div className="legend-color legend-color-blocked-settlement"></div><span>Населённый пункт</span></div>
+        <div className="legend-item"><div className="legend-color legend-color-blocked-settlement"></div><span>Населенные пункты и заказники</span></div>
         <div className="legend-item"><div className="legend-color legend-color-blocked-company"></div><span>Материнская компания</span></div>
 
         {faciesConfig && (
@@ -1306,7 +1297,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         );
       })()}
 
-      <AuctionDashboard auctions={auctions} player={player} budget={budget} onPlaceBid={handleDashboardBid} onLeaveAuction={handleDashboardLeave} currentPhase={currentPhase} />
+      <AuctionDashboard auctions={auctions} player={player} budget={budget} onPlaceBid={handleDashboardBid} onLeaveAuction={handleDashboardLeave} currentPhase={currentPhase} formatCellRef={displayCellRef} />
 
       {selectedInfoCard && viewMode === 'sidebar' && (
         <div className="modal-overlay" onClick={() => { setSelectedInfoCard(null); setViewMode(null); }}>
@@ -1334,7 +1325,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
                   </div>
                   {lu.hasImage && <div className="info-card-image"><img src={lu.imagePath} alt={lu.name} /></div>}
                   <div className="info-card-description">{lu.description}</div>
-                  <div className="info-card-footer"><span>Ячейка: {lu.cellRef}</span></div>
+                  <div className="info-card-footer"><span>Ячейка: {displayCellRef(lu.cellRef)}</span></div>
                 </div>
               ))}
             </div>
@@ -1352,18 +1343,18 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         )}
       </ConfirmModal>
 
-      <ConfirmModal isOpen={!!gridConfirmModal && gridConfirmModal.mode !== 'leave'} onClose={() => setGridConfirmModal(null)} onConfirm={confirmGridAction} title={gridConfirmModal?.mode === 'buy' ? `Приобрести участок ${gridConfirmModal?.cellRef}?` : `Зарегистрироваться на аукцион за участок ${gridConfirmModal?.cellRef}?`} confirmLabel={gridConfirmModal?.mode === 'buy' ? 'Приобрести участок' : 'Зарегистрироваться на аукцион'} cancelLabel="Отмена">
+      <ConfirmModal isOpen={!!gridConfirmModal && gridConfirmModal.mode !== 'leave'} onClose={() => setGridConfirmModal(null)} onConfirm={confirmGridAction} title={gridConfirmModal?.mode === 'buy' ? `Приобрести участок ${displayCellRef(gridConfirmModal?.cellRef)}?` : `Зарегистрироваться на аукцион за участок ${displayCellRef(gridConfirmModal?.cellRef)}?`} confirmLabel={gridConfirmModal?.mode === 'buy' ? 'Приобрести участок' : 'Зарегистрироваться на аукцион'} cancelLabel="Отмена">
         {gridConfirmModal?.mode === 'buy' && (
           <div className="confirm-purchase-details">
-            <div className="confirm-cell-ref">{gridConfirmModal.cellRef}</div>
-            <p>Вы выбираете лицензионный участок <strong>{gridConfirmModal.cellRef}</strong></p>
+            <div className="confirm-cell-ref">{displayCellRef(gridConfirmModal.cellRef)}</div>
+            <p>Вы выбираете лицензионный участок <strong>{displayCellRef(gridConfirmModal.cellRef)}</strong></p>
             <div className="confirm-stats-row"><div className="confirm-stat"><span className="confirm-stat-label">Участков:</span><span className="confirm-stat-value">{ownedCount + 1} / {MAX_LUS_PER_TEAM}</span></div></div>
           </div>
         )}
         {gridConfirmModal?.mode === 'auction' && (
           <div className="confirm-purchase-details">
-            <div className="confirm-cell-ref">{gridConfirmModal.cellRef}</div>
-            <p>Участок <strong>{gridConfirmModal.cellRef}</strong> занят командой <strong>«{gridConfirmModal.ownerTeam}»</strong>.</p>
+            <div className="confirm-cell-ref">{displayCellRef(gridConfirmModal.cellRef)}</div>
+            <p>Участок <strong>{displayCellRef(gridConfirmModal.cellRef)}</strong> занят командой <strong>«{gridConfirmModal.ownerTeam}»</strong>.</p>
             <p>Вы будете участвовать в аукционе на этот участок после завершения фазы выбора.</p>
             <div className="confirm-auction-info">
               <div className="confirm-auction-row"><span>Начальная цена:</span><strong>{AUCTION_START_PRICE} млн руб.</strong></div>
@@ -1373,7 +1364,7 @@ const RegionMap = ({ onComplete, onNext, onBack, onMenu }) => {
         )}
       </ConfirmModal>
 
-      <ConfirmModal isOpen={!!gridConfirmModal && gridConfirmModal.mode === 'leave'} onClose={() => setGridConfirmModal(null)} onConfirm={confirmLeaveAuction} title={`Покинуть аукцион за участок ${gridConfirmModal?.cellRef}?`} confirmLabel="Покинуть аукцион" cancelLabel="Остаться" confirmVariant="danger">
+      <ConfirmModal isOpen={!!gridConfirmModal && gridConfirmModal.mode === 'leave'} onClose={() => setGridConfirmModal(null)} onConfirm={confirmLeaveAuction} title={`Покинуть аукцион за участок ${displayCellRef(gridConfirmModal?.cellRef)}?`} confirmLabel="Покинуть аукцион" cancelLabel="Остаться" confirmVariant="danger">
         {gridConfirmModal?.mode === 'leave' && (
           <div className="confirm-purchase-details">
             {gridConfirmModal.weAreLeading && <div className="confirm-warning-box">⚠️ Вы сейчас <strong>лидируете</strong> в этом аукционе!</div>}

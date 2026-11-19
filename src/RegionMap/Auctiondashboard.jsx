@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import './Auctiondashboard.css';
 import { AUCTION_START_PRICE } from '../../store/gameStore';
 
-const AuctionDashboard = ({ auctions, player, budget, onPlaceBid, onLeaveAuction, currentPhase }) => {
+const AuctionDashboard = ({ auctions, player, budget, onPlaceBid, onLeaveAuction, currentPhase, formatCellRef = ref => ref }) => {
   const myId         = player.teamId || player.name;
   const activeEntries = Object.entries(auctions.active || {});
 
@@ -154,7 +154,7 @@ const AuctionDashboard = ({ auctions, player, budget, onPlaceBid, onLeaveAuction
 
                   {/* Координата + статус */}
                   <div className="auction-card-top">
-                    <div className="auction-card-ref">{cellRef}</div>
+                    <div className="auction-card-ref">{formatCellRef(cellRef)}</div>
                     <div className={`auction-card-badge ${weLeading ? 'badge-leading' : 'badge-losing'}`}>
                       {weLeading ? '▲ Лидирую' : '▼ Отстаю'}
                     </div>
