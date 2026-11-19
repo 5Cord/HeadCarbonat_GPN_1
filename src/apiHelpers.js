@@ -53,6 +53,7 @@ export function connectSocket(token, sessionId, callbacks = {}) {
 
   _socket.on('team:joined',  callbacks.onTeamJoined  || (() => {}));
   _socket.on('team:offline', callbacks.onTeamOffline || (() => {}));
+  _socket.on('team:kicked', callbacks.onTeamKicked || (() => {}));
 
   _socket.on('session:started',   callbacks.onSessionStarted   || (() => {}));
   _socket.on('session:finished',  callbacks.onSessionFinished  || (() => {}));
@@ -108,6 +109,12 @@ export const joinSession = (sessionCode, teamData) =>
   apiFetch('/sessions/join', {
     method: 'POST',
     body: JSON.stringify({ sessionCode, teamData }),
+  });
+
+export const recoverSession = (sessionCode, recoveryCode) =>
+  apiFetch('/sessions/recover', {
+    method: 'POST',
+    body: JSON.stringify({ sessionCode, recoveryCode }),
   });
 
 export const getSessionStatus = (sessionId) =>
@@ -186,6 +193,8 @@ export const getAdminSessions      = ()        => adminFetch('/sessions');
 export const getAdminSessionDetails = (id)    => adminFetch(`/sessions/${id}`);
 export const getAdminTeams         = ()        => adminFetch('/teams');
 export const getAdminTeamDetails   = (id)     => adminFetch(`/teams/${id}`);
+export const issueTeamRecoveryCode = (sessionId, teamId) => adminFetch(`/sessions/${sessionId}/teams/${teamId}/recovery`, { method: 'POST' });
+export const kickTeam = (sessionId, teamId) => adminFetch(`/sessions/${sessionId}/teams/${teamId}/kick`, { method: 'POST' });
 export const getAdminStats         = ()        => adminFetch('/stats');
 export const deleteSession         = (id)     => adminFetch(`/sessions/${id}`, { method: 'DELETE' });
 export const resetTeam             = (id)     => adminFetch(`/teams/${id}/reset`, { method: 'POST' });
@@ -252,7 +261,7 @@ export const submitBugReport = ({ location, description, sessionId, teamName }) 
 
 export default {
   getSocket, connectSocket, disconnectSocket,
-  getSessionByCode, joinSession, getSessionStatus, leaveSession, resumeSession,
+  getSessionByCode, joinSession, recoverSession, getSessionStatus, leaveSession, resumeSession,
   saveResearchProgress, saveEventsResults, saveFieldWorkSelection,
   saveResults, saveTeamProgress, getTeamProgress,
   placeBidOnAuction, finalizeTeamSelection,

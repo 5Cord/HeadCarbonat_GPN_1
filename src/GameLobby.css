@@ -106,7 +106,24 @@
   margin: 0 0 2rem;
 }
 
-.code-input-wrap { margin-bottom: 1.5rem; }
+.code-input-wrap { margin-bottom: 1.25rem; }
+
+.lobby-input-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #0a2240;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.lobby-input-help {
+  margin: 0.5rem 0 0;
+  color: #667085;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  text-align: left;
+}
 
 .code-input {
   width: 100%;
@@ -130,6 +147,9 @@
 }
 
 .code-input::placeholder { color: #ccc; font-weight: 400; font-size: 1.5rem; }
+
+.code-input-recovery { font-size: 1.6rem; letter-spacing: 0.14em; }
+.code-input-recovery::placeholder { font-size: 1.2rem; letter-spacing: normal; }
 
 /* ══════════════════════════════════════════════════
    ШАГ 2 — ДАННЫЕ КОМАНДЫ
@@ -490,13 +510,14 @@
 /* ── Возврат в сессию, из которой вышли ── */
 
 .lobby-resume {
-  margin-top: 1.5rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid #e2e8f0;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
 }
 
-.lobby-resume .step-hint {
-  margin: 0.65rem 0 0;
+.lobby-resume-label {
+  margin: 0 0 0.65rem;
+  color: #667085;
   font-size: 0.85rem;
 }
 
@@ -519,6 +540,22 @@
 }
 
 .lobby-btn-resume:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.lobby-mode-switch {
+  width: 100%;
+  margin-top: 0.9rem;
+  padding: 0.45rem;
+  border: 0;
+  background: transparent;
+  color: #1a7a6e;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lobby-mode-switch:hover { text-decoration: underline; }
+.lobby-mode-switch:focus-visible { outline: 2px solid #29a694; outline-offset: 2px; }
 
 /* ── Responsive ── */
 

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import useGameStore from '../store/gameStore';
-import { getSessionByCode, joinSession, resumeSession } from './apiHelpers';
+import { getSessionByCode, joinSession, recoverSession, resumeSession } from './apiHelpers';
 import './GameLobby.css';
 
 const ROLES = [
@@ -45,17 +45,28 @@ const StepCode = ({ onNext, onResume }) => {
     const [error, setError]     = useState('');
     const [lastTeam, setLastTeam] = useState(readLastTeam);
     const [resuming, setResuming] = useState(false);
+    const [recoveryMode, setRecoveryMode] = useState(false);
+    const [recoveryCode, setRecoveryCode] = useState('');
 
     const handleResume = async () => {
         setResuming(true);
         setError('');
         try {
             onResume(await resumeSession());
-        } catch {
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('last_team');
-            setLastTeam(null);
-            setError('Не удалось вернуться в сессию — войдите по коду.');
+        } catch (error) {
+            if (error.message === 'TEAM_REMOVED') {
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('last_team');
+                setLastTeam(null);
+                setError('Команда исключена администратором из этой сессии.');
+            } else if (['Team not found', 'Session not found', 'Session already finished'].includes(error.message)) {
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('last_team');
+                setLastTeam(null);
+                setError('Доступ с этого устройства больше не действует. Запросите код восстановления у администратора.');
+            } else {
+                setError('Не удалось связаться с сервером. Повторите попытку — данные входа сохранены.');
+            }
         } finally {
             setResuming(false);
         }
@@ -63,16 +74,28 @@ const StepCode = ({ onNext, onResume }) => {
 
     const handleSubmit = async () => {
         const trimmed = code.trim().toUpperCase();
-        if (trimmed.length < 4) { setError('Введите корректный код'); return; }
+        if (trimmed.length < 4) { setError('Введите код сессии.'); return; }
+        if (recoveryMode && recoveryCode.trim().length !== 10) {
+            setError('Введите 10-символьный код восстановления.');
+            return;
+        }
         setLoading(true);
         setError('');
         try {
+            if (recoveryMode) {
+                onResume(await recoverSession(trimmed, recoveryCode.trim()));
+                return;
+            }
             const session = await getSessionByCode(trimmed);
             if (!session) { setError('Сессия не найдена. Проверьте код.'); return; }
             if (session.status === 'finished') { setError('Эта сессия уже завершена.'); return; }
+            if (session.status !== 'waiting') {
+                setError('Сессия уже началась. Новые команды не подключаются. Вернитесь с прежнего устройства или используйте код восстановления от администратора.');
+                return;
+            }
             onNext(trimmed, session);
-        } catch (e) {
-            setError('Сессия не найдена. Проверьте код.');
+        } catch {
+            setError(recoveryMode ? 'Код восстановления неверен или срок его действия истёк.' : 'Сессия не найдена. Проверьте код.');
         } finally {
             setLoading(false);
         }
@@ -81,13 +104,29 @@ const StepCode = ({ onNext, onResume }) => {
     return (
         <div className="lobby-step">
             <div className="step-icon">🔑</div>
-            <h2>Введите код сессии</h2>
-            <p className="step-hint">Код выдаёт организатор перед началом игры</p>
+            <h2>{recoveryMode ? 'Возврат в текущую сессию' : 'Вход в новую сессию'}</h2>
+            <p className="step-hint">
+                {recoveryMode
+                    ? (lastTeam
+                        ? 'Продолжите на прежнем устройстве или войдите с другого по коду организатора.'
+                        : 'Введите код сессии и одноразовый код, который выдал организатор.')
+                    : 'Введите код сессии, который выдал организатор.'}
+            </p>
+            {lastTeam && recoveryMode && (
+                <div className="lobby-resume">
+                    <p className="lobby-resume-label">На этом устройстве</p>
+                    <button type="button" className="lobby-btn-resume" onClick={handleResume} disabled={resuming}>
+                        {resuming ? 'Подключение...' : `Продолжить за команду «${lastTeam.name}»`}
+                    </button>
+                </div>
+            )}
             <div className="code-input-wrap">
+                <label className="lobby-input-label" htmlFor="lobby-session-code">Код сессии</label>
                 <input
+                    id="lobby-session-code"
                     type="text"
                     className="code-input"
-                    placeholder="XXXXXX"
+                    placeholder="Код сессии"
                     value={code}
                     onChange={e => { setCode(e.target.value.toUpperCase()); setError(''); }}
                     onKeyDown={e => e.key === 'Enter' && handleSubmit()}
@@ -95,22 +134,28 @@ const StepCode = ({ onNext, onResume }) => {
                     autoFocus
                 />
             </div>
+            {recoveryMode && (
+                <div className="code-input-wrap">
+                    <label className="lobby-input-label" htmlFor="lobby-recovery-code">Одноразовый код восстановления</label>
+                    <input id="lobby-recovery-code" type="text" className="code-input code-input-recovery" placeholder="Запросите у организаторов"
+                        value={recoveryCode} maxLength={10} autoComplete="off"
+                        onChange={e => { setRecoveryCode(e.target.value.toUpperCase()); setError(''); }}
+                        onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
+                    <p className="lobby-input-help">Попросите организатора выдать код для вашей команды. Он действует 15 минут.</p>
+                </div>
+            )}
             {error && <div className="lobby-error">{error}</div>}
             <button
                 className="lobby-btn-primary"
                 onClick={handleSubmit}
-                disabled={loading || code.trim().length < 4}
+                disabled={loading || code.trim().length < 4 || (recoveryMode && recoveryCode.trim().length !== 10)}
             >
-                {loading ? 'Проверка...' : 'Войти →'}
+                {loading ? 'Проверка...' : recoveryMode ? 'Вернуться в игру' : 'Продолжить →'}
             </button>
-            {lastTeam && (
-                <div className="lobby-resume">
-                    <button className="lobby-btn-resume" onClick={handleResume} disabled={resuming}>
-                        {resuming ? 'Восстановление...' : `Продолжить за команду «${lastTeam.name}»`}
-                    </button>
-                    <p className="step-hint">Прогресс сохранён — вернётесь к тому же состоянию игры</p>
-                </div>
-            )}
+            <button type="button" className="lobby-mode-switch"
+                onClick={() => { setRecoveryMode(mode => !mode); setError(''); }}>
+                {recoveryMode ? 'Войти в новую сессию' : 'Вернуться в текущую сессию'}
+            </button>
         </div>
     );
 };
@@ -163,14 +208,17 @@ const StepTeam = ({ sessionCode, sessionConfig, onJoin }) => {
             });
             onJoin(result);
         } catch (e) {
-            setError(e.message || 'Ошибка подключения к сессии');
+            setError(e.message === 'SESSION_ALREADY_STARTED'
+                ? 'Сессия уже началась: новые команды подключиться не могут.'
+                : e.message === 'TEAM_REMOVED'
+                    ? 'Команда исключена администратором из этой сессии.'
+                : e.message === 'TEAM_RECOVERY_REQUIRED'
+                    ? 'Эта команда уже зарегистрирована. На прежнем устройстве используйте «Продолжить», на новом — код восстановления от администратора.'
+                    : e.message || 'Ошибка подключения к сессии');
         } finally {
             setLoading(false);
         }
     };
-
-    const getRoleIcon = (roleValue) =>
-        ROLES.find(r => r.value === roleValue)?.icon ?? '👤';
 
     return (
         <div className="team-setup-page">
@@ -318,22 +366,20 @@ const GameLobby = () => {
 
     const handleJoin = (result) => {
         const prevSessionId = useGameStore.getState().player.sessionId;
+        const prevTeamId = useGameStore.getState().player.teamId;
         const newSessionId  = result.sessionConfig?.sessionId;
+        const savedTeamId = readSavedTeam()?.teamId;
+        const sameLocalTeam = prevTeamId === result.teamId
+            || (!prevSessionId && savedTeamId === result.teamId);
 
-        if (result.rejoin) {
-            // Переподключение к той же сессии: сбрасываем game-данные чтобы
-            // onFullState восстановил их свежими из БД
-            useGameStore.setState(s => ({
-                fieldWork: { ...s.fieldWork, selectionsByLU: {} },
-                research:  { ...s.research,  progressByLU:   {} },
-                events:    { ...s.events,    lineScores: {}, historyByYear: {}, linesByLU: {} },
-                results:   { ...s.results,   cardsByLU: {} },
-            }));
-        } else if (prevSessionId !== newSessionId) {
-            // Вход в новую сессию — полный сброс состояния и туторов
-            useGameStore.setState(s => ({ game: { ...s.game, status: 'IN_PROGRESS' } }));
+        if (!sameLocalTeam) {
+            // На новом устройстве не смешиваем данные старой команды с восстановлением из БД.
+            useGameStore.getState().resetGame();
+        }
+        if (!result.rejoin && prevSessionId !== newSessionId) {
             TOUR_KEYS.forEach(k => localStorage.removeItem(k));
         }
+        useGameStore.setState(s => ({ game: { ...s.game, status: 'IN_PROGRESS' } }));
 
         // 1. Сохраняем данные команды.
         // При возврате по токену код сессии приходит с сервера — локального ещё нет.
@@ -359,6 +405,7 @@ const GameLobby = () => {
         // 3. Токен для REST-запросов + метка команды для кнопки «Продолжить» в лобби
         localStorage.setItem('auth_token', result.token);
         localStorage.setItem('last_team', JSON.stringify({
+            teamId: result.teamId,
             name: result.teamName,
             members: result.members || [],
             code,

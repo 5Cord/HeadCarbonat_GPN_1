@@ -24,19 +24,54 @@ const emptyLUProgress = () => ({
   skippedYears: [], completedColumns: [],
 });
 
+const teamSnapshot = st => ({
+  game: { status: st.game.status, currentScreen: st.game.currentScreen, currentLUProgress: st.game.currentLUProgress },
+  licenseUnits: st.licenseUnits,
+  research: st.research,
+  events: st.events,
+  fieldWork: st.fieldWork,
+  results: st.results,
+  statistics: st.statistics,
+  cellScenarios: st.cellScenarios,
+  cellScenariosProcessedYear: st.cellScenariosProcessedYear,
+  completedAuctions: st.auctions.completed,
+});
+
 export default function useSocket() {
   const player       = useGameStore(s => s.player);
+  const { token, sessionId } = player;
   const connectedRef = useRef(false);
 
   useEffect(() => {
-    const { token, sessionId } = player;
     if (!token || !sessionId) return;
 
     // Не создаём второе соединение если уже есть живое
     if (connectedRef.current) return;
     connectedRef.current = true;
+    let snapshotReady = false;
+    let snapshotRevision = 0;
+    let snapshotSaveFailed = false;
+    let retrySnapshotTimer = null;
 
-    connectSocket(token, sessionId, {
+    const persistSnapshot = state => {
+      if (!activeSocket.connected || !snapshotReady) return;
+      const revision = ++snapshotRevision;
+      activeSocket.timeout(5000).emit('state:save', { revision, state }, (error, response) => {
+        if (error || !response?.ok) {
+          snapshotSaveFailed = true;
+          if (activeSocket.connected && snapshotReady && !retrySnapshotTimer) {
+            retrySnapshotTimer = setTimeout(() => {
+              retrySnapshotTimer = null;
+              persistSnapshot(teamSnapshot(useGameStore.getState()));
+            }, 2000);
+          }
+        } else if (revision === snapshotRevision) {
+          snapshotSaveFailed = false;
+        }
+      });
+    };
+
+    const activeSocket = connectSocket(token, sessionId, {
 
       // ── Таймер ── ГЛАВНЫЙ источник времени в онлайне ──────────────────────
       onTimerTick: (data) => {
@@ -185,8 +220,28 @@ export default function useSocket() {
         useGameStore.setState({ cellScenarios: scenarios ?? {} });
       },
 
-      onFullState: ({ timer, cells, auctions, budget, researchRows, eventsRows, fieldWorkRows, resultRows, purchaseRows, scenarios }) => {
-        if (scenarios) useGameStore.setState({ cellScenarios: scenarios });
+      onFullState: ({ timer, cells, auctions, budget, researchRows, eventsRows, fieldWorkRows, resultRows, purchaseRows, scenarios, savedState, snapshotRevision: serverRevision }) => {
+        if (!activeSocket.connected || useGameStore.getState().connectionStatus === 'kicked') return;
+        snapshotReady = false;
+        const current = useGameStore.getState();
+        const needsRestore = Object.keys(current.research.progressByLU || {}).length === 0
+          && Object.keys(current.fieldWork.selectionsByLU || {}).length === 0
+          && Object.keys(current.events.linesByLU || {}).length === 0;
+        if (savedState && needsRestore) {
+          useGameStore.setState(st => ({
+            research: savedState.research || st.research,
+            events: savedState.events || st.events,
+            fieldWork: savedState.fieldWork || st.fieldWork,
+            results: savedState.results || st.results,
+            statistics: savedState.statistics || st.statistics,
+            licenseUnits: savedState.licenseUnits || st.licenseUnits,
+            cellScenarios: savedState.cellScenarios || st.cellScenarios,
+            cellScenariosProcessedYear: savedState.cellScenariosProcessedYear ?? st.cellScenariosProcessedYear,
+            auctions: { ...st.auctions, completed: savedState.completedAuctions || st.auctions.completed },
+            game: { ...st.game, ...savedState.game },
+          }));
+        }
+        if (scenarios) useGameStore.setState(st => ({ cellScenarios: { ...st.cellScenarios, ...scenarios } }));
         useGameStore.setState(st => {
           const newTimer = timer ? {
             ...st.globalTimer,
@@ -215,7 +270,8 @@ export default function useSocket() {
 
           // Восстановление НИР из БД (только если localStorage пуст)
           let restoredResearch = st.research;
-          if ((researchRows || []).length > 0 && Object.keys(st.research.progressByLU || {}).length === 0) {
+          if ((researchRows || []).length > 0 && !(purchaseRows || []).length
+              && Object.keys(st.research.progressByLU || {}).length === 0) {
             const progressByLU = {};
             for (const row of researchRows) {
               const luId = row.lu_id;
@@ -286,6 +342,11 @@ export default function useSocket() {
                 prog.mobilizedColumnsByYear[year] = [...(prog.mobilizedColumnsByYear[year] || []), row.mob_id];
               }
               prog.columnsByYear[year] = row.mob_id;
+            }
+            for (const row of researchRows || []) {
+              const prog = progressByLU[row.lu_id] || (progressByLU[row.lu_id] = emptyLUProgress());
+              if (row.column_id) prog.columnsByYear[row.year] = row.column_id;
+              if (row.skipped && !prog.skippedYears.includes(row.year)) prog.skippedYears.push(row.year);
             }
             restoredResearch = { ...st.research, progressByLU };
           }
@@ -363,6 +424,10 @@ export default function useSocket() {
             otherTeamsScene: _mergeSceneFromCells(allTeams, myId, st.otherTeamsScene),
           };
         });
+        snapshotRevision = Math.max(snapshotRevision, Number(serverRevision) || 0);
+        snapshotReady = true;
+        useGameStore.setState({ connectionStatus: 'connected' });
+        if (!savedState || snapshotSaveFailed) persistSnapshot(teamSnapshot(useGameStore.getState()));
       },
 
       onBudgetUpdated: ({ budget }) => {
@@ -374,7 +439,7 @@ export default function useSocket() {
         useGameStore.setState(st => ({ game: { ...st.game, status: 'FINISHED' } }));
       },
 
-      onFieldworkTeamUpdate: ({ teamId, cellRef, year, avgRank, mobWorkId }) => {
+      onFieldworkTeamUpdate: ({ cellRef, year, avgRank, mobWorkId }) => {
         useGameStore.setState(st => {
           const prev = st.otherTeamsScene[cellRef] || { metaByYear: {}, evScoreByYear: {} };
           return {
@@ -392,7 +457,7 @@ export default function useSocket() {
         });
       },
 
-      onEventsTeamUpdate: ({ teamId, cellRef, year, evScore }) => {
+      onEventsTeamUpdate: ({ cellRef, year, evScore }) => {
         useGameStore.setState(st => {
           const prev = st.otherTeamsScene[cellRef] || { metaByYear: {}, evScoreByYear: {} };
           return {
@@ -412,8 +477,12 @@ export default function useSocket() {
 
       onTeamJoined:  ({ teamName }) => console.log(`🟢 ${teamName} joined`),
       onTeamOffline: ({ teamName }) => console.log(`🔴 ${teamName} offline`),
+      onTeamKicked: () => useGameStore.setState({ connectionStatus: 'kicked' }),
 
       onConnect: () => {
+        connectedRef.current = true;
+        snapshotReady = false;
+        useGameStore.setState({ connectionStatus: 'syncing' });
         console.log('✅ WS connected — таймер с сервера');
         const socket = getSocket();
         if (socket) {
@@ -421,10 +490,33 @@ export default function useSocket() {
         }
       },
 
-      onDisconnect: () => {
+      onDisconnect: (reason) => {
         connectedRef.current = false;
-        console.log('🔴 WS disconnected — fallback на локальный таймер');
+        snapshotReady = false;
+        useGameStore.setState(st => ({
+          connectionStatus: st.connectionStatus === 'kicked' ? 'kicked'
+            : reason === 'io server disconnect' ? 'revoked' : 'offline',
+        }));
+        console.log('🔴 WS disconnected');
       },
+      onError: (err) => {
+        if (err.message === 'TEAM_REMOVED') useGameStore.setState({ connectionStatus: 'kicked' });
+        else if (err.message === 'INVALID_TOKEN') useGameStore.setState({ connectionStatus: 'revoked' });
+      },
+    });
+
+    const unsubscribeSnapshot = useGameStore.subscribe((st, prev) => {
+      if (!snapshotReady || !activeSocket.connected) return;
+      if (st.research === prev.research && st.events === prev.events
+          && st.fieldWork === prev.fieldWork && st.results === prev.results
+          && st.statistics === prev.statistics && st.licenseUnits === prev.licenseUnits
+          && st.cellScenarios === prev.cellScenarios
+          && st.cellScenariosProcessedYear === prev.cellScenariosProcessedYear
+          && st.auctions.completed === prev.auctions.completed
+          && st.game.currentScreen === prev.game.currentScreen
+          && st.game.currentLUProgress === prev.game.currentLUProgress
+          && st.game.status === prev.game.status) return;
+      persistSnapshot(teamSnapshot(st));
     });
 
     // При возврате на вкладку — переподключаемся если сокет упал
@@ -444,13 +536,15 @@ export default function useSocket() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      if (retrySnapshotTimer) clearTimeout(retrySnapshotTimer);
+      unsubscribeSnapshot();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       disconnectSocket();
       connectedRef.current = false;
     };
   // Важно: зависимость от token и sessionId — при обновлении страницы
   // persist восстанавливает их, useEffect запускается заново
-  }, [player.token, player.sessionId]);
+  }, [token, sessionId]);
 }
 
 // Извлекает fieldworkByYear из данных ячеек других команд

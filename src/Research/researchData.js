@@ -1,4 +1,7 @@
 
+export const isResearchDoneForYear = (progress, year) =>
+  (progress?.skippedYears || []).includes(year) || !!progress?.columnsByYear?.[year];
+
 export const RESEARCH_WORKS = [
   {
     id: 'rw1',

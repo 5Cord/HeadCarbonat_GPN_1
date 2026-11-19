@@ -778,7 +778,8 @@
   border-radius: 8px;
   font-size: 0.88rem;
   color: #CF7D22;
-  font-style: italic;
+  /* font-style: italic; */
+  font-size:150%;
 }
 
 .noResearchSection {

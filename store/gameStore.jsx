@@ -85,6 +85,8 @@ const useGameStore = create(
     persist(
       (set, get) => ({
 
+        connectionStatus: 'offline',
+
         game: {
           id: null,
           status: 'SETUP',
@@ -535,6 +537,7 @@ const useGameStore = create(
             ? BUDGET_CONFIG.STUDENT
             : BUDGET_CONFIG.PROFESSIONAL;
           set({
+            connectionStatus: teamData.sessionId ? 'syncing' : 'offline',
             player: {
               ...get().player,
               name: teamData.name,
@@ -741,7 +744,7 @@ const useGameStore = create(
         },
 
         unregisterFromAuction: (cellRef) => {
-          const { auctions, player } = get();
+          const { player } = get();
           const myId = player.teamId || player.name;
           set(state => {
             const auction = state.auctions.active[cellRef];
@@ -1067,6 +1070,7 @@ const useGameStore = create(
         // они восстановятся с сервера через state:sync при переподключении.
         leaveSession: () => {
           set((state) => ({
+            connectionStatus: 'offline',
             player: { ...defaultPlayer },
             game: { ...state.game, currentScreen: null },
           }));

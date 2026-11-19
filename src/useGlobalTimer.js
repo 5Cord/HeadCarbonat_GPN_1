@@ -40,7 +40,7 @@ export default function useGlobalTimer() {
       const socket = getSocket();
       const isServerConnected = socket?.connected === true;
 
-      if (!isServerConnected) {
+      if (!isServerConnected && !useGameStore.getState().player.sessionId) {
         // Оффлайн / мок-режим — считаем время локально
         tickGlobalTimer();
       }

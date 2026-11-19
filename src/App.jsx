@@ -73,52 +73,6 @@ const DevResetButton = () => {
   );
 };
 
-// ─── Admin Access Button ──────────────────────────────────────────────────────
-
-const AdminAccessButton = ({ onLogin, onLogout }) => {
-  const [hasToken, setHasToken] = useState(() => !!localStorage.getItem('auth_token'));
-
-  useEffect(() => {
-    const sync = () => setHasToken(!!localStorage.getItem('auth_token'));
-    window.addEventListener('admin:unauthorized', sync);
-    window.addEventListener('storage', sync);
-    return () => {
-      window.removeEventListener('admin:unauthorized', sync);
-      window.removeEventListener('storage', sync);
-    };
-  }, []);
-
-  const btnStyle = {
-    padding: '6px 14px',
-    background: 'rgba(10,34,64,0.85)',
-    color: '#fff',
-    border: '1.5px solid rgba(255,255,255,0.2)',
-    borderRadius: 8,
-    fontSize: '0.8rem',
-    fontWeight: 600,
-    cursor: 'pointer',
-    backdropFilter: 'blur(6px)',
-    whiteSpace: 'nowrap',
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('auth_token');
-    sessionStorage.removeItem('admin_tab');
-    setHasToken(false);
-    onLogout?.();
-  };
-
-  return (
-    <div style={{ position: 'fixed', bottom: 16, left: 16, zIndex: 9999 }}>
-      {hasToken ? (
-        <button style={btnStyle} onClick={handleLogout}>Выйти из панели</button>
-      ) : (
-        <button style={btnStyle} onClick={() => { setHasToken(false); onLogin?.(); }}>Войти в панель</button>
-      )}
-    </div>
-  );
-};
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const isAdminRoute = () =>
@@ -136,6 +90,7 @@ function App() {
 
   const { player, resetGame, leaveSession } = useGameStore();
   const gameStatus = useGameStore(s => s.game.status); // ← НОВАЯ СТРОКА
+  const connectionStatus = useGameStore(s => s.connectionStatus);
   const yearEndToast = useGameStore(s => s.yearEndToast);
 
   // ФИКС порядка хуков: useState и useEffect идут до return null/return <X/>,
@@ -161,9 +116,6 @@ function App() {
   // Горячие клавиши
   useEffect(() => {
     const handleKey = (e) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'A') {
-        setShowAdmin(prev => !prev);
-      }
       if (e.ctrlKey && e.shiftKey && e.key === 'R') {
         e.preventDefault();
         localStorage.removeItem('geology-game-storage');
@@ -196,19 +148,21 @@ function App() {
     );
   }
 
-  if (showAdmin) return <AdminPanel onLogout={() => setShowAdmin(false)} />;
+  if (showAdmin) return <AdminPanel onLogout={() => {
+    window.history.replaceState(null, '', '/');
+    setShowAdmin(false);
+  }} />;
 
-  if (!player.name) return (
-    <>
-      <GameLobby />
-      <AdminAccessButton onLogin={() => setShowAdmin(true)} onLogout={() => setShowAdmin(false)} />
-    </>
-  );
+  if (!player.name) return <GameLobby />;
 
   // Выход без потери прогресса: auth_token и persist-стор остаются, поэтому
   // в лобби доступно «Продолжить за команду», а данные догрузятся из БД.
   const handleLeave = () => {
     import('./apiHelpers').then(({ disconnectSocket }) => disconnectSocket());
+    if (connectionStatus === 'revoked' || connectionStatus === 'kicked') {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('last_team');
+    }
     leaveSession();
   };
 
@@ -228,7 +182,21 @@ function App() {
   return (
     <>
       <GameBoard />
-      <AdminAccessButton onLogin={() => setShowAdmin(true)} onLogout={() => setShowAdmin(false)} />
+      {player.sessionId && connectionStatus !== 'connected' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(5,15,30,0.88)', display: 'grid', placeItems: 'center', padding: 24 }}>
+          <div style={{ maxWidth: 440, background: '#fff', color: '#17324d', padding: 28, borderRadius: 14, textAlign: 'center' }}>
+            <h2>{connectionStatus === 'kicked' ? 'Команда исключена из сессии' : connectionStatus === 'revoked' ? 'Доступ перенесён' : 'Ожидаем подключение'}</h2>
+            <p>{connectionStatus === 'kicked'
+              ? 'Администратор исключил команду. Её действия в этой сессии больше недоступны.'
+              : connectionStatus === 'revoked'
+              ? 'Команда вошла с другого устройства. На этом устройстве действия больше недоступны.'
+              : 'Связь с сервером прервана. Игровые действия возобновятся после синхронизации.'}</p>
+            <button onClick={connectionStatus === 'revoked' || connectionStatus === 'kicked' ? handleLeave : () => window.location.reload()} style={{ ...btnBase, background: '#17324d' }}>
+              {connectionStatus === 'revoked' || connectionStatus === 'kicked' ? 'Вернуться к входу' : 'Повторить подключение'}
+            </button>
+          </div>
+        </div>
+      )}
       <div style={{ position: 'fixed', bottom: 56, right: 16, zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
         <button
           onClick={() => setShowBugReport(true)}
